@@ -170,10 +170,11 @@ namespace {
         return false;
     }
 
-    // 00D4AC: a record's controls at the start of its reading (the record in A6). While a round is fought (kFight's word
-    // below 0x0A) the board clears the character's off point and goes past its reading, its moves and the rest of its
-    // controls (to 00D5A4), unless it is in a Duo Team Attack. In Cross Fever on to its reading (00D4E6) as for the
-    // others, as the Dreamcast does.
+    // 00D4AC: a record's controls at the start of its reading (the record in A6). For a character off point outside its
+    // side's Duo Team Attack, the board clears its controls and goes past its reading, its moves and the rest of them (to
+    // 00D5A4) while kFight's word is below 0x0A (00D4BC: cmpi.w; so while its byte is 0, not the 8 of a round being fought,
+    // as when a Variable Counter's partner comes in), and otherwise reads them as any other's. In Cross Fever on to its
+    // reading (00D4E6) in every case, as the Dreamcast does: the hook passes over only where the board would clear.
     bool PartnerControls(M68K &c) {
         if (!On() || !OffPoint(c.a[6] & 0xFFFFFF) || Ram16(kFight) >= 0x0A) {
             return false;

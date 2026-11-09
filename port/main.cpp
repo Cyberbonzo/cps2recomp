@@ -3107,9 +3107,15 @@ void Port::RunFrame() {
         for (int person = 0; person < net->People(net->Local()); person++) {
             cameIn = cameIn || (pressed[person] & kStart);
         }
-        // (the other side of the screen's panel, as the game had it: tag team's routing, fight/tag.h, done)
+        // (the other side of the screen's panel, as the game had it: tag team's routing, fight/tag.h, done; and every
+        // other machine's people as they held their controls before the routing, since a side's panel carries only the
+        // Start of its person on point and its partner's then)
         const int side = ScreenSide(net->Player(net->Local(), 0));
         otherIn = otherIn || (side >= 0 && (machine->players[1 - side] & kStart));
+        for (int player = 0; player < Machine::kMaxPlayers && !otherIn; player++) {
+            const int at = net->MachineOf(player);
+            otherIn = at >= 0 && at != net->Local() && (tag::Held(player) & kStart);
+        }
         Streaks();
     } else if (opt.rollbackTest) {
         RollbackFrame(pressed);

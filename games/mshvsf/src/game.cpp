@@ -31,6 +31,7 @@ void RegisterColours(); // colours.cpp
 void RegisterBattle(); // battle.cpp
 void ChoosingBeforeFrame(Machine &machine);
 void RegisterTag(); // tag.cpp
+void TagState(Archive &ar);
 
 // 00192C, the game's random number: a long divs (001938), then the number kept (00193E), as in X-Men vs. Street
 // Fighter (001608). The board takes an interrupt between any two instructions, and the frame's interrupt asks for a
@@ -91,6 +92,7 @@ void RegisterGame() {
         BattleState(ar);
         marvel::ModelState(ar);
         marvel::WidescreenState(ar);
+        TagState(ar);
     };
     // (run-ahead: not in the modes, whose workings a save state does not wholly hold)
     TheGame().noRunAhead = [] { return modes::AttractMode() || modes::StageViewer() || BattleMode() || marvel::ModelViewer(); };

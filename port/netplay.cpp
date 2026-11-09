@@ -21,7 +21,6 @@
 #include "../recomp-common/launcher/src/online.h"
 #include "../recomp-common/launcher/src/run_program.h"
 #include "../runtime/game.h"
-#include "../fight/tag.h"
 #include "port.h"
 
 #include <SDL3/SDL.h>
@@ -507,10 +506,10 @@ void Netplay::StartAt(int frames) {
     eventFrom = UINT64_MAX;
 }
 
-// The players the match is for, as the host's features have it: four in tag team's 2 vs 2, two otherwise (the
-// alternative modes that would keep tag team from routing the controls are off in a match: Settle)
+// The players the match is for, as the host's features have it (Game::matchPlayers: four in tag team's 2 vs 2), two
+// otherwise
 int Netplay::MatchPlayers() const {
-    return tag::Chosen() == tag::kVersus ? 4 : 2;
+    return TheGame().matchPlayers ? std::clamp(TheGame().matchPlayers(), 2, static_cast<int>(Machine::kMaxPlayers)) : 2;
 }
 
 // The people at this machine in a match of four: --net-people, or the Online page's People at this machine

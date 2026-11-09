@@ -138,6 +138,8 @@ void Register(const Description &description) {
                                   "character (the first person first); in a fight the panel is whoever's character is on point, "
                                   "and the partner tags in with HP+HK. The labels under the bars say who is on point.",
                                   kFeatureMatch, {"Off", "Co-op vs. computer", "2 vs 2"}});
+    // (online: four players in 2 vs 2; the alternative modes that would keep the routing off are off in a match)
+    TheGame().matchPlayers = [] { return Chosen() == kVersus ? 4 : 2; };
 }
 
 } // namespace cps2recomp::tag

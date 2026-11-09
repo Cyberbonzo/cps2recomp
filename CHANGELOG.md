@@ -24,9 +24,10 @@
   also fill slowly by themselves, the partner off point has its moves looked for when it is in the fight (a Variable
   Counter's newcomer), and holding Start keeps the one on point taunting. `games/mvsc/movies/cross_fever.txt` has both
   teams' attacks at once with four people.
-- **Marvel vs. Capcom, Tag team**: a side that starts with its second character (the three punches held as the
-  choosing ends) has each person still playing the character they chose; before, the two people swapped characters.
-  Kept with save states (version 12).
+- **Marvel vs. Capcom and Marvel Super Heroes vs. Street Fighter, Tag team**: a side that starts with its second
+  character (the three punches held as the choosing ends) has each person still playing the character they chose;
+  before, the two people swapped characters. Kept with save states (version 12). (X-Men vs. Street Fighter has no such
+  swap.)
 
 - **Online reliability**: preserve unacknowledged departures and mode changes for retry, keep admission tickets
   unique across same-code rehosting, and require every playing machine to agree before a first-to set finishes.
