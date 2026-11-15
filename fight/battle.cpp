@@ -5,6 +5,7 @@
 // the ring out, and the team battle, on what a game's sources describe. First written for Vampire Savior, then Street
 // Fighter Alpha 2.
 #include "battle.h"
+#include "alternative.h"
 #include "session.h"
 
 #include "court.h"
@@ -28,7 +29,7 @@ namespace {
     bool g_described = false;
 
     constexpr const char *kModes = "Alternative modes", *kSurvival = "Survival", *kEndless = "Endless battle";
-    constexpr const char *kRingOut = "Ring out", *kTeam = "Tag team battle";
+    constexpr const char *kRingOut = "Ring out", *kTeam = "Tag team battle", *kVsCpu = "VS CPU";
     constexpr int kTeamMost = 3;            // fighters a team has at most
 
     constexpr int kStartMost = 9000;        // frames after which getting to a round is given up
@@ -37,6 +38,7 @@ namespace {
     constexpr int kIdle = 600;              // frames without a press after which the game takes a fighter back
     constexpr int kOnTheWay = 4;            // frames a frame that the next match's machine runs until its round is on
     constexpr int kOverFor = 480;           // frames the count is shown for when survival is over
+    constexpr int kUnfoughtMost = 600;      // vs cpu: frames with no round fought after which the match is taken as over
     // The endless battle's stage: one stage; or the fighters drawn over a stage that another machine shows,
     // which can then change under them: by fading into another, or by scrolling on into the next
     enum { kStageOne, kStageShuffle, kStageScroll, kStageBehind }; // (the last: behind the fighters, and never changing by itself)
@@ -172,7 +174,7 @@ namespace {
         return (CameraLeft() + CameraRight()) / 2;
     }
 
-    enum class Kind : int32_t { None, Survival, Endless, RingOut, Team, Court };
+    enum class Kind : int32_t { None, Survival, Endless, RingOut, Team, Court, VsCpu };
     enum class Phase : int32_t { Starting, Fighting, Decided, Over, Falling, Dropping };
     // (the menu's choices can be changed while the battle goes on: read each frame)
     int ShuffleAfter() {
@@ -201,6 +203,10 @@ namespace {
         int32_t score = 0;
         int32_t winner = 0;
         int32_t health = 0, ceiling = 0; // survival: what the player has left
+        int32_t roundsWon[2] = {0, 0};   // vs cpu: rounds won by each side in this match
+        int32_t roundQuiet = 0;          //   frames since the last round result
+        int32_t unfought = 0;            //   frames since a round was fought (a game that says so: roundFoughtNow)
+        bool roundCounted = false;       //   this round's result has been counted
         int32_t fadeIn = 0;              // frames of coming from black still to go
         uint32_t random = 1;
         // The stage behind the fighters, when another machine shows it
@@ -1096,7 +1102,8 @@ namespace {
             g.stage = stage >= 1 && stage <= d.stages ? stage : stage > d.stages ? 1 : AnyStage(0);
         } else if (kind != Kind::Endless) {
             g.characters[0] = -1; // (the player's choice)
-            g.characters[1] = AnyCharacter();
+            const int chosen = kind == Kind::VsCpu ? ChosenCharacter("vs_cpu_opponent") : -1;
+            g.characters[1] = chosen >= 0 ? chosen : AnyCharacter();
             g.computer[1] = true;
             g.stage = 0;
             if (kind == Kind::RingOut) {
@@ -1149,6 +1156,9 @@ namespace {
     void StartCourt(Machine &machine) {
         Start(machine, Kind::Court);
     }
+    void StartVsCpu(Machine &machine) {
+        Start(machine, Kind::VsCpu);
+    }
     // The court's game begun, at the round's start: the camera held in the middle of the stage, the court the picture
     void BeginCourt() {
         static constexpr int kPoints[3] = {3, 5, 10};
@@ -1157,7 +1167,7 @@ namespace {
                      FeatureValue("court_opponent") == 0, std::clamp(FeatureValue("court_level"), 0, 2));
     }
     bool Chooses() {
-        return (g.kind == Kind::Survival || g.kind == Kind::RingOut) && !g.computer[0]; // (the player chooses a character)
+        return (g.kind == Kind::Survival || g.kind == Kind::RingOut || g.kind == Kind::VsCpu) && !g.computer[0]; // (the player chooses a character)
     }
 
     void Want() {
@@ -1168,7 +1178,9 @@ namespace {
             if (d.noEntrances) {
                 d.noEntrances();
             }
-            const int level = FeatureValue("team_difficulty");
+        }
+        if (g.kind == Kind::Team || g.kind == Kind::VsCpu) {
+            const int level = FeatureValue(g.kind == Kind::Team ? "team_difficulty" : "vs_cpu_difficulty");
             if (d.difficulty && level > 0) {
                 d.difficulty(level - 1);
             }
@@ -1721,6 +1733,9 @@ namespace {
         g_portFrame = false; // (from here the machines run are spares, until the port's next frame)
         g_open = false;
         if (g.phase != Phase::Starting && !d.inGame()) {
+            if (Log() && g.kind == Kind::VsCpu) {
+                fprintf(Log(), "vs_cpu end frame=%lld phase=%d\n", static_cast<long long>(g_frame), static_cast<int>(g.phase));
+            }
             End(); // (the board was reset)
             return;
         }
@@ -1764,7 +1779,60 @@ namespace {
             }
         } else if (g.phase == Phase::Fighting) {
             const uint8_t result = d.resultNow ? d.resultNow() : Ram8(d.result);
-            if (result) {
+            if (g.kind == Kind::VsCpu) {
+                const auto finishMatch = [&](int winner) {
+                    g.winner = winner;
+                    g.phase = Phase::Decided;
+                    g.since = 0;
+                    g.roundsWon[0] = g.roundsWon[1] = 0;
+                    g.roundCounted = false;
+                    g.roundQuiet = g.unfought = 0;
+                    Begin(g_next);
+                    const int chosen = ChosenCharacter("vs_cpu_opponent");
+                    g.characters[1] = chosen >= 0 ? chosen : AnyCharacter(g.characters[1]);
+                    if (Log()) {
+                        fprintf(Log(), "vs_cpu next opponent=%d\n", g.characters[1]);
+                    }
+                };
+                // (a match the game ended before either side had its rounds, by a draw or the board's own number
+                // of rounds: the game's match step left, or, in a game with no such word, no round fought for a while)
+                const auto &m = modes::Described();
+                const bool begun = g.roundsWon[0] > 0 || g.roundsWon[1] > 0 || g.roundCounted;
+                bool left;
+                if (m.roundFoughtNow) {
+                    g.unfought = m.roundFoughtNow() ? 0 : g.unfought + 1;
+                    left = begun && g.unfought >= kUnfoughtMost;
+                } else {
+                    left = begun && Ram16(m.steps + 4) != m.gameMatch;
+                }
+                if (left) {
+                    if (Log()) {
+                        fprintf(Log(), "vs_cpu match ended frame=%lld score=%d-%d\n", static_cast<long long>(g_frame),
+                                g.roundsWon[0], g.roundsWon[1]);
+                    }
+                    finishMatch(g.roundsWon[1] > g.roundsWon[0] ? 1 : 0);
+                } else if (result == 0) {
+                    if (g.roundCounted && ++g.roundQuiet >= 60) {
+                        g.roundCounted = false;
+                    }
+                } else {
+                    g.roundQuiet = 0;
+                    if (!g.roundCounted) {
+                        g.roundCounted = true;
+                        if (result == 1 || result == 2) {
+                            const int winner = result - 1;
+                            g.roundsWon[winner]++;
+                            if (Log()) {
+                                fprintf(Log(), "vs_cpu round frame=%lld winner=%d score=%d-%d\n", static_cast<long long>(g_frame),
+                                        winner + 1, g.roundsWon[0], g.roundsWon[1]);
+                            }
+                            if (g.roundsWon[winner] >= d.roundsToWin) {
+                                finishMatch(winner);
+                            }
+                        }
+                    }
+                }
+            } else if (result) {
                 g.winner = result == 2 ? 1 : 0; // (both down at once: the first player's)
                 g.phase = Phase::Decided;
                 g.since = 0;
@@ -1904,7 +1972,8 @@ bool BattleMode() {
 }
 int BattleStage() {
     // (the player's stage, the menu's Stage page: the survival's, the team battle's, the ball battle's, and the endless battle's one stage)
-    const bool players = g.kind == Kind::Survival || g.kind == Kind::Team || g.kind == Kind::Court || (g.kind == Kind::Endless && g.way == kStageOne);
+    const bool players = g.kind == Kind::Survival || g.kind == Kind::Team || g.kind == Kind::Court || g.kind == Kind::VsCpu ||
+                         (g.kind == Kind::Endless && g.way == kStageOne);
     const int choice = players ? PlayersStage() : 0;
     return choice > d.stages ? choice : 0;
 }
@@ -2245,6 +2314,20 @@ void battle::Register(const Description &description) {
                              "Shuffle: how long they fight on a stage before it fades into another.", 0,
                              {"1 minute", "2 minutes", "3 minutes", "5 minutes", "10 minutes"}});
     game.features.push_back({"endless_scroll", kEndless, "Scroll speed", "Scroll: how fast the stages go by.", 0, {"Slow", "Medium", "Fast"}});
+    game.pages.push_back({kVsCpu, kModes,
+                          "One-on-one against the CPU at the difficulty you choose, with a rematch or a new opponent after each match."});
+    game.commands.push_back({"vs_cpu_start", kVsCpu, "Start",
+                             "Choose your fighter, then play full matches against the CPU at a steady difficulty. "
+                             "With Opponent set to Random, a new opponent is chosen after each match.",
+                             StartVsCpu});
+    game.features.push_back({"vs_cpu_opponent", kVsCpu, "Opponent",
+                             "Who the CPU plays: someone new at random each match, or always this fighter.", 0, d.fighterChoices});
+    if (d.difficulty) {
+        game.features.push_back({"vs_cpu_difficulty", kVsCpu, "CPU difficulty",
+                                 "How well the CPU fights, 1 (easiest) to 8 (hardest), or as the board is set (the Board page).",
+                                 0, {"As the board is set", "1 (easiest)", "2", "3", "4", "5", "6", "7", "8 (hardest)"}});
+    }
+    OwnFeatures({"vs_cpu_opponent"});
     if (!d.teams) {
         return;
     }
