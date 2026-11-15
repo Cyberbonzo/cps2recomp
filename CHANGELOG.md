@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- **Final Fight** (issue #308, `games/ffight`): added `ffight` (World, set 1, classic CPS-1 with YM2151 + OKI
+  MSM6295) with free play, straight to the title, start at stage, infinite health/lives/time, custom soundtrack
+  (19 tracks), board DIP settings, attract mode show selection, score attack, and stage viewer.
+
 ## 1.6.0-beta.1
 
 **Four players on four machines, Marvel vs. Capcom's Cross Fever, and a `roms` folder beside the launcher.** Pre-release for testing four-machine online play, Cross Fever, and reliability fixes before 1.6.0.
