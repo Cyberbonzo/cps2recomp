@@ -67,7 +67,7 @@ code is not part of that source: it is made from the player's own ROM sets by th
 4. On a Mac with Docker and every ROM set, at the tag (the same source as the merged pull request, so its
    checks stand): `tools/release/all.sh`, which writes the four archives, the Android APK and `SHA256SUMS.txt` in `build/release/`
    (or split across two Macs with `TARGETS="macos android"` on one and `TARGETS="linux-x86_64 linux-arm64 windows"` on the other,
-   then `TARGETS=sums tools/release/all.sh` once all five are in `build/release/`).
+   then `TARGETS=sums tools/release/all.sh` once the other Mac's archives and `update-*.txt` are copied into `build/release/`).
 5. Each archive's game programs are run over their ladder movies with `--hash-picture` on their systems (macOS
    both halves, Linux x86_64 and ARM64 in
    containers, Windows under Wine): the same picture hashes as the Mac's build. A person

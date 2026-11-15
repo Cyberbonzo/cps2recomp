@@ -9,7 +9,8 @@
 # Needs the translated code of a build of each game with its ROM set (make GAME=<id>, make GAME=<id> explore).
 #
 #   TARGETS="macos android" tools/release/all.sh   # subset of targets (split across two Macs)
-#   TARGETS="sums" tools/release/all.sh            # write SHA256SUMS.txt and check manifests once all five exist
+#   TARGETS="sums" tools/release/all.sh            # SHA256SUMS.txt and the manifests' check, once the other Mac's
+#                                                  # archives and update-*.txt are copied into build/release/
 set -eu
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
@@ -40,11 +41,19 @@ step() {
 
 [ "${NO_AUDIT:-}" = 1 ] || step "audit" tools/audit.sh
 
-DOCKER_ARGS="-e GAMES=${GAMES:-} -e NO_GAME_CODE=${NO_GAME_CODE:-} -e NO_CCACHE=${NO_CCACHE:-} -e CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-}"
+# (CCACHE_BASE, if set: the folder each container keeps its per-target caches in, mounted at /ccache)
 if [ -n "${CCACHE_BASE:-}" ]; then
     mkdir -p "$CCACHE_BASE"
-    DOCKER_ARGS="$DOCKER_ARGS -v $CCACHE_BASE:/ccache -e CCACHE_BASE=/ccache"
+    CCACHE_BASE="$(cd "$CCACHE_BASE" && pwd)"
 fi
+# a release script in a build image: $1 the image, $2 the script, the rest more arguments for docker run
+in_image() {
+    image=$1 script=$2; shift 2
+    set -- docker run --rm "$@" -e GAMES="${GAMES:-}" -e NO_GAME_CODE="${NO_GAME_CODE:-}" -e NO_CCACHE="${NO_CCACHE:-}"
+    [ -z "${CMAKE_BUILD_PARALLEL_LEVEL:-}" ] || set -- "$@" -e CMAKE_BUILD_PARALLEL_LEVEL="$CMAKE_BUILD_PARALLEL_LEVEL"
+    [ -z "${CCACHE_BASE:-}" ] || set -- "$@" -v "$CCACHE_BASE":/ccache -e CCACHE_BASE=/ccache
+    "$@" -v "$ROOT":/src -w /src "$image" "$script"
+}
 
 # Build only the Docker images needed for the selected targets.
 need_x86=0 need_arm=0 need_amd64=0
@@ -55,9 +64,9 @@ else
     { has_target linux-x86_64 || has_target windows; } && need_amd64=1
     has_target linux-arm64 && need_arm=1
 fi
-[ "$need_x86" = 1 ] && step "docker build (linux-x86_64 cross)" docker build -q -t cps2recomp-build-x86_64 tools/release/x86_64 >/dev/null
-[ "$need_arm" = 1 ] && step "docker build (arm64)" docker build --platform linux/arm64 -q -t cps2recomp-build-arm64 tools/release >/dev/null
-[ "$need_amd64" = 1 ] && step "docker build (amd64)" docker build --platform linux/amd64 -q -t cps2recomp-build tools/release >/dev/null
+[ "$need_x86" = 1 ] && step "docker build (linux-x86_64 cross)" docker build -q -t cps2recomp-build-x86_64 tools/release/x86_64
+[ "$need_arm" = 1 ] && step "docker build (arm64)" docker build --platform linux/arm64 -q -t cps2recomp-build-arm64 tools/release
+[ "$need_amd64" = 1 ] && step "docker build (amd64)" docker build --platform linux/amd64 -q -t cps2recomp-build tools/release
 
 rm -rf build/release/update-files
 
@@ -68,21 +77,21 @@ fi
 if has_target linux-x86_64; then
     rm -f build/release/update-linux-x86_64.txt
     if [ "$HOST_ARCH" = "arm64" ] || [ "$HOST_ARCH" = "aarch64" ]; then
-        step "linux-x86_64 (native cross)" docker run --rm $DOCKER_ARGS -v "$ROOT":/src -w /src cps2recomp-build-x86_64 tools/release/linux.sh
+        step "linux-x86_64 (native cross)" in_image cps2recomp-build-x86_64 tools/release/linux.sh
     else
-        step "linux-x86_64" docker run --rm --platform linux/amd64 $DOCKER_ARGS -v "$ROOT":/src -w /src cps2recomp-build tools/release/linux.sh
+        step "linux-x86_64" in_image cps2recomp-build tools/release/linux.sh --platform linux/amd64
     fi
 fi
 if has_target linux-arm64; then
     rm -f build/release/update-linux-arm64.txt
-    step "linux-arm64" docker run --rm --platform linux/arm64 $DOCKER_ARGS -v "$ROOT":/src -w /src cps2recomp-build-arm64 tools/release/linux.sh
+    step "linux-arm64" in_image cps2recomp-build-arm64 tools/release/linux.sh --platform linux/arm64
 fi
 if has_target windows; then
     rm -f build/release/update-windows-x64.txt
     if [ "$HOST_ARCH" = "arm64" ] || [ "$HOST_ARCH" = "aarch64" ]; then
-        step "windows-x64 (native cross)" docker run --rm --platform linux/arm64 $DOCKER_ARGS -v "$ROOT":/src -w /src cps2recomp-build-arm64 tools/release/windows.sh
+        step "windows-x64 (native cross)" in_image cps2recomp-build-arm64 tools/release/windows.sh --platform linux/arm64
     else
-        step "windows-x64" docker run --rm --platform linux/amd64 $DOCKER_ARGS -v "$ROOT":/src -w /src cps2recomp-build tools/release/windows.sh
+        step "windows-x64" in_image cps2recomp-build tools/release/windows.sh --platform linux/amd64
     fi
 fi
 if has_target android; then
@@ -90,25 +99,29 @@ if has_target android; then
     step "android" env RELEASE=1 tools/release/android.sh
 fi
 
+# SHA256SUMS.txt: on a run of all five, or TARGETS=sums once the other Mac's archives and update-*.txt are copied in.
+# (A run of some of them leaves it alone: build/release may still hold another version's files.)
 ARCHIVES="CPS2Recomp-macOS.zip CPS2Recomp-linux-x86_64.tar.gz CPS2Recomp-linux-arm64.tar.gz CPS2Recomp-windows-x64.zip CPS2Recomp-android.apk"
-all_present=1
-for a in $ARCHIVES; do
-    [ -f "build/release/$a" ] || all_present=0
-done
-
-if [ "$all_present" = 1 ] && [ "${NO_SUMS:-}" != 1 ]; then
+MANIFESTS="update-macos.txt update-linux-x86_64.txt update-linux-arm64.txt update-windows-x64.txt"
+if has_target sums || { has_target macos && has_target linux-x86_64 && has_target linux-arm64 && has_target windows && has_target android; }; then
     cd build/release
+    VERSION="$(cat "$ROOT/VERSION")"
+    for f in $ARCHIVES $MANIFESTS; do
+        [ -f "$f" ] || { echo "error: no build/release/$f" >&2; exit 1; }
+    done
     shasum -a 256 $ARCHIVES > SHA256SUMS.txt
     cat SHA256SUMS.txt
-    # (each manifest names its system's archive as it is)
-    for manifest in update-*.txt; do
+    # (each manifest is this version's and names its system's archive as it is)
+    for manifest in $MANIFESTS; do
+        grep -qx "version $VERSION" "$manifest" || { echo "error: $manifest is not version $VERSION's" >&2; exit 1; }
         set -- $(sed -n 's/^archive //p' "$manifest")
         if [ "$(shasum -a 256 "$3" | cut -d' ' -f1)" != "$1" ]; then
             echo "error: $manifest does not name $3 as it is" >&2
             exit 1
         fi
     done
-    echo "update manifests: $(ls update-*.txt | tr '\n' ' ')"
+    echo "update manifests: $MANIFESTS"
+    cd "$ROOT"
 fi
 
 ALL_END="$(date +%s)"
