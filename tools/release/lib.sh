@@ -32,13 +32,25 @@ sdl_source() {
         tar -xzf "$DEPS/SDL3-$SDL_VERSION.tar.gz" -C "$DEPS"
     fi
 }
+# ccache across releases, per target (CCACHE_BASE defaults to $ROOT/build/ccache)
+setup_ccache() {
+    CCACHE_ARGS=""
+    if command -v ccache >/dev/null 2>&1 && [ "${NO_CCACHE:-}" != 1 ]; then
+        export CCACHE_DIR="${CCACHE_BASE:-$ROOT/build/ccache}/$1"
+        export CCACHE_BASEDIR="${CCACHE_BASEDIR:-$ROOT}"
+        export CCACHE_MAXSIZE="${CCACHE_MAXSIZE:-4G}"
+        mkdir -p "$CCACHE_DIR"
+        CCACHE_ARGS="-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
+    fi
+}
 # SDL 3 as a static library in $DEPS/sdl-$1 (the rest: more arguments for CMake)
 sdl_static() {
     name=$1; shift
     if [ ! -f "$DEPS/sdl-$name/lib/cmake/SDL3/SDL3Config.cmake" ]; then
         sdl_source
+        setup_ccache "$name"
         cmake -S "$DEPS/SDL3-$SDL_VERSION" -B "$DEPS/sdl-$name-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DSDL_SHARED=OFF \
-            -DSDL_STATIC=ON -DSDL_TEST_LIBRARY=OFF -DCMAKE_INSTALL_PREFIX="$DEPS/sdl-$name" "$@" >/dev/null
+            -DSDL_STATIC=ON -DSDL_TEST_LIBRARY=OFF -DCMAKE_INSTALL_PREFIX="$DEPS/sdl-$name" $CCACHE_ARGS "$@" >/dev/null
         cmake --build "$DEPS/sdl-$name-build" --target install >/dev/null
     fi
 }
@@ -46,6 +58,7 @@ sdl_static() {
 # arguments for CMake)
 build_programs() {
     build=$1; shift
+    setup_ccache "$(basename "$build")"
     list=""
     for game in $GAMES; do
         generated="$ROOT/work/$game"
@@ -65,13 +78,13 @@ build_programs() {
             exit 1
         fi
         cmake -S "$ROOT" -B "$build/game-$game" -G Ninja -DCMAKE_BUILD_TYPE=Release -DGAME="$game" \
-            -DGAME_DIR="$ROOT/games/$game" -DWORK_DIR="$generated" "$@" | grep "cps2recomp:"
+            -DGAME_DIR="$ROOT/games/$game" -DWORK_DIR="$generated" $CCACHE_ARGS "$@" | grep "cps2recomp:"
         cmake --build "$build/game-$game" --target "$game"
         list="$list${list:+;}$game"
     done
     cmake -S "$ROOT/launcher" -B "$build/launcher" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCOLLECTION=ON -DGAMES="$list" \
         -DGAME_NAME="$NAME" -DGAME_EXE="$EXE" -DAPP_ID="$APP_ID" -DHOME_ENV=CPS2RECOMP_HOME \
-        -DDISCLAIMER="Not affiliated with Capcom." -DCOLLECTION_VERSION="$VERSION" "$@" >/dev/null
+        -DDISCLAIMER="Not affiliated with Capcom." -DCOLLECTION_VERSION="$VERSION" $CCACHE_ARGS "$@" >/dev/null
     cmake --build "$build/launcher"
 }
 # Every game's program and the launcher, from $1 (build_programs') into $2 (the end of a program's name: $3)

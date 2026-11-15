@@ -54,8 +54,9 @@ ANDROID="-DCMAKE_TOOLCHAIN_FILE=$NDK/build/cmake/android.toolchain.cmake -DANDRO
 # SDL 3 as a shared library (SDL's Java half loads libSDL3.so by name)
 sdl_source
 if [ ! -f "$DEPS/sdl-android/lib/libSDL3.so" ]; then
+    setup_ccache release-android
     cmake -S "$DEPS/SDL3-$SDL_VERSION" -B "$DEPS/sdl-android-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DSDL_SHARED=ON \
-        -DSDL_STATIC=OFF -DSDL_TEST_LIBRARY=OFF -DCMAKE_INSTALL_PREFIX="$DEPS/sdl-android" $ANDROID >/dev/null 2>&1
+        -DSDL_STATIC=OFF -DSDL_TEST_LIBRARY=OFF -DCMAKE_INSTALL_PREFIX="$DEPS/sdl-android" $CCACHE_ARGS $ANDROID >/dev/null 2>&1
     cmake --build "$DEPS/sdl-android-build" --target install >/dev/null
 fi
 # (the NDK's toolchain file warns of CMake versions to come, at length: that is left out of what is shown)
@@ -97,4 +98,5 @@ if [ -n "${KEYSTORE:-}" ]; then
 fi
 (cd "$ROOT/android" && ./gradlew --console=plain -q assembleRelease "$@")
 cp "$ROOT/android/app/build/outputs/apk/release/app-release.apk" "$OUT/$APK"
+[ -n "${ROM_SETS:-}" ] || check_archive "$OUT/$APK"
 echo "wrote $OUT/$APK ($(du -h "$OUT/$APK" | cut -f1))"
