@@ -1,5 +1,7 @@
 # CPS-2 Recomp
 
+**[Join me on Discord](https://discord.gg/FSC9GZ6nm)**
+
 [![CI](https://github.com/tmcleroy/cps2recomp/actions/workflows/ci.yml/badge.svg)](https://github.com/tmcleroy/cps2recomp/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/tmcleroy/cps2recomp?include_prereleases)](https://github.com/tmcleroy/cps2recomp/releases)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
@@ -115,6 +117,8 @@ Linux, the Steam Deck and Windows can play each other.
 - **Widescreen** in the fighting games: 16:9, with more of the stage on each side ([more](docs/PICTURE.md#widescreen)).
 - **Other games' stages**: Vampire Savior Definitive, the other Vampire Savior games and the Alpha games can fight on
   every other fighting game's stages in the collection, as those games show them, their music too. Each needs that game's ROM set.
+  <img width="6144" height="4064" alt="vsav-all-stages" src="https://github.com/user-attachments/assets/71327539-0b51-499f-af01-8c0c55448471" />
+
 - **Stage select**: the in-game menu's **Stage** page puts the fights on the stage you choose, the game's own or
   another game's, whatever is played: arcade, versus, training, survival, the team and endless battles, and online
   (the host's choice) ([more](docs/MODES.md#the-stage)).

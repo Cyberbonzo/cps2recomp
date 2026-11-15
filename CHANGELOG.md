@@ -36,6 +36,12 @@
   and ticket counters, and cannot overwrite a newer match generation.
 - **Command-line diagnostics**: `--watch` watches a match; memory-write tracing uses `--watch-writes` so the two
   commands no longer collide.
+- **A `roms` folder beside the launcher** (#208): a release that ships its games' sets beside the launcher has them
+  found when it opens. A game with no set chosen, or whose remembered one is not usable, gets the zip named for it —
+  its set, its parent's, another region's — and each is put through the game's own check, so only a set it says is
+  usable becomes the game's, kept in `launcher.ini`. A zip renamed is found by the files in it
+  (`launcher/src/romcheck.cpp`, the check `tools/validate_cps2_roms.py` makes). The folder is only read, once, on a
+  thread.
 
 ## 1.5.0
 
