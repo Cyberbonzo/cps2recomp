@@ -56,6 +56,7 @@ file). Only the versions named below work for each game, and this project cannot
 | [**Ghouls'n Ghosts**](games/ghouls/README.md) (1988, CPS-1) | `ghouls` (World) | Platform game; classic CPS-1 with YM2151 and OKI sound |
 | [**Cadillacs and Dinosaurs**](games/dino/README.md) (1993, CPS-1) | `dino` (World 930201) | Beat-'em-up: three players, a stage to start at, score attack |
 | [**The Punisher**](games/punisher/README.md) (1993, CPS-1) | `punisheru` (USA 930422) | Beat-'em-up: two players, a stage to start at, score attack |
+| [**Final Fight**](games/ffight/README.md) (1989, CPS-1) | `ffight` (World, set 1) | Beat-'em-up: two players, a stage to start at, score attack, stage viewer |
 | [**Giga Wing**](games/gigawing/README.md) (1999) | `gigawing` (USA 990222) | Shoot-'em-up: training mode, true hit boxes, score attack, caravan, boss rush |
 | [**Progear**](games/progear/README.md) (2001) | `progearu` (USA 010117) | Cave's horizontal shoot-'em-up: training mode, true hit boxes, score attack, caravan, boss rush |
 | [**Dimahoo**](games/dimahoo/README.md) (2000) | `dimahoou` (USA 000121) | Raizing's vertical shoot-'em-up: training mode, true hit boxes, score attack, caravan, boss rush |
