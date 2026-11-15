@@ -38,6 +38,7 @@ namespace {
     constexpr int kIdle = 600;              // frames without a press after which the game takes a fighter back
     constexpr int kOnTheWay = 4;            // frames a frame that the next match's machine runs until its round is on
     constexpr int kOverFor = 480;           // frames the count is shown for when survival is over
+    constexpr int kUnfoughtMost = 600;      // vs cpu: frames with no round fought after which the match is taken as over
     // The endless battle's stage: one stage; or the fighters drawn over a stage that another machine shows,
     // which can then change under them: by fading into another, or by scrolling on into the next
     enum { kStageOne, kStageShuffle, kStageScroll, kStageBehind }; // (the last: behind the fighters, and never changing by itself)
@@ -204,6 +205,7 @@ namespace {
         int32_t health = 0, ceiling = 0; // survival: what the player has left
         int32_t roundsWon[2] = {0, 0};   // vs cpu: rounds won by each side in this match
         int32_t roundQuiet = 0;          //   frames since the last round result
+        int32_t unfought = 0;            //   frames since a round was fought (a game that says so: roundFoughtNow)
         bool roundCounted = false;       //   this round's result has been counted
         int32_t fadeIn = 0;              // frames of coming from black still to go
         uint32_t random = 1;
@@ -1784,6 +1786,7 @@ namespace {
                     g.since = 0;
                     g.roundsWon[0] = g.roundsWon[1] = 0;
                     g.roundCounted = false;
+                    g.roundQuiet = g.unfought = 0;
                     Begin(g_next);
                     const int chosen = ChosenCharacter("vs_cpu_opponent");
                     g.characters[1] = chosen >= 0 ? chosen : AnyCharacter(g.characters[1]);
@@ -1791,9 +1794,18 @@ namespace {
                         fprintf(Log(), "vs_cpu next opponent=%d\n", g.characters[1]);
                     }
                 };
+                // (a match the game ended before either side had its rounds, by a draw or the board's own number
+                // of rounds: the game's match step left, or, in a game with no such word, no round fought for a while)
                 const auto &m = modes::Described();
-                if ((g.roundsWon[0] > 0 || g.roundsWon[1] > 0 || g.roundCounted) &&
-                    !m.roundFoughtNow && Ram16(m.steps + 4) != m.gameMatch) {
+                const bool begun = g.roundsWon[0] > 0 || g.roundsWon[1] > 0 || g.roundCounted;
+                bool left;
+                if (m.roundFoughtNow) {
+                    g.unfought = m.roundFoughtNow() ? 0 : g.unfought + 1;
+                    left = begun && g.unfought >= kUnfoughtMost;
+                } else {
+                    left = begun && Ram16(m.steps + 4) != m.gameMatch;
+                }
+                if (left) {
                     if (Log()) {
                         fprintf(Log(), "vs_cpu match ended frame=%lld score=%d-%d\n", static_cast<long long>(g_frame),
                                 g.roundsWon[0], g.roundsWon[1]);
