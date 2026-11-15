@@ -32,6 +32,7 @@ its DIP switches, and YM2151 + OKI MSM6295 sound.
 - **Play options**: free play, straight to the title screen, and start at any stage (Stages 1–6 or Bonus 1–2).
 - **Alternative modes**: attract mode with selectable shows (everything, story only, demonstrations only, or title & rankings),
   score attack (one credit, continues off), and a stage viewer covering all 18 areas.
-- **Board settings**: all DIP switches exposed on the Board page (Difficulty 1 & 2, Lives, Bonus life, Continue, Demo sound, 2 coins to start).
+- **Board settings**: the DIP switches on the Board page (Difficulty 1 & 2, Lives, Bonus life, Continue, Demo sound,
+  2 coins to start); all but Demo sound take effect after Reset, as on the board.
 - **Custom soundtrack**: 19 music tracks mapped (`music.cpp`).
 - **Cheats**: infinite health, infinite lives, and infinite time.
