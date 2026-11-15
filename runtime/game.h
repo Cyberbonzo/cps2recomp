@@ -51,6 +51,9 @@ enum : unsigned {
     // the stage shown, and a row under it goes through the favourites alone; settings.ini's [favourites] stages, by
     // name, the same for every list of the stages)
     kFeatureFavourites = 256,
+    // Online play takes the host's choice for both machines, whatever page it is on (port/netplay.cpp: Shared): a mode
+    // that is all in the controls and the game's own memory, so that two machines play it alike (tag team's people)
+    kFeatureMatch = 512,
 };
 
 // Something the game's sources can do when the player asks (a row of the in-game menu, and a key if it has
@@ -138,6 +141,9 @@ struct Game {
     // The game's sources decide the board's timing (machine.h, SetBoardTiming) in place of the port's arcade_timing
     // feature, which is then left out: a shooting game's Slowdown row (shmup/shmup.h). Not given: arcade_timing.
     bool (*boardTiming)() = nullptr;
+    // How many players an online match is for, as the host's features have it now (fight/tag.h sets it: four in
+    // 2 vs 2). Not given: two.
+    int (*matchPlayers)() = nullptr;
     // For a custom soundtrack (machine/soundtrack.h): where the sound program's table of songs has song 0's entry,
     // and how many entries it has (0: no custom soundtrack); and the names of the music, where they are known.
     // musicBelow: for a sound program whose songs' data do not tell music from effects (machine/soundtrack.h), the
