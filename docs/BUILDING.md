@@ -129,12 +129,12 @@ translated code, so a release is built where every ROM set is, after `make GAME=
 
 ```sh
 tools/release/macos.sh      # build/release/CPS2Recomp-macOS.zip (Apple silicon and Intel)
-docker build --platform linux/amd64 -t cps2recomp-build tools/release
-docker run --rm --platform linux/amd64 -v "$PWD":/src -w /src cps2recomp-build tools/release/linux.sh
-docker run --rm --platform linux/amd64 -v "$PWD":/src -w /src cps2recomp-build tools/release/windows.sh
+docker build -t cps2recomp-build-x86_64 tools/release/x86_64
+docker run --rm -v "$PWD":/src -w /src cps2recomp-build-x86_64 tools/release/linux.sh
 docker build --platform linux/arm64 -t cps2recomp-build-arm64 tools/release
 docker run --rm --platform linux/arm64 -v "$PWD":/src -w /src cps2recomp-build-arm64 tools/release/linux.sh
-tools/release/all.sh        # all four and SHA256SUMS.txt
+docker run --rm --platform linux/arm64 -v "$PWD":/src -w /src cps2recomp-build-arm64 tools/release/windows.sh
+tools/release/all.sh        # all five, SHA256SUMS.txt, and update manifests
 tools/release/android.sh    # build/release/CPS2Recomp-android.apk
 ```
 

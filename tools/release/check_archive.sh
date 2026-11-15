@@ -17,7 +17,7 @@ bad() { echo "ARCHIVE FAIL ($archive): $1"; status=1; }
 for archive in "$@"; do
     dir="$(mktemp -d)"
     case "$archive" in
-        *.zip) unzip -q "$archive" -d "$dir" ;;
+        *.zip|*.apk) unzip -q "$archive" -d "$dir" ;;
         *) tar -xzf "$archive" -C "$dir" ;;
     esac
     names="$(cd "$dir" && find . -type f | sort)"
@@ -31,11 +31,11 @@ for archive in "$@"; do
     # processor, but the toolkit grows, and a small game's release is smaller than a large one's CI build.)
     : > "$dir/.programs"
     for game in $GAMES; do
-        find "$dir" -type f \( -name "$game" -o -name "$game.exe" \) > "$dir/.one"
+        find "$dir" -type f \( -name "$game" -o -name "$game.exe" -o -name "lib$game.so" \) > "$dir/.one"
         [ -s "$dir/.one" ] || bad "no program for $game"
         cat "$dir/.one" >> "$dir/.programs"
     done
-    find "$dir" -type f \( -name 'cps2recomp-launcher' -o -name 'cps2recomp-launcher.exe' \) | grep -q . || bad "no launcher"
+    find "$dir" -type f \( -name 'cps2recomp-launcher' -o -name 'cps2recomp-launcher.exe' -o -name 'libcps2recomp-launcher.so' \) | grep -q . || bad "no launcher"
     while IFS= read -r program; do
         if LC_ALL=C grep -qa "cps2recomp: built with no translated code" "$program"; then
             [ "$kind" = nocode ] || bad "$(basename "$program") has no translated code (a CI build, not a release)"
