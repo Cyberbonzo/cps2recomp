@@ -54,11 +54,32 @@ sdl_static() {
         cmake --build "$DEPS/sdl-$name-build" --target install >/dev/null
     fi
 }
+# Every game's code translated again from the game's sources as they are now (`make GAME=<id> gen`). A hook added to
+# a game's sources since its last `make` is missing from code translated before it, and the program stops as it
+# starts ("the hook ... was added after the game's code was translated", #363), so a release never takes
+# work/<game>/gen as it finds it. all.sh does this once, before the systems' builds, and passes TRANSLATED=1 on.
+translate_games() {
+    if [ "${NO_GAME_CODE:-}" = 1 ] || [ "${TRANSLATED:-}" = 1 ]; then
+        return 0
+    fi
+    command -v make >/dev/null || {
+        echo "error: no make here to translate the games again: run tools/release/all.sh, or 'make GAME=<id> gen' for each game and TRANSLATED=1" >&2
+        exit 1
+    }
+    for game in $GAMES; do
+        echo "translating $game"
+        (cd "$ROOT" && make -s GAME="$game" gen) >/dev/null || { echo "error: translating $game failed" >&2; exit 1; }
+    done
+    TRANSLATED=1
+    export TRANSLATED
+}
+
 # Every game's program, in $1/game-<id>/, and the collection's launcher, in $1/launcher/ (the rest: more
 # arguments for CMake)
 build_programs() {
     build=$1; shift
     setup_ccache "$(basename "$build")"
+    translate_games
     list=""
     for game in $GAMES; do
         generated="$ROOT/work/$game"
