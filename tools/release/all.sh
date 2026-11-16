@@ -49,7 +49,8 @@ fi
 # a release script in a build image: $1 the image, $2 the script, the rest more arguments for docker run
 in_image() {
     image=$1 script=$2; shift 2
-    set -- docker run --rm "$@" -e GAMES="${GAMES:-}" -e NO_GAME_CODE="${NO_GAME_CODE:-}" -e NO_CCACHE="${NO_CCACHE:-}"
+    set -- docker run --rm "$@" -e GAMES="${GAMES:-}" -e NO_GAME_CODE="${NO_GAME_CODE:-}" -e NO_CCACHE="${NO_CCACHE:-}" \
+        -e TRANSLATED="${TRANSLATED:-}"
     [ -z "${CMAKE_BUILD_PARALLEL_LEVEL:-}" ] || set -- "$@" -e CMAKE_BUILD_PARALLEL_LEVEL="$CMAKE_BUILD_PARALLEL_LEVEL"
     [ -z "${CCACHE_BASE:-}" ] || set -- "$@" -v "$CCACHE_BASE":/ccache -e CCACHE_BASE=/ccache
     "$@" -v "$ROOT":/src -w /src "$image" "$script"
@@ -67,6 +68,13 @@ fi
 [ "$need_x86" = 1 ] && step "docker build (linux-x86_64 cross)" docker build -q -t cps2recomp-build-x86_64 tools/release/x86_64
 [ "$need_arm" = 1 ] && step "docker build (arm64)" docker build --platform linux/arm64 -q -t cps2recomp-build-arm64 tools/release
 [ "$need_amd64" = 1 ] && step "docker build (amd64)" docker build --platform linux/amd64 -q -t cps2recomp-build tools/release
+
+# (every game's code translated again from its sources, once for all the systems: lib.sh, #363)
+if [ "${NO_GAME_CODE:-}" != 1 ]; then
+    step "translate" sh -c '. "$(dirname "$0")/lib.sh" && translate_games' "$ROOT/tools/release/all.sh"
+    TRANSLATED=1
+    export TRANSLATED
+fi
 
 rm -rf build/release/update-files
 
