@@ -39,6 +39,12 @@ inline constexpr uint32_t kComputerStarts = 0x068CFC;
 inline constexpr uint32_t kComputerPlays = 0, kComputerPlays2 = 0;
 inline constexpr uint16_t kGameChoosing = 0x0C;
 
+// The routines that have an object drawn only while it is near the board's picture (Night Warriors' 00559C, 005600,
+// 005638 and 005672): where each tests the object's place across, where they go on to have it drawn, and the table
+// they go to it through (the last three leave its place in A0). src/widescreen.cpp widens them.
+inline constexpr uint32_t kNearPicture1 = 0x0055A6, kNearPicture2 = 0x005608, kNearPicture3 = 0x005640, kNearPicture4 = 0x00567C;
+inline constexpr uint32_t kNearPictureDrawn = 0x0055CC, kNearPictureTable = 0x0055DC;
+
 // The show's loop (FF8000): its parts up to kShowUnseen are run unseen in attract mode, the introduction is
 // kIntroFirst-kIntroLast (the title in it: kShowTitle with FF8004 at kShowTitleStep on), the fights kFightFirst-kFightLast
 inline constexpr uint16_t kShowUnseen = 0x02, kIntroFirst = 0x04, kIntroLast = 0x06, kFightFirst = 0x0E, kFightLast = 0x14;

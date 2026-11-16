@@ -58,6 +58,10 @@ void RegisterGame() {
     RegisterBattle();
     // (widescreen: the camera kept between its ends at 0CDBB6, a character kept inside the picture at 013AD6)
     marvel::RegisterWidescreen(HookAt(0x0CDBB6), HookAt(0x013AD6));
+    // (the routine that says whether an object is in the picture, at its test across: played wide, the wide picture's)
+    AddHook(HookAt(0x0021E0), "InPictureLoading", marvel::InPictureLoading);
+    AddHook(HookAt(0x002258), "InPicture", marvel::InPicture);
+    AddHook(HookAt(0x0022CC), "InPicture", marvel::InPicture);
     RegisterTag();
     RegisterCrossFever();
     RegisterCoins();

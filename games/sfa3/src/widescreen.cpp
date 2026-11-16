@@ -23,6 +23,7 @@
 #include "sfa3.h"
 #include "state.h"
 #include "wide_ends.h"
+#include "wide_near.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -510,6 +511,23 @@ void RegisterWidescreen() {
     AddRewrite(0x017EFC, "CameraUp", CameraUp, kFreeFlags, 178);
     AddRewrite(0x02ADA2, "KeepIn", KeepIn, kFreeFlags, 235);
     AddRewrite(0x02AE4C, "KeepBothIn", KeepBothIn, kFreeFlags, 240);
+    // (a stage's pieces in the wide picture's added columns: the game draws an object only near the board's picture,
+    // and played wide that counts the added columns too: fight/wide_near.h)
+    // (01B4D0 and 01B4B0: A6 the object, A3 the scroll screen it rides on, D0 how far it is drawn left of its place;
+    // drawn at 01B4EC, not at 01B504. 01B4B0 takes its margin from D6, its room 0x180 and twice that, kept in D6.)
+    AddHook(0x01B4D8, "NearPicture", [](M68K &c) {
+        const int across = static_cast<int16_t>(Ram16((c.a[6] & 0xFFFFFF) + 0x10) - Ram16((c.a[3] & 0xFFFFFF) + 0x10) - c.d[0]);
+        return Margin() && wide::NearPicture(c, across, 0x40, 0x200, Margin(), 0x01B4EC, 0x01B504);
+    });
+    AddHook(0x01B4B8, "NearPictureBy", [](M68K &c) {
+        if (!Margin()) {
+            return false;
+        }
+        const int across = static_cast<int16_t>(Ram16((c.a[6] & 0xFFFFFF) + 0x10) - Ram16((c.a[3] & 0xFFFFFF) + 0x10) - c.d[0]);
+        const int margin = static_cast<int16_t>(c.d[6]), room = static_cast<uint16_t>(2 * margin + 0x180);
+        c.d[6] = (c.d[6] & 0xFFFF0000u) | static_cast<uint16_t>(room);
+        return wide::NearPicture(c, across, margin, room, Margin(), 0x01B4EC, 0x01B504);
+    });
     // (not in the Enhanced preset: it shows more of the stage than the board does, and a player who wants the game as it
     // is played in competition must not get that without asking)
     TheGame().features.push_back({"widescreen", "Display", "Widescreen",
