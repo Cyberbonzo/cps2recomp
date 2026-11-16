@@ -5,11 +5,14 @@
 - **Final Fight** (issue #308, `games/ffight`): added `ffight` (World, set 1, classic CPS-1 with YM2151 + OKI
   MSM6295) with free play, straight to the title, start at stage, infinite health/lives/time, custom soundtrack
   (19 tracks), board DIP settings, attract mode show selection, score attack, and stage viewer.
-- **Widescreen: a stage's pieces at the picture's edges** (issue #344): in the Street Fighter II games (The World
-  Warrior, Champion Edition, Hyper Fighting, Super, Super Turbo, Hyper) and in Darkstalkers and Night Warriors, the
-  things on a stage that are objects (Blanka's fish, Honda's lantern, Guile's crates, Chun-Li's bicycles, the barrels and
-  signs of Darkstalkers' stages) vanished in the wide picture's added columns: the game draws an object only while it is
-  near the board's picture. Played wide, "near" now counts the wide picture's columns too.
+- **Widescreen: a stage's pieces at the picture's edges** (issue #344): the things on a stage that are objects
+  (Blanka's fish, Honda's lantern, Guile's crates, Chun-Li's bicycles, Dhalsim's elephants, the barrels and signs of
+  Darkstalkers' stages, the people and cars at the Marvel games' edges) vanished in the wide picture's added columns:
+  each engine draws an object only while it is near the board's picture. Played wide, "near" now counts the wide
+  picture's columns too, in the Street Fighter II games (The World Warrior, Champion Edition, Hyper Fighting, Super,
+  Super Turbo, Hyper), Darkstalkers and Night Warriors, the three Alphas and Zero 2 Alpha, Pocket Fighter, Marvel Super
+  Heroes, X-Men vs. Street Fighter, Marvel Super Heroes vs. Street Fighter and Marvel vs. Capcom (`fight/wide_near.h`,
+  `marvel::InPicture`). Cyberbots and Children of the Atom already drew that far.
 
 ## 1.6.0-beta.1
 

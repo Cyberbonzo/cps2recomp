@@ -201,6 +201,12 @@ int WideMargin();
 void WideEnds(int &left, int &right);
 void WideForSpare(Machine &machine);
 void WideForPort(Machine &machine);
+// Hooks for the routine that says whether an object is in the picture (D0 1 or 0; what it draws, and what goes away off
+// the picture, ask it), at the piece that tests it across: D0 its place less its plane's, D1 how far it reaches right
+// and D2 left (InPicture), or D2 loaded there from its +5E (InPictureLoading). The board's picture is pictureLeft to
+// pictureLeft + 384; played wide it is the wide picture's, so a stage's pieces in the added columns are drawn (#344).
+bool InPicture(M68K &c);
+bool InPictureLoading(M68K &c);
 
 // --- the model viewer ---
 

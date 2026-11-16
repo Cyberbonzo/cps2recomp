@@ -438,6 +438,32 @@ bool WidePlay() {
 int WideMargin() {
     return Margin();
 }
+
+namespace {
+    // The test across with the wide picture's columns counted: D0 and D1 set so that the game's own test (D0 + D1 not
+    // left of the picture's left edge, D0 - D2 not right of its right edge) says what this one does
+    bool InPictureAcross(M68K &c, uint16_t left) {
+        if (!Margin()) {
+            return false;
+        }
+        const uint16_t place = static_cast<uint16_t>(c.d[0]), right = static_cast<uint16_t>(c.d[1]);
+        const int edge0 = e.pictureLeft, edge1 = e.pictureLeft + Video::kWidth;
+        const bool inLeft = static_cast<int16_t>(place + right) >= edge0 - Margin();
+        const bool inRight = static_cast<int16_t>(place - left) <= edge1 + Margin();
+        const uint16_t d0 = static_cast<uint16_t>((inRight ? edge1 : edge1 + 1) + left);
+        const uint16_t d1 = static_cast<uint16_t>((inLeft ? edge0 : edge0 - 1) - d0);
+        c.d[0] = (c.d[0] & 0xFFFF0000u) | d0;
+        c.d[1] = (c.d[1] & 0xFFFF0000u) | d1;
+        return false; // (the game's code goes on, with its test)
+    }
+} // namespace
+
+bool InPicture(M68K &c) {
+    return InPictureAcross(c, static_cast<uint16_t>(c.d[2]));
+}
+bool InPictureLoading(M68K &c) {
+    return InPictureAcross(c, Ram8((c.a[6] & 0xFFFFFF) + 0x5E));
+}
 void WideEnds(int &left, int &right) {
     const wide::Ends ends = StageEnds();
     left = g_play ? kSide + ends.left : 0;

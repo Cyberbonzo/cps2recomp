@@ -78,6 +78,9 @@ inline constexpr Place kPlaceList[] = {
     {0x014916, 0x014928}, // an instruction, 1 on alike
     {0x0149F4, 0x014A06}, // an instruction, 1 on alike
     {0x0157A4, 0x0157F8}, // an instruction, 11 on alike
+    {0x018B80, 0x018BD4}, // an object drawn only near the picture: its test across (widescreen.cpp) by hand
+    {0x018B92, 0x018BE6}, // ... drawn by hand
+    {0x018BB2, 0x018C06}, // ... not drawn by hand
     {0x01906A, 0x0190C4}, // where the code calls or jumps to it (8/8), not its first instruction's place
     {0x019216, 0x019276}, // an instruction, 4 on alike
     {0x01963A, 0x0196A6}, // the same entry of a jump table, 7 on alike

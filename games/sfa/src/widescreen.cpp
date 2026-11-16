@@ -25,6 +25,7 @@
 #include "sfa.h"
 #include "state.h"
 #include "wide_ends.h"
+#include "wide_near.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -457,6 +458,12 @@ void RegisterWidescreen() {
     AddRewrite(0x01A5F2, "CameraUp", CameraUp, kFreeFlags, 222);
     AddRewrite(0x01EEEA, "KeepIn", KeepIn, kFreeFlags, 148);
     AddRewrite(0x01EFA2, "KeepBothIn", KeepBothIn, kFreeFlags, 200);
+    // (a stage's pieces in the wide picture's added columns: the game draws an object only near the board's picture,
+    // and played wide that counts the added columns too: fight/wide_near.h)
+    // (015BA6: D0 the object's place less its scroll screen's; drawn at 015BC4, not at 015BE4)
+    AddHook(0x015BBA, "NearPicture", [](M68K &c) {
+        return Margin() && wide::NearPicture(c, static_cast<int16_t>(c.d[0]), 0x40, 0x200, Margin(), 0x015BC4, 0x015BE4);
+    });
     // (not in the Enhanced preset: it shows more of the stage than the board does, and a player who wants the game as
     // it is played in competition must not get that without asking)
     TheGame().features.push_back({"widescreen", "Display", "Widescreen",
