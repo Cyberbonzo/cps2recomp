@@ -238,7 +238,7 @@ void SetRunningAhead(bool on) {
 }
 
 namespace {
-std::string g_multiGame;
+std::string g_multiGame, g_playerFolder;
 int g_programEnded = -1;
 int64_t g_nextGameAsked = -1;
 } // namespace
@@ -247,6 +247,12 @@ void SetMultiGame(const std::string &spec) {
 }
 const std::string &MultiGame() {
     return g_multiGame;
+}
+void SetPlayerFolder(const std::string &folder) {
+    g_playerFolder = folder;
+}
+const std::string &PlayerFolder() {
+    return g_playerFolder;
 }
 void EndProgram(int code) {
     g_programEnded = code;

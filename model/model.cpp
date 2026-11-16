@@ -2,11 +2,13 @@
 // Copyright (C) 2026 Tommy McLeroy. Part of cps2recomp.
 #include "model.h"
 
+#include "image_files.h"
 #include "spare.h"
 #include "state.h"
 
 #include <algorithm>
 #include <cstdio>
+#include <filesystem>
 #include <iterator>
 #include <map>
 #include <string>
@@ -29,6 +31,11 @@ namespace {
     // The colour editor's scan: frames of the copy run in a frame of the viewer's, and of an animation looked at
     constexpr int kScanFramesEach = 8, kScanFramesMost = 48;
     constexpr int kMostLines = 8;
+    // The exports: frames of the game each frame of an animation is shown for before its picture is taken (the board
+    // draws the list the game made the frame before: by then the picture is the frame's), the most frames an animation
+    // is taken to, the most a sheet has across, how long what was saved is said for, and the sizes
+    constexpr int kSettleFrames = 3, kMostExportFrames = 256, kSheetAcross = 8, kSaidFor = 4 * kFramesASecond;
+    constexpr int kExportSizes[] = {1, 2, 3, 4, 6, 8};
 
     Description g_d;
     int g_choices = 0; // the "Animation" choice's count: standing and every list's
@@ -49,7 +56,16 @@ namespace {
         int32_t anchorX = 0, anchorY = 0;
         bool feetFound = false, feetKnown = false;
         bool seen = false; // the character was in the last picture made
+        // An export asked for in the menu, made after the next frame (0: none; 1: the picture; 2: the animation), and
+        // what was saved, said over the picture for a while
+        int32_t exportWanted = 0;
+        std::string said;
+        int32_t saidFor = 0;
     } g;
+    // The character's picture as it was last made (the board's objects alone, its own only, marked), for the export of
+    // the picture shown
+    std::vector<uint32_t> g_model;
+    int g_modelWidth = 0;
 
     int Characters() {
         return static_cast<int>(g_d.characters.size());
@@ -145,7 +161,7 @@ namespace {
     // The menu's "Reset options": every choice of the viewer's page back to what it is when nothing is chosen
     void ResetChoices(Machine &) {
         for (const char *choice : {"model_character", "model_background", "model_size", "model_animation", "model_speed", "model_repeat",
-                                   "model_all"}) {
+                                   "model_all", "model_export_size"}) {
             SetFeatureValue(choice, 0);
         }
         if (g_d.inAFight) {
@@ -235,20 +251,24 @@ namespace {
     // The animation's name over the picture for a while after it changes (set after the frame, when the other
     // modes' own readouts have been cleared)
     void NameAnimation() {
+        std::vector<HudLine> lines;
         if (g.table && g.named > 0) {
             g.named--;
             char text[32];
             snprintf(text, sizeof(text), "%s%d", ListName(g.table - 1).c_str(), g.number);
-            SetHud({{0.5f, 0.04f, 0, text}});
-        } else {
-            SetHud({});
+            lines.push_back({0.5f, 0.04f, 0, text});
         }
+        if (g.saidFor > 0) {
+            g.saidFor--;
+            lines.push_back({0.5f, 0.92f, 0, g.said});
+        }
+        SetHud(lines);
     }
 
     // The frame's picture made: the stage (or a plain colour), and the character over it at the size wanted
     // Of the character's picture, only what touches it where it stands: the pixels in 4x4 blocks, the blocks joined
     // to those about its feet and middle (with a block's gap between), the others left out (Description::nearestOnly)
-    void KeepNearest(uint32_t *picture, int width, int height) {
+    void KeepNearest(uint32_t *picture, int width, int height, int anchorX, int anchorY) {
         constexpr int kBlock = 4;
         const int across = (width + kBlock - 1) / kBlock, down = (height + kBlock - 1) / kBlock;
         std::vector<uint8_t> blocks(static_cast<size_t>(across) * down); // 1: drawn, 2: kept
@@ -260,8 +280,8 @@ namespace {
             }
         }
         std::vector<int> todo;
-        for (int by = std::max(0, (g.anchorY - 96) / kBlock); by <= std::min(down - 1, g.anchorY / kBlock); by++) {
-            for (int bx = std::max(0, (g.anchorX - 12) / kBlock); bx <= std::min(across - 1, (g.anchorX + 12) / kBlock); bx++) {
+        for (int by = std::max(0, (anchorY - 96) / kBlock); by <= std::min(down - 1, anchorY / kBlock); by++) {
+            for (int bx = std::max(0, (anchorX - 12) / kBlock); bx <= std::min(across - 1, (anchorX + 12) / kBlock); bx++) {
                 if (blocks[static_cast<size_t>(by) * across + bx] == 1) {
                     blocks[static_cast<size_t>(by) * across + bx] = 2;
                     todo.push_back(by * across + bx);
@@ -293,16 +313,14 @@ namespace {
         }
     }
 
-    void Compose(Machine &machine) {
-        static std::vector<uint32_t> model, fight;
+    // The character by itself: the objects alone, its own only, and marked so that their pixels are told from what is
+    // behind them (the top bit set). True: something of it was drawn.
+    bool DrawModel(Machine &machine, std::vector<uint32_t> &model) {
         const int width = machine.PictureWidth(), height = Video::kHeight;
-        uint32_t *picture = machine.Picture();
         model.resize(static_cast<size_t>(width) * height);
         if (g_d.beforeCompose) {
             g_d.beforeCompose(machine);
         }
-        // (the character by itself: the objects alone, its own only, and marked so that their pixels are told from
-        // what is behind them)
         Video &video = machine.video;
         const unsigned layers = video.layerMask;
         const bool marked = video.markObjects;
@@ -310,12 +328,29 @@ namespace {
         video.layerMask = 1;
         video.markObjects = true;
         video.hideObject = [](uint32_t tile, uint16_t attributes) { return !g_d.isModel(tile, attributes); };
-        g.seen = false;
+        bool seen = false;
         for (int line = 0; line < height; line++) {
             uint32_t *row = &model[static_cast<size_t>(line) * width];
             video.RenderLine(line, row);
-            g.seen = g.seen || std::any_of(row, row + width, [](uint32_t pixel) { return (pixel & 0x80000000u) != 0; });
+            seen = seen || std::any_of(row, row + width, [](uint32_t pixel) { return (pixel & 0x80000000u) != 0; });
         }
+        video.layerMask = layers;
+        video.markObjects = marked;
+        video.hideObject = hidden;
+        return seen;
+    }
+
+    void Compose(Machine &machine) {
+        static std::vector<uint32_t> fight;
+        std::vector<uint32_t> &model = g_model;
+        const int width = machine.PictureWidth(), height = Video::kHeight;
+        uint32_t *picture = machine.Picture();
+        Video &video = machine.video;
+        g.seen = DrawModel(machine, model);
+        g_modelWidth = width;
+        const unsigned layers = video.layerMask;
+        const bool marked = video.markObjects;
+        const auto hidden = video.hideObject;
         // (the stage's pieces in front of the character: at its own size, on a stage, where it is not moved aside
         // for the colour editor's panel; the picture as the board would draw it)
         const int size = kSizes[std::clamp(FeatureValue("model_size"), 0, static_cast<int>(std::size(kSizes)) - 1)];
@@ -361,7 +396,7 @@ namespace {
         }
 
         if (g_d.nearestOnly) {
-            KeepNearest(model.data(), width, height);
+            KeepNearest(model.data(), width, height, g.anchorX, g.anchorY);
         }
         if (Plain(g.background)) {
             std::fill(picture, picture + static_cast<size_t>(width) * height, g.background == White() ? 0xFFFFFFu : 0u);
@@ -392,6 +427,246 @@ namespace {
                 }
             }
         }
+    }
+
+    // --- The exports: the picture shown, or every frame of the animation shown, as files in the player's folder ---
+
+    // A taken frame: the character's marked pixels, and where it stood in them
+    struct Taken {
+        std::vector<uint32_t> pixels;
+        int anchorX = 0, anchorY = 0;
+        int time = 0;       // sixtieths of a second it is shown for
+        uint32_t frame = 0; // its address
+    };
+
+    int ExportSize() {
+        return kExportSizes[std::clamp(FeatureValue("model_export_size"), 0, static_cast<int>(std::size(kExportSizes)) - 1)];
+    }
+
+    // A name that is a file's name on every system
+    std::string FileName(std::string text) {
+        for (char &c : text) {
+            if (c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|') {
+                c = '-';
+            }
+        }
+        while (!text.empty() && (text.back() == '.' || text.back() == ' ')) {
+            text.pop_back(); // (Windows will not have them at the end)
+        }
+        return text;
+    }
+    std::string CharacterName() {
+        return g.character >= 0 && g.character < Characters() ? FileName(g_d.characters[static_cast<size_t>(g.character)]) : "Character";
+    }
+
+    // A folder of its own under exports/ ("name", or "name 2" and on if there is one already), made; "" if it could not
+    // be
+    std::string NewFolder(const std::string &name) {
+        std::error_code error;
+        const std::string under = PlayerFolder() + "exports/";
+        std::string folder = under + name;
+        for (int n = 2; std::filesystem::exists(std::filesystem::u8path(folder), error); n++) {
+            folder = under + name + " " + std::to_string(n);
+        }
+        std::filesystem::create_directories(std::filesystem::u8path(folder), error);
+        return error ? "" : folder + "/";
+    }
+
+    void Say(const std::string &text) {
+        g.said = text;
+        g.saidFor = kSaidFor;
+        fprintf(stderr, "model viewer: %s\n", text.c_str());
+    }
+
+    // Frames taken as pictures of one size, the character standing in the same place in each: as small as holds all of
+    // them, and `size` pixels to each of the board's. (anchorX and anchorY: where it stands in them.)
+    std::vector<image_files::Picture> Cut(const std::vector<Taken> &taken, int width, int height, int size, int &anchorX, int &anchorY) {
+        int left = 1 << 20, top = 1 << 20, right = -(1 << 20), bottom = -(1 << 20); // (from the anchor)
+        for (const Taken &one : taken) {
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    if (one.pixels[static_cast<size_t>(y) * width + x] & 0x80000000u) {
+                        left = std::min(left, x - one.anchorX);
+                        right = std::max(right, x - one.anchorX);
+                        top = std::min(top, y - one.anchorY);
+                        bottom = std::max(bottom, y - one.anchorY);
+                    }
+                }
+            }
+        }
+        std::vector<image_files::Picture> pictures;
+        if (right < left) {
+            return pictures; // (nothing drawn in any of them)
+        }
+        const int across = right - left + 1, down = bottom - top + 1;
+        anchorX = -left * size;
+        anchorY = -top * size;
+        for (const Taken &one : taken) {
+            image_files::Picture picture;
+            picture.width = across * size;
+            picture.height = down * size;
+            picture.pixels.assign(static_cast<size_t>(picture.width) * picture.height, 0);
+            for (int y = 0; y < down; y++) {
+                const int fromY = y + top + one.anchorY;
+                for (int x = 0; x < across; x++) {
+                    const int fromX = x + left + one.anchorX;
+                    if (fromX < 0 || fromX >= width || fromY < 0 || fromY >= height) {
+                        continue;
+                    }
+                    const uint32_t pixel = one.pixels[static_cast<size_t>(fromY) * width + fromX];
+                    if (!(pixel & 0x80000000u)) {
+                        continue;
+                    }
+                    for (int dy = 0; dy < size; dy++) {
+                        uint32_t *row = &picture.pixels[static_cast<size_t>(y * size + dy) * picture.width + x * size];
+                        std::fill(row, row + size, (pixel & 0xFFFFFFu) | 0xFF000000u);
+                    }
+                }
+            }
+            pictures.push_back(std::move(picture));
+        }
+        return pictures;
+    }
+
+    // The picture shown: the character as it is now, by itself
+    void ExportPicture(Machine &machine) {
+        if (!g.seen || g_model.empty()) {
+            Say("NOTHING TO SAVE: THE CHARACTER IS NOT SHOWN");
+            return;
+        }
+        Taken one;
+        one.pixels = g_model;
+        one.anchorX = g.anchorX;
+        one.anchorY = g.anchorY;
+        int anchorX = 0, anchorY = 0;
+        const std::vector<image_files::Picture> pictures = Cut({one}, g_modelWidth, Video::kHeight, ExportSize(), anchorX, anchorY);
+        std::string name = CharacterName();
+        if (g.table) {
+            name += " " + ListName(g.table - 1) + std::to_string(g.number);
+        }
+        const std::string folder = PlayerFolder() + "exports/";
+        std::error_code error;
+        std::filesystem::create_directories(std::filesystem::u8path(folder), error);
+        std::string file = name;
+        for (int n = 2; std::filesystem::exists(std::filesystem::u8path(folder + file + ".png"), error); n++) {
+            file = name + " " + std::to_string(n);
+        }
+        if (pictures.empty() || !image_files::WritePng(folder + file + ".png", pictures[0])) {
+            Say("NOT SAVED");
+            return;
+        }
+        (void)machine;
+        Say("SAVED  exports/" + file + ".png");
+    }
+
+    // Every frame of the animation shown, each put in the character's record and the game run until the picture is
+    // its, on a copy of the viewer's machine (the viewer's own goes on as it was): from its first frame to its end, or
+    // to where it goes back to an earlier frame (where the viewer repeats it)
+    void ExportAnimation(Machine &machine) {
+        if (!g.table || !g.first) {
+            Say("CHOOSE AN ANIMATION TO SAVE (STANDING IS THE GAME'S OWN)");
+            return;
+        }
+        const uint32_t first = g.first;
+        const int fallbackY = g.anchorY;
+        std::vector<Taken> taken;
+        Spare spare;
+        {
+            Archive ar(spare.state, true);
+            machine.Serialize(ar);
+        }
+        spare.ready = true;
+        RunSpare(
+            machine, spare,
+            [](Machine &m) {
+                if (g_d.spareFrame) {
+                    g_d.spareFrame(m);
+                }
+            },
+            nullptr,
+            [&](Machine &m) {
+                uint32_t frame = first;
+                while (frame && static_cast<int>(taken.size()) < kMostExportFrames) {
+                    for (int n = 0; n < kSettleFrames; n++) {
+                        if (g_d.spareFrame) {
+                            g_d.spareFrame(m);
+                        }
+                        g_d.showFrame(m, frame);
+                        m.players[0] = m.players[1] = 0;
+                        m.RunFrame();
+                    }
+                    Taken one;
+                    DrawModel(m, one.pixels);
+                    int x = 0, y = -1;
+                    g_d.anchor(m, x, y);
+                    one.anchorX = x;
+                    one.anchorY = y >= 0 ? y : fallbackY;
+                    if (g_d.nearestOnly) {
+                        KeepNearest(one.pixels.data(), m.PictureWidth(), Video::kHeight, one.anchorX, one.anchorY);
+                    }
+                    one.time = FrameTime(m, frame);
+                    one.frame = frame;
+                    taken.push_back(std::move(one));
+                    const uint32_t next = g_d.nextFrame(m, frame);
+                    frame = next > frame && IsFrame(m, next) ? next : 0;
+                }
+            });
+        const int width = machine.PictureWidth(), size = ExportSize();
+        int anchorX = 0, anchorY = 0;
+        const std::vector<image_files::Picture> pictures = Cut(taken, width, Video::kHeight, size, anchorX, anchorY);
+        if (pictures.empty()) {
+            Say("NOTHING TO SAVE: THE CHARACTER IS NOT DRAWN IN IT");
+            return;
+        }
+        const std::string animation = ListName(g.table - 1) + std::to_string(g.number);
+        const std::string name = CharacterName() + " " + animation;
+        const std::string folder = NewFolder(name);
+        if (folder.empty()) {
+            Say("NOT SAVED: NO FOLDER");
+            return;
+        }
+        bool ok = true;
+        std::vector<int> times;
+        char file[32];
+        std::string frames;
+        for (size_t n = 0; n < pictures.size(); n++) {
+            snprintf(file, sizeof(file), "frame %02d.png", static_cast<int>(n));
+            ok = image_files::WritePng(folder + file, pictures[n]) && ok;
+            times.push_back(taken[n].time);
+            char line[160];
+            snprintf(line, sizeof(line), "%s    {\"file\": \"%s\", \"time\": %d, \"address\": \"0x%06X\"}", n ? ",\n" : "", file,
+                     taken[n].time, taken[n].frame);
+            frames += line;
+        }
+        // (the sheet: the frames in rows of up to eight, left to right)
+        const int across = std::min(static_cast<int>(pictures.size()), kSheetAcross);
+        const int down = (static_cast<int>(pictures.size()) + kSheetAcross - 1) / kSheetAcross;
+        image_files::Picture sheet;
+        sheet.width = pictures[0].width * across;
+        sheet.height = pictures[0].height * down;
+        sheet.pixels.assign(static_cast<size_t>(sheet.width) * sheet.height, 0);
+        for (size_t n = 0; n < pictures.size(); n++) {
+            const int atX = static_cast<int>(n % kSheetAcross) * pictures[0].width, atY = static_cast<int>(n / kSheetAcross) * pictures[0].height;
+            for (int y = 0; y < pictures[n].height; y++) {
+                std::copy_n(&pictures[n].pixels[static_cast<size_t>(y) * pictures[n].width], pictures[n].width,
+                            &sheet.pixels[static_cast<size_t>(atY + y) * sheet.width + atX]);
+            }
+        }
+        ok = image_files::WritePng(folder + "sheet.png", sheet) && ok;
+        ok = image_files::WriteApng(folder + name + ".png", pictures, times) && ok;
+        ok = image_files::WriteGif(folder + name + ".gif", pictures, times) && ok;
+        // (what the frames are, for a program reading them: their times in sixtieths of a second, and where the character
+        // stands in each, the same in all)
+        std::string json = "{\n  \"character\": \"" + CharacterName() + "\",\n  \"animation\": \"" + animation + "\",\n";
+        char head[256];
+        snprintf(head, sizeof(head),
+                 "  \"frames per second\": 60,\n  \"scale\": %d,\n  \"width\": %d,\n  \"height\": %d,\n  \"anchor\": {\"x\": %d, \"y\": %d},\n"
+                 "  \"sheet columns\": %d,\n  \"frames\": [\n",
+                 size, pictures[0].width, pictures[0].height, anchorX, anchorY, across);
+        json += head + frames + "\n  ]\n}\n";
+        ok = image_files::WriteAll(folder + "animation.json", std::vector<uint8_t>(json.begin(), json.end())) && ok;
+        const std::string shown = folder.substr(PlayerFolder().size());
+        Say(ok ? "SAVED " + std::to_string(pictures.size()) + " FRAMES  " + shown : "NOT ALL SAVED  " + shown);
     }
 
     std::vector<const char *> Backgrounds() {
@@ -525,6 +800,15 @@ void Scan(Machine &machine) {
 
 void Frame(Machine &machine) {
     Compose(machine);
+    if (g.exportWanted && !RunningAhead()) {
+        const int wanted = g.exportWanted;
+        g.exportWanted = 0;
+        if (wanted == 1) {
+            ExportPicture(machine);
+        } else {
+            ExportAnimation(machine);
+        }
+    }
     NameAnimation();
     if (g_d.anchorNow) {
         return;
@@ -579,6 +863,27 @@ void Register(const Description &description) {
     game.pages.push_back({g_d.page, g_d.parent, g_d.pageWords});
     game.commands.push_back({"model_start", g_d.page, "Start", g_d.startWords, g_d.start});
     game.commands.push_back({"model_reset", g_d.page, "Reset options", g_d.resetWords, ResetChoices});
+    game.commands.push_back({"model_save_picture", g_d.page, "Save picture",
+                             "Saves the character as it is shown now, by itself on nothing, as a PNG in the exports folder beside "
+                             "your saves (at the export size below).",
+                             [](Machine &) {
+                                 if (g.on) {
+                                     g.exportWanted = 1;
+                                 } else {
+                                     Say("START THE VIEWER FIRST");
+                                 }
+                             }});
+    game.commands.push_back({"model_save_animation", g_d.page, "Save animation",
+                             "Saves every frame of the animation shown, by itself on nothing, in a folder of its own in the exports "
+                             "folder beside your saves: each frame as a PNG, all of them on one sheet, a looping animated PNG and "
+                             "GIF with the game's own timing, and a list of the frames' times for other programs.",
+                             [](Machine &) {
+                                 if (g.on) {
+                                     g.exportWanted = 2;
+                                 } else {
+                                     Say("START THE VIEWER FIRST");
+                                 }
+                             }});
     game.features.push_back({"model_character", g_d.page, "Character", "Who is shown. Changing it while viewing goes to the new one.", 0,
                              g_d.characters});
     game.features.push_back({"model_background", g_d.page, "Background",
@@ -599,6 +904,9 @@ void Register(const Description &description) {
                              0,
                              {"At once", "1 second", "2 seconds", "3 seconds", "4 seconds", "5 seconds", "6 seconds", "7 seconds",
                               "8 seconds", "9 seconds", "10 seconds"}});
+    game.features.push_back({"model_export_size", g_d.page, "Export size",
+                             "How large the saved pictures are: each of the board's pixels as a square of this many.", 0,
+                             {"1x", "2x", "3x", "4x", "6x", "8x"}});
     game.features.push_back({"model_all", g_d.page, "Play all",
                              "Goes through all of the character's animations, one after another: each is shown once (and its "
                              "last frame held for \"Repeat after\") and then the next starts, round from the last to the first. "
