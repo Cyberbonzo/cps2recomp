@@ -1,7 +1,17 @@
 # Changelog
 
-## Unreleased
+## 1.6.0-beta.2
 
+**Seven games that stopped as they started in 1.6.0-beta.1 play again, Final Fight joins the collection, and stages
+draw out to the wide picture's edges.** Pre-release, as 1.6.0-beta.1 was.
+
+- **Fixed: seven games stopped as they started** (issue #363): Marvel vs. Capcom, Marvel Super Heroes vs. Street
+  Fighter, Hyper Street Fighter II, Super Gem Fighter, Street Fighter Alpha, Alpha 3 and Zero 2 Alpha in 1.6.0-beta.1
+  said "the hook ... was added after the game's code was translated" and closed: their downloads held code translated
+  before their newest hooks. A release now translates every game again before building it (`tools/release/lib.sh`,
+  `translate_games`) and starts every game's program before the Mac archive is made (`check_programs_start`).
+- **VS CPU** (Alternative modes, the fighting games): one-on-one against the CPU at the difficulty you choose, with a
+  rematch or a new opponent (Opponent: Random) after each match.
 - **Final Fight** (issue #308, `games/ffight`): added `ffight` (World, set 1, classic CPS-1 with YM2151 + OKI
   MSM6295) with free play, straight to the title, start at stage, infinite health/lives/time, custom soundtrack
   (19 tracks), board DIP settings, attract mode show selection, score attack, and stage viewer.

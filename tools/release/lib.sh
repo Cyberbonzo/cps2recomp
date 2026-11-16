@@ -122,6 +122,23 @@ check_archive() { # the archive
         GAMES="$GAMES" "$ROOT/tools/release/check_archive.sh" "$1"
     fi
 }
+# Every game's program in $1 started with its ROM set (rom/<id>) and run 300 frames with no window: a program whose
+# translated code is not its sources' stops as it starts (#363), and no other check of a release runs the programs
+# it ships. Only where they run (the Mac's own build).
+check_programs_start() {
+    home=$(mktemp -d)
+    for game in $GAMES; do
+        [ -e "$ROOT/rom/$game" ] || { echo "error: no rom/$game to start $game's program with" >&2; exit 1; }
+        if ! env SDL_VIDEO_DRIVER=dummy SDL_AUDIODRIVER=dummy \
+            "$1/$game" --rom "$ROOT/rom/$game" --headless --frames 300 > "$home/out.txt" 2>&1; then
+            tail -3 "$home/out.txt" >&2
+            echo "error: $game's program stopped (above)" >&2
+            exit 1
+        fi
+    done
+    rm -rf "$home"
+    echo "every game's program starts and runs ($(echo $GAMES | wc -w | tr -d ' ') games)"
+}
 # What every archive carries beside the programs: $1 the folder, $2 the launcher's build folder
 add_notices() {
     mkdir -p "$1/licenses"

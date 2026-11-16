@@ -37,6 +37,7 @@ for binary in "$APP/Contents/MacOS/"* "$APP/Contents/Frameworks/"*; do
         exit 1
     fi
 done
+[ "${NO_GAME_CODE:-}" = 1 ] || check_programs_start "$APP/Contents/MacOS"
 rm -f "$OUT/$ARCHIVE-macOS.zip"
 (cd "$OUT" && ditto -c -k --norsrc --noextattr --keepParent "$NAME.app" "$ARCHIVE-macOS.zip")
 check_archive "$OUT/$ARCHIVE-macOS.zip"
