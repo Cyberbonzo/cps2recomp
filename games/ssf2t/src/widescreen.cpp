@@ -316,6 +316,33 @@ namespace {
         return ThePanel(tile, attributes) ? 0 : g_shift;
     }
 
+    // 003036, 00306E, 0030A6 (and a fourth in the World Warrior's line: family::kNearPicture1 to 4), from where each tests
+    // the object's place across (A6 its record, A0 the record of the scroll screen it rides on, D0 and D1 its place): the
+    // object is drawn only while it is within 0x40 of the board's picture across, and within the routine's room up and
+    // down. A stage's pieces (Blanka's fish, Honda's lantern, Guile's crates, the breakable signs) go through these, so in
+    // the wide picture they were left out in its added columns: played wide the room across is that much more on each
+    // side. (With invisible walls the game stays the board's: the margin is 0 and the game's code runs.)
+    struct Room {
+        uint16_t across, above, down; // (0x40 left of the picture to `across` on; `above` it to `down` on)
+    };
+    constexpr Room kRooms[4] = {{0x200, 0x40, 0x180}, {0x240, 0x40, 0x1C0}, {0x280, 0x40, 0x200}, {0x280, 0x60, 0x280}};
+
+    bool NearPicture(M68K &c, const Room &room) {
+        if (!Margin()) {
+            return false;
+        }
+        const uint32_t object = c.a[6] & 0xFFFFFF, layer = c.a[0] & 0xFFFFFF;
+        SetLow16(c.d[0], static_cast<uint16_t>(Low(c.d[0]) - Ram16(layer + kPlaceX) + 0x40 + Margin()));
+        SetLow16(c.d[1], static_cast<uint16_t>(Low(c.d[1]) - Ram16(layer + kPlaceY) + room.above));
+        if (Low(c.d[0]) > room.across + 2 * Margin() || Low(c.d[1]) > room.down) {
+            Return(c); // (not drawn)
+            return true;
+        }
+        SetRam8(object + 1, static_cast<uint8_t>(Ram8(object + 1) + 1));
+        c.pc = family::kNearPictureDrawn;
+        return true;
+    }
+
     // The wide picture's switches for the frame about to run (the port's, or a spare's): the camera's place now and
     // where it was for the picture being made (a frame behind)
     void SetWide(Machine &machine, int camera, int shown) {
@@ -420,6 +447,10 @@ void RegisterWidescreen() {
     AddRewrite(At(0x0CC4E4), "CameraAcross", CameraAcross, kFreeFlags, 418);
     AddRewrite(At(0x0CC630), "CameraUp", CameraUp, kFreeFlags, 322);
     AddRewrite(At(0x0043F4), "KeepIn", KeepIn, kFreeFlags, 215);
+    AddHook(HookAt(family::kNearPicture1), "NearPicture1", [](M68K &c) { return NearPicture(c, kRooms[0]); });
+    AddHook(HookAt(family::kNearPicture2), "NearPicture2", [](M68K &c) { return NearPicture(c, kRooms[1]); });
+    AddHook(HookAt(family::kNearPicture3), "NearPicture3", [](M68K &c) { return NearPicture(c, kRooms[2]); });
+    AddHook(HookAt(family::kNearPicture4), "NearPicture4", [](M68K &c) { return NearPicture(c, kRooms[3]); });
     // (not in the Enhanced preset: it shows more of the stage than the board does, and a player who wants the game as
     // it is played in competition must not get that without asking)
     TheGame().features.push_back({"widescreen", "Display", "Widescreen",

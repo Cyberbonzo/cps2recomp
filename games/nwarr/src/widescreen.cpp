@@ -197,6 +197,34 @@ namespace {
         return ThePanel(tile, attributes) ? 0 : g_shift;
     }
 
+    // 00559C, 005600, 005638, 005672 (family::kNearPicture1 to 4), from where each tests the object's place across (A6
+    // its record, A0 the record of the scroll screen it rides on, D0 and D1 its place): the object is drawn (+01 set)
+    // only while it is within the routine's margin (0x40, 0x60, 0x80 or 0x100) of the board's picture across (its 384
+    // columns) and of 256 lines down. A stage's pieces go through these (Talbain's barrels, Sasquatch's signs), so in
+    // the wide picture they were left out in its added columns: played wide the margin across is that much more on each
+    // side. (With invisible walls the game stays the board's: the margin is 0 and the game's code runs.)
+    bool NearPicture(M68K &c, int which, uint16_t margin) {
+        if (!Margin()) {
+            return false;
+        }
+        const uint32_t object = c.a[6] & 0xFFFFFF, layer = c.a[0] & 0xFFFFFF;
+        const uint16_t across = static_cast<uint16_t>(Video::kWidth + 2 * margin), down = static_cast<uint16_t>(0x100 + 2 * margin);
+        const auto low = [](uint32_t reg) { return static_cast<uint16_t>(reg); };
+        SetLow16(c.d[0], static_cast<uint16_t>(low(c.d[0]) - Ram16(layer + kX) + margin + Margin()));
+        SetLow16(c.d[1], static_cast<uint16_t>(low(c.d[1]) - Ram16(layer + kY) + margin));
+        if (low(c.d[0]) > across + 2 * Margin() || low(c.d[1]) > down) {
+            SetRam8(object + 1, 0); // (not drawn)
+            Return(c);
+            return true;
+        }
+        SetRam8(object + 1, 1);
+        if (which > 1) {
+            c.a[0] = family::kNearPictureTable; // (as the routine's lea leaves it)
+        }
+        c.pc = family::kNearPictureDrawn;
+        return true;
+    }
+
     // The wide picture's switches for the frame about to run (the port's, or a spare's): the camera's place now and
     // where it was for the picture being made (a frame behind)
     void SetWide(Machine &machine, int camera, int shown) {
@@ -290,6 +318,10 @@ void RegisterWidescreen() {
     AddHook(HookAt(At(0x0FF780)), "CameraRight", CameraRight);
     AddHook(HookAt(At(0x0FF7BA)), "CameraLeft", CameraLeft);
     AddHook(HookAt(At(0x006BAC)), "KeepIn", KeepIn);
+    AddHook(HookAt(family::kNearPicture1), "NearPicture1", [](M68K &c) { return NearPicture(c, 1, 0x40); });
+    AddHook(HookAt(family::kNearPicture2), "NearPicture2", [](M68K &c) { return NearPicture(c, 2, 0x60); });
+    AddHook(HookAt(family::kNearPicture3), "NearPicture3", [](M68K &c) { return NearPicture(c, 3, 0x80); });
+    AddHook(HookAt(family::kNearPicture4), "NearPicture4", [](M68K &c) { return NearPicture(c, 4, 0x100); });
     // (not in the Enhanced preset: it shows more of the stage than the board does, and a player who wants the game as
     // it is played in competition must not get that without asking)
     TheGame().features.push_back({"widescreen", "Display", "Widescreen",

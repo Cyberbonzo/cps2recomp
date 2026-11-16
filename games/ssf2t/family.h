@@ -111,6 +111,12 @@ inline constexpr uint16_t kSoundEntry = 0x10, kSoundQueueMask = 0xFF0, kTuneOff 
 // Every word holding the camera's place across (the first the camera's own)
 inline constexpr uint32_t kCameraCopies[] = {0xFF8ED4, 0xFF8FEA, 0xFF8FEC, 0xFF8FEE, 0xFF8FF0};
 
+// The routines that have an object drawn only while it is near the board's picture (Super Turbo's 003036, 00306E and
+// 0030A6, and a fourth of the World Warrior's line: 0 where a game has none): where each tests the object's place
+// across, and where they all go on to have it drawn. src/widescreen.cpp widens them.
+inline constexpr uint32_t kNearPicture1 = 0x003046, kNearPicture2 = 0x00307E, kNearPicture3 = 0x0030B4, kNearPicture4 = 0;
+inline constexpr uint32_t kNearPictureDrawn = 0x0030D4;
+
 // Free play: the game's own coin mode for it (src/coins.cpp), or a DIP switch's bit (bank, bit) on a board that has one
 inline constexpr bool kFreePlayDip = false;
 inline constexpr int kFreePlayBank = 0, kFreePlayBit = 0;
