@@ -103,9 +103,12 @@ bool ThePanel(uint32_t tile, uint16_t attributes) {
     // (and the faces beside the bars, in the players' own colour sets: tiles 16C00-177FF, which no fighter's picture uses)
     return (set >= 0x15 && set <= 0x18) || (set >= 0x1A && set <= 0x1F) || (tile >= 0x16C00 && tile < 0x17800);
 }
+// (a stage's own objects: colour sets 10-13, and 0F, which the stages use too (Ryu's castle has two pieces in it, entries
+// in the middle of the castle's, and 22 of the 26 stages draw something in it); the fighters have 00-09, each player five,
+// their effects in their own; the panel 15-1F)
 bool IsStagePiece(uint16_t attributes) {
     const unsigned set = attributes & 0x1F;
-    return set >= 0x10 && set <= 0x13;
+    return set == 0x0F || (set >= 0x10 && set <= 0x13);
 }
 bool NotTheStage(uint32_t, uint16_t attributes) {
     return !IsStagePiece(attributes);
