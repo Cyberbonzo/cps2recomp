@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Input delay for hosting**: the launcher's Online page has an **Input delay** choice (0 to 8 frames, 2 unless chosen)
+  under Host, for the matches you host and the invitations you send; the other player gets the same.
+- **Country flags in the waiting room**: choose **Your country** on the Online page (none unless you do) and the
+  others in the waiting room see your flag and country beside your name, as you see theirs. Needs the online service
+  deployed with it (`online/`); an older service just doesn't pass countries on.
 - **Sound filter**: the in-game menu's **Game > Sound** page, every game. The QSound chip plays its samples without
   smoothing between them, which leaves a hiss and grit in the treble that headphones and good speakers bring out;
   **Soft** takes the treble down from about 8 kHz, **Softer** from about 5 kHz (a second-order low-pass on what is
