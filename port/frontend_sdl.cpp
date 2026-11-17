@@ -8,6 +8,7 @@
 #include "port.h"
 #include "png_write.h"
 #include "present.h"
+#include "sound_filter.h"
 #include "touch.h"
 
 #include "../runtime/game.h"
@@ -374,6 +375,7 @@ int RunWindowed(Port &port) {
     int audioDropped = 0;
     // (--mute starts with no sound; the menu's Sound row switches it on, so the device is opened all the same)
     SDL_AudioStream *audio = nullptr;
+    SoundFilter soundFilter; // (the menu's Sound filter: sound_filter.h)
     port.menu.muted = port.opt.mute;
     bool silent = false;
     {
@@ -851,6 +853,7 @@ int RunWindowed(Port &port) {
                         static_cast<unsigned long long>(port.frame), waiting * 1000, audioLeast * 1000, ratio, audioDropped);
                 audioLeast = 1;
             }
+            soundFilter.Apply(made.data(), made.size() / 2, FeatureValue("sound_filter"), QSound::kSampleRate);
             SDL_PutAudioStreamData(audio, made.data(), static_cast<int>(made.size() * sizeof(int16_t)));
         }
         made.clear();

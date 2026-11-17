@@ -687,6 +687,13 @@ void RegisterPortFeatures() {
                                   "How large the window opens, in times the board's 224 lines (it can be made any size by "
                                   "dragging its edges; full screen is on the launcher's first page and F11).",
                                   0, {"3x", "2x", "4x", "5x", "6x"}});
+    // (sound_filter: port/sound_filter.h, in the frontend; only what is heard, so it is each player's own online)
+    TheGame().features.push_back({"sound_filter", "Sound", "Sound filter",
+                                  "Softens the board's sound: the sound chip's samples are played without smoothing, which "
+                                  "leaves a hiss and grit in the treble that headphones and good speakers bring out (the "
+                                  "board's own amplifier took some of it away). Soft takes off the harshest of it; Softer, "
+                                  "more, for a warmer sound. Off: the sound as the chip makes it.",
+                                  0, {"Off", "Soft", "Softer"}});
     // (custom_soundtrack: soundtrack.h; for a game whose sources say where its sound program's songs are)
     if (TheGame().songCount) {
         TheGame().features.push_back({"custom_soundtrack", "Sound", "Custom soundtrack",
