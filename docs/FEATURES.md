@@ -59,6 +59,24 @@ F12 saves the picture as the window shows it, at the board's size (384 by 224, w
 readouts on it but not the camera's zoom, to `screenshots/` in the game's folder, as `<game> <date> <time>.png`
 (`Port::Screenshot`, issue #31). Where it went is said at the bottom for a few seconds.
 
+## Scene export
+
+The picture taken apart (`port/scene.h`, issue #366; the in-game menu's **Game > Scene export** page, every game).
+**Save scene** (Shift+F12) writes a folder in `exports/scenes/` beside the saves: `picture.png`, the picture as the
+board drew it, and each of the board's layers by itself, with nothing where the layer has nothing: its three scroll
+screens (`scroll1`, 8-pixel tiles; `scroll2`, 16; `scroll3`, 32) and its objects (which hold the fighters, the panel
+and parts of stages). A CPS-2 puts objects among the scroll screens by their level, so its objects can be split in
+more than one layer (`objects-0` to `objects-3`: how many scroll screens are behind them). `scene.json` lists the
+layers back to front; laid over each other on the backdrop colour in that order they make `picture.png` again. A
+fight on another game's stage has that game's layers too (`stage-...`), behind the game's.
+
+Each layer is the frame drawn again from its records (`video/native.h`, `LastFrame`) with only that layer on, so what
+the game changed part way down the screen is in it as it was. **Record clip** (Ctrl+F12) does the same for every frame
+of 3, 5 or 10 seconds (**Clip length**), each layer's frames in a folder of their own (`objects/0001.png`...), with
+each frame's layers in `scene.json`; the files are written by threads beside the game.
+
+The stage viewer's **Save whole stage** puts a stage together from one end to the other ([more](MODES.md#stage-viewer)).
+
 **Rapid fire** is the port's own (`rapid_fire`, Game page, every game): a held button is the game's pressed for two
 frames and let go for two, for the first button or for all of them, from the frame it goes down. Movies keep what the
 player held.

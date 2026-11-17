@@ -125,6 +125,9 @@ Linux, the Steam Deck and Windows can play each other.
   (the host's choice) ([more](docs/MODES.md#the-stage)).
 - **Alternative modes** in the fighting games: survival, ring out, an endless battle the game plays itself, and in
   most a tag team battle; plus a stage viewer and a model viewer that saves a character's animations as PNG frames, sheets and looping GIFs ([more](docs/MODES.md#model-viewer)).
+- **Scene and stage export**: any moment of any game saved as its layers, each a see-through PNG (the scroll screens,
+  the objects), for a frame or a few seconds of them; and in the fighting games' stage viewer, a whole stage from end to
+  end, each layer in full with its parallax pace ([more](docs/FEATURES.md#scene-export)).
 - **Ball battle**, a ball game in the Vampire Savior games and the Street Fighter Alphas: each fighter on a half of the stage, hitting a big ball past the other with
   their attacks, first to 3, 5 or 10 ([more](docs/COURT.md)).
 - **Shoot-'em-up training mode** in Giga Wing, Progear and Dimahoo: any stage or straight at its boss, back to the start with one

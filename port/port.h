@@ -163,6 +163,9 @@ struct Port {
     SceneExport scene;
     void SaveScene();
     void SceneClip();
+    // The stage viewer's Save whole stage (fight/alternative.h, StageSweep): its frames stitched (scene.h), each frame
+    StageStitch stageStitch;
+    void StageSweepFrame();
     // One tick; true if the game ran (so that there is a new picture and sound)
     bool Tick();
     // The keys that work while playing: 'p' stops and starts, 'o' goes on by a frame, '-' and '=' change the

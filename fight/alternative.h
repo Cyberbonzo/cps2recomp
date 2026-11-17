@@ -158,6 +158,17 @@ bool StageViewerShowing(); // (its stage in the picture: on its way there no lon
 int StageViewerStage();
 void End();
 
+// The whole stage saved (the stage viewer's page, Save whole stage; port/scene.h stitches it): the viewer started on the
+// stage chosen if it is not on, its camera taken to the stage's left end and held there until the game's camera is
+// there too (Settling), then moved across to its right end at a steady pace and held there again (Across: each of
+// these frames is part of the picture), then Done until the port has taken it (EndStageSweep). Not for Infinite.
+enum class Sweep { None, Settling, Across, Done, Refused };
+Sweep StageSweep();
+void EndStageSweep();
+// ... the stage's name, and where the viewer's camera is (pixels, the picture's left edge in the stage)
+const char *SweepStageName();
+int SweepCamera();
+
 // Around the port's machine's frame (the game's beforeFrame and frame), and its save states
 void BeforeFrame(Machine &machine);
 void Frame(Machine &machine);

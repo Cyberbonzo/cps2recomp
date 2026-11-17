@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Scene export** (issue #366): the in-game menu's **Game > Scene export** page, every game. **Save scene**
+  (Shift+F12) saves the picture and each of the board's layers by itself as see-through PNGs (scroll screens 1-3; the
+  objects, a CPS-2's split by where their level puts them among the screens), with `scene.json` of their order; a fight
+  on another game's stage has that stage's layers too. **Record clip** (Ctrl+F12) does it for every frame of 3, 5 or
+  10 seconds. In `exports/scenes/` (`port/scene.h`). The CPS-1's picture now marks a scroll screen's pixels when asked
+  (`markLayers`), as the CPS-2's did.
+- **Whole stage export** (issues #370, #371): the stage viewer's **Save whole stage** goes from the stage's left end
+  to its right and puts each layer together in full, by its own scroll on each line, with all of them put together and
+  `stage.json` of each layer's parallax pace. In `exports/stages/`.
+
 - **Model viewer exports**: **Save picture** saves the character as shown on a see-through background (PNG);
   **Save animation** saves every frame of the animation shown, each as a PNG, a sheet of them, a looping animated PNG
   and GIF with the game's own frame times, and `animation.json`, in `exports/` beside the saves, at 1x to 8x (Export

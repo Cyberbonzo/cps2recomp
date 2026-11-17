@@ -12,6 +12,7 @@
 #include "hud.h"
 #include "i18n.h"
 #include "../runtime/board.h"
+#include "../fight/alternative.h"
 #include "../fight/battle.h"
 #include "../fight/tag.h"
 #include "../fight/guest_stages.h"
@@ -2165,6 +2166,45 @@ void Port::SceneClip() {
     menu.recordingClip = scene.Recording();
 }
 
+void Port::StageSweepFrame() {
+    switch (modes::StageSweep()) {
+    case modes::Sweep::None: break;
+    case modes::Sweep::Settling:
+        if (!stageStitch.Begun()) {
+            stageStitch.Begin(modes::SweepCamera());
+            shotSaid = recomp::Tr("SAVING WHOLE STAGE...");
+            shotTicks = 1 << 30; // (until it is saved)
+        }
+        break;
+    case modes::Sweep::Across: stageStitch.Add(*machine, modes::SweepCamera()); break;
+    case modes::Sweep::Done: {
+        const std::string stage = modes::SweepStageName();
+        std::string name = std::string(GAME_ID " ") + stage;
+        for (char &c : name) {
+            if (strchr("/\\:*?\"<>|", c)) {
+                c = ' ';
+            }
+        }
+        if (!scene.WriteStage(std::move(stageStitch), PlayerFolder() + "exports/stages/", name, stage)) {
+            shotSaid = recomp::Tr("A STAGE IS STILL BEING SAVED");
+            shotTicks = kSpeedTicks;
+        }
+        stageStitch = StageStitch();
+        modes::EndStageSweep();
+        break;
+    }
+    case modes::Sweep::Refused: {
+        // (a stage begun and ended under it: a state loaded, the viewer left; or Infinite chosen)
+        const bool begun = stageStitch.Begun();
+        stageStitch.End();
+        shotSaid = recomp::Tr(begun ? "WHOLE STAGE NOT SAVED" : "CHOOSE A STAGE (NOT INFINITE) TO SAVE");
+        shotTicks = kSpeedTicks;
+        modes::EndStageSweep();
+        break;
+    }
+    }
+}
+
 bool Port::SaveState(const std::string &path, std::string &error) {
     std::vector<uint8_t> data;
     Archive ar(data, true);
@@ -3284,6 +3324,7 @@ void Port::RunFrame() {
         scene.Frame(*machine);
         menu.recordingClip = scene.Recording();
     }
+    StageSweepFrame();
     guest_stages::LookFrame(*machine);
     if (opt.shotEvery && frame % opt.shotEvery == 0) {
         char shot[512];

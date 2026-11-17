@@ -68,6 +68,15 @@ co-op against the computer's team, or 2 vs 2 for four players.
 
 Any stage with nobody on it, scrolled with the stick or by itself, with any tune.
 
+**Save whole stage** saves the stage chosen from one end to the other, in a folder of its own in `exports/stages/`:
+each of its layers in full (as the scene export splits them, [more](FEATURES.md#scene-export)), and `stage.png`, all
+of them put together. The viewer goes to the stage's left end and across to its right, about ten seconds, and each
+frame's layers are put in place: a scroll screen by where it is in its map on each line (a floor's lines each at their
+own pace, so the floor comes out flat), objects by how far their picture moved. A stage's planes go at different
+paces, so there is no one right picture of all of them: `stage.png` has each where it is with the camera in the
+middle, and `stage.json` gives each layer's pace (its pixels moved for each of the camera's: the far sky about 0.2,
+the floor 1) and its place in `stage.png`.
+
 ![The stage viewer in Street Fighter Alpha 2](screenshots/sfa2/stage-viewer.png)
 
 ### Model viewer

@@ -51,6 +51,14 @@ namespace {
     constexpr int kOnTheWay = 3;       // frames a frame that the next stage runs until its round is on
     constexpr size_t kSoundAhead = 16; // samples of the next stage's sound kept in hand
 
+    // The whole stage saved (alternative.h, StageSweep): not part of a save state (a state loaded ends it)
+    struct SweepState {
+        Sweep phase = Sweep::None;
+        int frames = 0; // (in the phase)
+    } g_sweep;
+    constexpr int kSweepSettle = 90;      // frames the camera is held at each end for the game's to come to it
+    constexpr int32_t kSweepStep = 512;   // the camera's step across a frame, in 256ths of a pixel (two pixels)
+
     int Stages() {
         return static_cast<int>(d.stageNames.size());
     }
@@ -174,7 +182,23 @@ namespace {
         machine.players[0] = machine.players[1] = 0;
         const int scroll = std::clamp(FeatureValue("viewer_scroll"), 0, static_cast<int>(std::size(kScroll)) - 1);
         const int32_t byStick = stick == kRight ? kStick : stick == kLeft ? -kStick : 0;
-        if (g.infinite) {
+        if (g_sweep.phase == Sweep::Settling || g_sweep.phase == Sweep::Across) {
+            // The whole stage saved: held at the left end, then across to the right end, and held there (run-ahead's
+            // frames, put back after, move the camera as the frame would but leave the phase as it is)
+            const bool counted = !RunningAhead();
+            g_sweep.frames += counted ? 1 : 0;
+            if (g_sweep.phase == Sweep::Settling) {
+                g.camera = LeftEnd();
+                if (g_sweep.frames >= kSweepSettle) {
+                    g_sweep = {Sweep::Across, 0};
+                }
+            } else if (g.camera < RightEnd()) {
+                g.camera = std::min(g.camera + kSweepStep, RightEnd());
+                g_sweep.frames = 0;
+            } else if (g_sweep.frames >= kSweepSettle) {
+                g_sweep = {Sweep::Done, 0};
+            }
+        } else if (g.infinite) {
             // Always onwards by itself; with the stick, back as well, as far as this stage's start. The stage is
             // scrolled to its end, and then slides out as the next comes in (if that one is ready).
             int32_t by = scroll == 0 ? byStick : kScroll[scroll];
@@ -461,6 +485,22 @@ bool AttractMode() {
 bool StageViewer() {
     return g.mode == Mode::Viewer;
 }
+Sweep StageSweep() {
+    // (the viewer ended or changed under it: no more)
+    if ((g_sweep.phase == Sweep::Settling || g_sweep.phase == Sweep::Across) && (g.mode != Mode::Viewer || g.infinite)) {
+        g_sweep = {Sweep::Refused, 0};
+    }
+    return g_sweep.phase;
+}
+void EndStageSweep() {
+    g_sweep = {};
+}
+const char *SweepStageName() {
+    return g.stage >= 1 && g.stage <= Stages() ? d.stageNames[static_cast<size_t>(g.stage - 1)] : "Stage";
+}
+int SweepCamera() {
+    return g.camera / 256;
+}
 bool StageViewerShowing() {
     return g.mode == Mode::Viewer && !g.starting;
 }
@@ -517,6 +557,9 @@ void State(Archive &ar) {
     ar.Pod(g);
     ar.Vec(g_other);
     if (!ar.Saving() && !RunningAhead()) { // (not when run-ahead puts the frame back: runtime/game.h)
+        if (g_sweep.phase == Sweep::Settling || g_sweep.phase == Sweep::Across) {
+            g_sweep = {Sweep::Refused, 0}; // (a state loaded: the whole stage is not saved)
+        }
         Fast(false);
         g_otherSound.assign(kSoundAhead * 2, 0);
         g_carry.clear();
@@ -575,6 +618,21 @@ void Register(const Description &description) {
                              "Shows the stage chosen below with nobody on it. Left and right scroll it, or it scrolls by itself. "
                              "Reset ends it.",
                              StartViewer});
+    game.commands.push_back({"viewer_save_stage", kViewer, "Save whole stage",
+                             "Saves the stage chosen below from one end to the other, with nobody on it: each of its layers in "
+                             "full, as a picture with nothing where the layer has nothing, and all of them put together, in a "
+                             "folder of its own in exports/stages beside your saves. The viewer goes to the stage's left end and "
+                             "across to its right (about ten seconds); the game goes on meanwhile. Not for Infinite.",
+                             [](Machine &machine) {
+                                 if (FeatureValue("viewer_stage") >= Stages()) {
+                                     g_sweep = {Sweep::Refused, 0};
+                                     return;
+                                 }
+                                 if (g.mode != Mode::Viewer || FeatureValue("viewer_stage") != g_chosenStage) {
+                                     StartViewer(machine);
+                                 }
+                                 g_sweep = {Sweep::Settling, 0};
+                             }});
     game.features.push_back({"viewer_stage", kViewer, "Stage",
                              "The stage the viewer shows, or Infinite: every stage in turn, each scrolling into the next with its "
                              "own tune. Changing it while viewing goes to the new one.",

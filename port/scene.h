@@ -27,6 +27,8 @@ class Machine;
 
 namespace port {
 
+class StageStitch;
+
 class SceneExport {
 public:
     ~SceneExport();
@@ -43,6 +45,9 @@ public:
     void Frame(cps2recomp::Machine &machine);
     // What is to be said now (a clip finished writing, or one could not be): true once for each
     bool TakeSaid(std::string &said);
+    // A whole stage's files written on a thread of their own (StageStitch::Write); what it says is said as the above.
+    // False: one is being written still.
+    bool WriteStage(StageStitch &&stitch, const std::string &under, const std::string &name, const std::string &stage);
 
     // A layer of a scene: a board's scroll screen or its objects, its pixels red in the low byte, then green, blue, and
     // 0xFF in the top byte where it has something (0: nothing)
@@ -54,6 +59,9 @@ public:
         unsigned levels = 0;      // (objects: the levels drawn in it, bit n level n; 0xFF all)
         std::vector<uint32_t> pixels;
         bool empty = true;
+        // (a scroll screen's: on each line, its map's column at the picture's left edge and its map's line there, not
+        // wrapped: for the whole stage put together, StageStitch)
+        std::vector<int> mapX, mapY;
     };
     struct Scene {
         int width = 0, height = 0;
@@ -94,6 +102,53 @@ private:
     bool m_saying = false;
     void Writer();
     void Finish();
+    std::thread m_stageWriter;
+    std::atomic<bool> m_stageWriting{false};
+};
+
+// The whole stage put together (issues #370, #371), from the stage viewer's frames as its camera goes from the stage's
+// left end to its right (fight/alternative.h, StageSweep): each layer in full, in its own place (a scroll screen by
+// where it is in its map on each line, so that its row scroll and its own pace are its; an objects layer by how far its
+// picture moved since the frame before), the board's own columns preferred to a wide picture's added ones (which a game
+// may not have painted), each pixel as it was first seen. With a stage's planes going at their own paces there is no
+// one right picture of all of them: the put-together one has each layer where it is with the camera in the middle of
+// its way, and stage.json says each layer's pace (its pixels moved for each of the camera's).
+class StageStitch {
+public:
+    void Begin(int camera);
+    bool Begun() const {
+        return m_begun;
+    }
+    // A frame of the camera's way across (where the viewer's camera is, in pixels)
+    void Add(cps2recomp::Machine &machine, int camera);
+    // The stage's files in a folder of its own under `under` named `name`; what to say. The stitch is over.
+    std::string Write(const std::string &under, const std::string &name, const std::string &stage);
+    void End() {
+        m_begun = false;
+        m_layers.clear();
+    }
+
+private:
+    static constexpr int kOrigin = 128, kWidth = 4096, kHeight = 224 + 2 * kOrigin;
+    struct Canvas {
+        std::string name, board;
+        int which = 0;
+        unsigned levels = 0;
+        std::vector<uint32_t> pixels;
+        std::vector<uint8_t> seen; // (0: not yet; 1: from a wide picture's added columns; 2: from the board's own)
+        // (a scroll screen's, on each line: where it was in its map the frame before, and how far it has moved since the
+        // first: not wrapped)
+        std::vector<int> lastX, lastY, movedX, movedY;
+        // (an objects layer's: how far it has moved, and its picture the frame before)
+        int offX = 0, offY = 0;
+        std::vector<uint32_t> last;
+        int firstCamera = 0, lastCamera = 0;
+        bool started = false;
+    };
+    std::vector<Canvas> m_layers;
+    bool m_begun = false;
+    int m_width = 0, m_frames = 0;
+    uint32_t m_backdrop = 0;
 };
 
 } // namespace port
