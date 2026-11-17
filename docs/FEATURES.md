@@ -77,6 +77,13 @@ each frame's layers in `scene.json`; the files are written by threads beside the
 
 The stage viewer's **Save whole stage** puts a stage together from one end to the other ([more](MODES.md#stage-viewer)).
 
+**The scene diorama** (`tools/diorama/diorama.html`, issue #380) shows what these save as cut-outs at their own depths:
+open the file in a browser, then open a saved folder (or drop it on the page). Each layer is put further back and made
+larger by as much, so the front view (Game view) is the game's picture at any spread; turn it, pull the layers apart,
+hide or solo them, add shadows between them, haze or scanlines, and take a photo at up to 4x. A clip steps frame by
+frame or plays at 1x to 1/16x. A whole stage's layers go back by their parallax pace, so at a spread of 1 moving the
+camera across it gives the game's own parallax. Nothing leaves the browser.
+
 **Rapid fire** is the port's own (`rapid_fire`, Game page, every game): a held button is the game's pressed for two
 frames and let go for two, for the first button or for all of them, from the frame it goes down. Movies keep what the
 player held.
