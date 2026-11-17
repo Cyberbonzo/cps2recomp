@@ -69,6 +69,9 @@ public:
         uint32_t backdrop = 0;
         std::vector<uint32_t> picture; // (as shown, solid)
         std::vector<Layer> layers;     // (back to front)
+        // A fighting game's picture by what is in it (issue #367: the stage behind the fighters, each player, the stage in
+        // front of them, the panel, anything else), back to front; none for a game that does not say (battle::PartOf)
+        std::vector<Layer> parts;
     };
     // The last frame's scene (false: no records to draw it from: before the game's first object list, or --video board)
     static bool Take(cps2recomp::Machine &machine, Scene &scene);
@@ -80,6 +83,8 @@ private:
         int wanted = 0, taken = 0;
         std::vector<std::string> names; // (the first frame's layers, in its order: the folders)
         std::string json;               // (each frame's line of scene.json)
+        std::vector<std::string> partNames; // (... and the parts', issue #367)
+        std::string partsJson;
     } m_clip;
     // The writers: frames waiting to be written as PNGs
     struct Job {

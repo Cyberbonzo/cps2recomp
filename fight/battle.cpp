@@ -2191,6 +2191,26 @@ bool RingOutLetsOut(uint32_t player) {
     return left || right;
 }
 
+battle::Part battle::PartOf(uint32_t tile, uint16_t attributes) {
+    if (!d.notTheStage || !d.playerSets) {
+        return kUnknown;
+    }
+    if (d.thePanel && d.thePanel(tile, attributes)) {
+        return kPanel;
+    }
+    const uint32_t set = 1u << (attributes & 0x1F);
+    for (int n = 0; n < 2; n++) {
+        if (d.playerSets(n) & set) {
+            return n == 0 ? kPlayer1 : kPlayer2;
+        }
+    }
+    return d.notTheStage(tile, attributes) ? kOther : kStage;
+}
+
+unsigned battle::PanelLayers() {
+    return d.panelLayers;
+}
+
 int battle::RoundResultNow() {
     return !g_described ? -1 : d.resultNow ? d.resultNow() : Ram8(d.result);
 }

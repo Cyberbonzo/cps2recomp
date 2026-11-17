@@ -3,6 +3,8 @@
 
 #include "scene.h"
 
+#include "../fight/alternative.h"
+#include "../fight/battle.h"
 #include "../fight/guest_stages.h"
 #include "../machine/machine.h"
 #include "../model/image_files.h"
@@ -20,6 +22,7 @@ using cps2recomp::Machine;
 using cps2recomp::NativeVideo;
 using cps2recomp::Video;
 namespace image_files = cps2recomp::image_files;
+namespace battle = cps2recomp::battle;
 
 namespace {
     constexpr int kMostWaiting = 120; // (a clip's frames waiting to be written: past that it is cut short)
@@ -197,6 +200,140 @@ namespace {
         }
     }
 
+    // A fighting game's picture by what is in it (battle::PartOf): each part the frame drawn again with only its objects and
+    // its scroll screens on, so that a part is whole where another covers it. The stage's pieces are behind the fighters
+    // or in front of them by where they are among the layers (Order) against the fighters' place, and objects at the
+    // fighters' own level by their entry (later entries in front). On another game's stage (`stage`, moved down `shift`
+    // lines) the stage's parts are that board's picture, split by its marks of what is in front of the fighters.
+    enum PartIndex { kStageBehind, kOther, kPlayerBack, kPlayerFront, kStageFront, kPanel, kParts };
+    void BoardParts(const NativeVideo::FrameData &frame, int width, const NativeVideo::FrameData *stage, int shift,
+                    std::vector<SceneExport::Layer> &out) {
+        using battle::Part;
+        if (!cps2recomp::modes::RoundFought()) {
+            return; // (only in a round: the menus and the character choice have no players or stage to tell apart)
+        }
+        const auto &tiles = frame.raster->Tiles();
+        std::vector<Part> part(tiles.size(), battle::kOther);
+        int playerLevels[8] = {}, firstEntry[2] = {1 << 20, 1 << 20}, lastEntry[2] = {-1, -1};
+        for (size_t n = 0; n < tiles.size(); n++) {
+            part[n] = battle::PartOf(tiles[n].entryTile, tiles[n].attributes);
+            if (part[n] == battle::kUnknown) {
+                return; // (a game that does not say what its objects are)
+            }
+            const int player = part[n] == battle::kPlayer1 ? 0 : part[n] == battle::kPlayer2 ? 1 : -1;
+            if (player >= 0 && !tiles[n].hidden) {
+                playerLevels[tiles[n].level & 7]++;
+                firstEntry[player] = std::min(firstEntry[player], static_cast<int>(tiles[n].entry));
+                lastEntry[player] = std::max(lastEntry[player], static_cast<int>(tiles[n].entry));
+            }
+        }
+        // (the player in front: the one whose entries come later)
+        const int front = lastEntry[1] > lastEntry[0] ? 1 : 0;
+        const int lastPlayer = std::max(lastEntry[0], lastEntry[1]);
+        // The fighters' place among the layers: that of the level most of their tiles have (none: all the stage behind)
+        const std::vector<Place> places = Order(frame);
+        const int level = static_cast<int>(std::max_element(playerLevels, playerLevels + 8) - playerLevels);
+        size_t fighters = places.size();
+        if (lastPlayer >= 0) {
+            for (size_t n = 0; n < places.size(); n++) {
+                if (places[n].which == 0 && ((places[n].levels >> level) & 1)) {
+                    fighters = n;
+                }
+            }
+        }
+        auto placeOf = [&](const cps2recomp::native_video::ObjectTile &t) {
+            for (size_t n = 0; n < places.size(); n++) {
+                if (places[n].which == 0 && ((places[n].levels >> t.level) & 1)) {
+                    return n;
+                }
+            }
+            return places.size();
+        };
+        std::vector<uint8_t> index(tiles.size());
+        for (size_t n = 0; n < tiles.size(); n++) {
+            switch (part[n]) {
+            case battle::kPanel: index[n] = kPanel; break;
+            case battle::kPlayer1: index[n] = front == 0 ? kPlayerFront : kPlayerBack; break;
+            case battle::kPlayer2: index[n] = front == 1 ? kPlayerFront : kPlayerBack; break;
+            case battle::kStage: {
+                const size_t at = placeOf(tiles[n]);
+                const bool inFront = at > fighters || (at == fighters && static_cast<int>(tiles[n].entry) > lastPlayer);
+                index[n] = inFront ? kStageFront : kStageBehind;
+                break;
+            }
+            default: index[n] = kOther; break;
+            }
+        }
+        // The scroll screens: the panel's, else the stage's, behind or in front of the fighters
+        const unsigned panelLayers = battle::PanelLayers();
+        unsigned scrolls[kParts] = {};
+        for (size_t n = 0; n < places.size(); n++) {
+            const int which = places[n].which;
+            if (which && (frame.options.layerMask & (1u << which))) {
+                scrolls[(panelLayers >> which) & 1 ? kPanel : n < fighters ? kStageBehind : kStageFront] |= 1u << which;
+            }
+        }
+        static const char *const kNames[kParts] = {"stage-behind", "other", "player", "player", "stage-front", "panel"};
+        std::vector<uint32_t> drawn(static_cast<size_t>(width) * Video::kHeight);
+        for (int p = 0; p < kParts; p++) {
+            SceneExport::Layer one;
+            one.name = std::string("part-") + kNames[p];
+            if (p == kPlayerBack || p == kPlayerFront) {
+                one.name += (p == kPlayerFront) == (front == 0) ? "1" : "2";
+            }
+            one.board = "part";
+            one.pixels.assign(drawn.size(), 0);
+            auto keep = [&](const uint32_t *picture, int from, int line, uint32_t want, uint32_t mask) {
+                const uint32_t *row = &picture[static_cast<size_t>(from) * width];
+                uint32_t *to = &one.pixels[static_cast<size_t>(line) * width];
+                for (int x = 0; x < width; x++) {
+                    if ((row[x] & mask) == want && !to[x]) {
+                        to[x] = (row[x] & 0xFFFFFFu) | 0xFF000000u;
+                        one.empty = false;
+                    }
+                }
+            };
+            // (another game's stage: its pixels, those in front of the fighters or the rest)
+            if (stage && (p == kStageBehind || p == kStageFront)) {
+                NativeVideo::FrameData all = *stage;
+                all.options.markObjects = true;
+                all.options.markLayers = 0xE;
+                all.options.panelObject = nullptr;
+                // (behind: drawn again without its objects marked to be in front, so that it is whole where they were)
+                cps2recomp::native_video::Raster behind = *stage->raster;
+                if (p == kStageBehind) {
+                    behind.KeepTiles([](const cps2recomp::native_video::ObjectTile &t) { return !(t.marks & Video::kFrontPixel); });
+                    all.raster = &behind;
+                    all.options.markFront = false;
+                }
+                NativeVideo::DrawFrame(all, drawn.data(), width);
+                const uint32_t want = p == kStageFront ? 0xC0000000u : 0x80000000u;
+                for (int line = 0; line < Video::kHeight; line++) {
+                    keep(drawn.data(), std::clamp(line - shift, 0, Video::kHeight - 1), line, want, 0xC0000000u);
+                }
+            }
+            const bool objects = std::any_of(index.begin(), index.end(), [p](uint8_t i) { return i == p; });
+            if (objects || scrolls[p]) {
+                NativeVideo::FrameData alone = frame;
+                alone.options.layerMask = scrolls[p] | (objects ? 1u : 0u);
+                alone.options.markObjects = true;
+                alone.options.markLayers = scrolls[p];
+                alone.options.markFront = false;
+                alone.options.panelObject = nullptr;
+                cps2recomp::native_video::Raster only = *frame.raster;
+                size_t at = 0;
+                // (KeepTiles goes through the tiles in order: each by its own place in `index`)
+                only.KeepTiles([&](const cps2recomp::native_video::ObjectTile &) { return index[at++] == p; });
+                alone.raster = &only;
+                NativeVideo::DrawFrame(alone, drawn.data(), width);
+                for (int line = 0; line < Video::kHeight; line++) {
+                    keep(drawn.data(), line, line, 0x80000000u, 0x80000000u);
+                }
+            }
+            out.push_back(std::move(one));
+        }
+    }
+
     image_files::Picture AsPicture(const std::vector<uint32_t> &pixels, int width, int height) {
         image_files::Picture picture;
         picture.width = width;
@@ -219,15 +356,22 @@ namespace {
             return folder + name + "/" + file;
         };
         bool written = image_files::WritePng(path("picture"), AsPicture(scene.picture, scene.width, scene.height));
-        for (const SceneExport::Layer &layer : scene.layers) {
-            if (!layer.empty) {
-                written = image_files::WritePng(path(layer.name), AsPicture(layer.pixels, scene.width, scene.height)) && written;
+        for (const auto *list : {&scene.layers, &scene.parts}) {
+            for (const SceneExport::Layer &layer : *list) {
+                if (!layer.empty) {
+                    written = image_files::WritePng(path(layer.name), AsPicture(layer.pixels, scene.width, scene.height)) && written;
+                }
             }
         }
         return written;
     }
 
     std::string LayerJson(const SceneExport::Layer &layer, bool still) {
+        if (layer.board == "part") { // (a part of the picture by what is in it: its name, and its file or folder)
+            return "{\"name\": " + Quoted(layer.name) + ", " +
+                   (still ? "\"file\": " + (layer.empty ? std::string("null") : Quoted(layer.name + ".png")) : "\"folder\": " + Quoted(layer.name)) +
+                   "}";
+        }
         std::string json = "{\"name\": " + Quoted(layer.name) + ", \"board\": " + Quoted(layer.board) + ", \"kind\": " +
                            (layer.which ? "\"scroll\"" : "\"objects\"") + ", \"tile\": " + std::to_string(kTileSizes[layer.which]);
         if (layer.which == 0 && layer.levels != 0xFF) {
@@ -266,17 +410,21 @@ bool SceneExport::Take(Machine &machine, Scene &scene) {
         pixel = (pixel & 0xFFFFFFu) | 0xFF000000u;
     }
     scene.layers.clear();
+    scene.parts.clear();
     // (another game's stage under the game's: its layers first, behind the game's)
+    NativeVideo::FrameData stage;
+    bool guest = false;
     if (machine.guestBehind) {
         if (Machine *board = cps2recomp::guest_stages::ShownBoard()) {
-            NativeVideo::FrameData stage;
             if (board->nativeVideo.LastFrame(stage) && Video::kWidth + 2 * stage.options.side == width) {
                 scene.backdrop = stage.raster->Colours()[0xBFF] & 0xFFFFFF;
                 BoardLayers(stage, width, "stage-", "stage", machine.guestShift, scene.layers);
+                guest = true;
             }
         }
     }
     BoardLayers(frame, width, "", "game", 0, scene.layers);
+    BoardParts(frame, width, guest ? &stage : nullptr, machine.guestShift, scene.parts);
     return true;
 }
 
@@ -309,7 +457,15 @@ std::string SceneExport::Save(Machine &machine, const std::string &under, const 
     for (size_t n = 0; n < scene.layers.size(); n++) {
         json += "    " + LayerJson(scene.layers[n], true) + (n + 1 < scene.layers.size() ? ",\n" : "\n");
     }
-    json += "  ]\n}\n";
+    json += "  ]";
+    if (!scene.parts.empty()) {
+        json += ",\n  \"parts\": [\n";
+        for (size_t n = 0; n < scene.parts.size(); n++) {
+            json += "    " + LayerJson(scene.parts[n], true) + (n + 1 < scene.parts.size() ? ",\n" : "\n");
+        }
+        json += "  ]";
+    }
+    json += "\n}\n";
     if (!image_files::WriteAll(folder + "scene.json", std::vector<uint8_t>(json.begin(), json.end()))) {
         return "SCENE NOT SAVED";
     }
@@ -334,6 +490,8 @@ std::string SceneExport::StartClip(const std::string &under, const std::string &
     m_clip.taken = 0;
     m_clip.names.clear();
     m_clip.json.clear();
+    m_clip.partNames.clear();
+    m_clip.partsJson.clear();
     m_clip.on = true;
     if (m_writers.empty()) {
         const unsigned threads = std::clamp(std::thread::hardware_concurrency() / 2, 1u, 4u);
@@ -361,12 +519,22 @@ void SceneExport::Frame(Machine &machine) {
         }
         (layer.empty ? empty : order) += std::string((layer.empty ? empty : order).empty() ? "" : ", ") + Quoted(layer.name);
     }
+    std::string parts; // (the parts by what is in the picture, issue #367: those this frame has)
+    for (const Layer &part : scene.parts) {
+        if (std::find(m_clip.partNames.begin(), m_clip.partNames.end(), part.name) == m_clip.partNames.end()) {
+            m_clip.partNames.push_back(part.name);
+            m_clip.partsJson += std::string(m_clip.partsJson.empty() ? "" : "\x1F") + LayerJson(part, false);
+        }
+        if (!part.empty) {
+            parts += std::string(parts.empty() ? "" : ", ") + Quoted(part.name);
+        }
+    }
     m_clip.taken++;
     job.folder = m_clip.folder;
     job.number = m_clip.taken;
     m_frameJson += std::string(m_frameJson.empty() ? "" : ",\n") + "    {\"number\": " + std::to_string(job.number) +
                    ", \"frame\": " + std::to_string(scene.frame) + ", \"backdrop\": " + Quoted(Hex(scene.backdrop)) +
-                   ", \"layers\": [" + order + "]}";
+                   ", \"layers\": [" + order + "]" + (m_clip.partNames.empty() ? "" : ", \"parts\": [" + parts + "]") + "}";
     m_width = scene.width;
     m_height = scene.height;
     bool full;
@@ -387,16 +555,21 @@ void SceneExport::StopClip(bool cutShort) {
     }
     m_clip.on = false;
     // scene.json, written when the last frame is
-    std::string layers;
-    for (size_t at = 0; at <= m_clip.json.size();) {
-        const size_t end = std::min(m_clip.json.find('\x1F', at), m_clip.json.size());
-        layers += "    " + m_clip.json.substr(at, end - at) + (end < m_clip.json.size() ? ",\n" : "\n");
-        at = end + 1;
-    }
+    auto list = [](const std::string &joined) {
+        std::string out;
+        for (size_t at = 0; at <= joined.size();) {
+            const size_t end = std::min(joined.find('\x1F', at), joined.size());
+            out += "    " + joined.substr(at, end - at) + (end < joined.size() ? ",\n" : "\n");
+            at = end + 1;
+        }
+        return out;
+    };
+    const std::string layers = list(m_clip.json);
+    const std::string parts = m_clip.partsJson.empty() ? "" : ",\n  \"parts\": [\n" + list(m_clip.partsJson) + "  ]";
     std::string json = "{\n  \"kind\": \"clip\",\n  \"width\": " + std::to_string(m_width) + ",\n  \"height\": " +
                        std::to_string(m_height) + ",\n  \"fps\": 59.637405,\n  \"frames\": " + std::to_string(m_clip.taken) +
                        ",\n  \"picture\": \"picture\",\n  \"layers\": [\n" + (m_clip.taken ? layers : "") +
-                       "  ],\n  \"frameList\": [\n" + m_frameJson + "\n  ]\n}\n";
+                       "  ]" + parts + ",\n  \"frameList\": [\n" + m_frameJson + "\n  ]\n}\n";
     m_frameJson.clear();
     std::lock_guard<std::mutex> lock(m_lock);
     m_finalJson = std::move(json);

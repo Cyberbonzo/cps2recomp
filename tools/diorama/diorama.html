@@ -85,6 +85,7 @@ label.check input { accent-color: var(--marquee); }
 #layers .tag { font: 11px var(--mono); padding: 1px 6px; border-radius: 3px; color: var(--ground); }
 #layers .tag.scroll { background: var(--cool); }
 #layers .tag.objects { background: var(--warm); }
+#layers .tag.part { background: var(--marquee); }
 #layers .solo { padding: 2px 6px; font-size: 11px; }
 .meta { font: 12px var(--mono); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 
@@ -161,6 +162,10 @@ label.check input { accent-color: var(--marquee); }
 
   <section>
     <h2>Layers <span class="meta">back to front</span></h2>
+    <select id="split" hidden aria-label="How the picture is split">
+      <option value="parts">What's in it: stage, each player, panel</option>
+      <option value="layers">The board's layers</option>
+    </select>
     <ul id="layers"></ul>
   </section>
 
@@ -375,7 +380,9 @@ async function bitmap(blob) { return blob ? createImageBitmap(blob, { imageOrien
 
 let sources = [];
 let loading = false; // (nothing drawn meanwhile: the pictures load sooner)
+let shown = null; // (the source shown: opened again when the split is changed)
 async function show(source) {
+  shown = source;
   loading = true;
   try { await open(source); } finally { loading = false; }
 }
@@ -392,10 +399,14 @@ async function open(source) {
   W = doc.width; H = doc.height; D = gameDistance();
   clear();
   playing = false; frameAt = 0;
-  const list = (doc.layers || []).filter((l) => kind === 'clip' ? l.folder : l.file);
+  // (a fighting game's scene has its parts too, issue #367: those by default, the board's layers when chosen)
+  $('split').hidden = !doc.parts;
+  const byParts = doc.parts && $('split').value === 'parts';
+  const list = ((byParts ? doc.parts : doc.layers) || []).map((l) => (byParts ? { ...l, kind: 'part' } : l))
+    .filter((l) => kind === 'clip' ? l.folder : l.file);
   frames = kind === 'clip' ? doc.frames : 1;
   // a clip's frames: which layers each has
-  const has = kind === 'clip' ? (doc.frameList || []).map((f) => new Set(f.layers)) : null;
+  const has = kind === 'clip' ? (doc.frameList || []).map((f) => new Set(byParts ? f.parts || [] : f.layers)) : null;
   // every layer's pictures (a clip's, every frame's), eight at a time
   let loaded = 0; const total = list.length * frames;
   const all = list.map(() => new Array(frames).fill(blank));
@@ -454,11 +465,11 @@ function listLayers() {
     box.setAttribute('aria-label', `Show ${l.info.name}`);
     box.onchange = () => { l.on = box.checked; li.classList.toggle('off', !l.on); applyLook(); };
     const name = document.createElement('label'); name.className = 'name'; name.htmlFor = box.id;
-    name.textContent = l.info.name;
+    name.textContent = l.info.kind === 'part' ? l.info.name.replace(/^part-/, '') : l.info.name;
     if (typeof l.info.pace === 'number') name.title = `pace ${l.info.pace}`;
     const right = document.createElement('span'); right.className = 'row'; right.style.flex = '0 0 auto';
     const tag = document.createElement('span'); tag.className = `tag ${l.info.kind}`;
-    tag.textContent = l.info.kind === 'scroll' ? `${l.info.tile}px` : 'obj';
+    tag.textContent = l.info.kind === 'scroll' ? `${l.info.tile}px` : l.info.kind === 'part' ? 'part' : 'obj';
     const solo = document.createElement('button'); solo.className = 'solo'; solo.textContent = 'Solo';
     solo.title = 'Show this layer alone (again: all)';
     solo.onclick = () => {
@@ -577,6 +588,7 @@ async function openFiles(files) {
 }
 $('pick').addEventListener('change', (e) => openFiles([...e.target.files]));
 $('which').addEventListener('change', (e) => show(sources[Number(e.target.value)]));
+$('split').addEventListener('change', () => { if (shown) show(shown); });
 
 async function entryFiles(entry, path = '') {
   if (entry.isFile) return new Promise((ok) => entry.file((f) => { f.relPath = path + f.name; ok([f]); }, () => ok([])));

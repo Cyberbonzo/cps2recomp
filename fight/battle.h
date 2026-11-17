@@ -241,6 +241,12 @@ void Register(const Description &description);
 // description; and how many rounds win a match (online play's win streaks: port/main.cpp)
 int RoundResultNow();
 int RoundsToWin();
+// What an object is, by its tile's number and attributes as Video::hideObject has them (the scene export split by what is
+// in the picture, port/scene.h): the panel's, a player's (by their colour sets), the stage's, or none of those; kUnknown
+// for a game with no description, or one that does not say
+enum Part { kUnknown = -1, kOther = 0, kStage, kPlayer1, kPlayer2, kPanel };
+Part PartOf(uint32_t tile, uint16_t attributes);
+unsigned PanelLayers(); // (the scroll screens that are the panel: Description::panelLayers)
 bool OnlineSets();
 bool TwoPeopleNow(); // both active player records belong to people, not the computer
 // Online (port.h, OnlineEvent): a mode begun on both sides at the same frame, its choices at random from `seed` (so both
