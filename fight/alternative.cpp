@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <filesystem>
 #include <iterator>
 
 namespace cps2recomp::modes {
@@ -632,6 +633,14 @@ void Register(const Description &description) {
                                      StartViewer(machine);
                                  }
                                  g_sweep = {Sweep::Settling, 0};
+                             }});
+    game.commands.push_back({"viewer_show_stages", kViewer, "Show stages folder",
+                             "Opens exports/stages beside your saves, where Save whole stage writes, in your file manager.",
+                             [](Machine &) {
+                                 const std::string folder = PlayerFolder() + "exports/stages";
+                                 std::error_code error;
+                                 std::filesystem::create_directories(std::filesystem::path(std::u8string(folder.begin(), folder.end())), error);
+                                 OpenFolder(folder);
                              }});
     game.features.push_back({"viewer_stage", kViewer, "Stage",
                              "The stage the viewer shows, or Infinite: every stage in turn, each scrolling into the next with its "
