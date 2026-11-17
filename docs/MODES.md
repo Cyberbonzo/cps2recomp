@@ -75,7 +75,7 @@ frame's layers are put in place: a scroll screen by where it is in its map on ea
 own pace, so the floor comes out flat), objects by how far their picture moved. A stage's planes go at different
 paces, so there is no one right picture of all of them: `stage.png` has each where it is with the camera in the
 middle, and `stage.json` gives each layer's pace (its pixels moved for each of the camera's: the far sky about 0.2,
-the floor 1) and its place in `stage.png`.
+the floor 1) and its place in `stage.png`. **Show stages folder** opens `exports/stages` in your file manager.
 
 ![The stage viewer in Street Fighter Alpha 2](screenshots/sfa2/stage-viewer.png)
 

@@ -710,6 +710,8 @@ inline constexpr recomp::i18n::Entry kPortuguese[] = {
     {"Scene diorama", "Diorama de cenas"},
     {"Opens the scenes and whole stages you save in the games (Game > Scene export, and the Stage viewer's Save whole stage) in your browser as 3D cut-outs, to turn, pull apart and photograph.", "Abre no seu navegador as cenas e os cenários inteiros que você salva nos jogos (Jogo > Exportar cena, e Salvar cenário inteiro do visualizador de cenários) como recortes em 3D, para girar, separar e fotografar."},
     {"Open diorama", "Abrir diorama"},
+    {"Show stages folder", "Mostrar pasta de cenários"},
+    {"Opens exports/stages beside your saves, where Save whole stage writes, in your file manager.", "Abre exports/stages ao lado dos seus saves, onde Salvar cenário inteiro escreve, no seu gerenciador de arquivos."},
     {"Show scenes folder", "Mostrar pasta de cenas"},
     {"Opens exports/scenes beside your saves, where Save scene and Record clip write, in your file manager.", "Abre exports/scenes ao lado dos seus saves, onde Salvar cena e Gravar clipe escrevem, no seu gerenciador de arquivos."},
     {"Stop recording", "Parar gravação"},
