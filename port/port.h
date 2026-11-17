@@ -8,6 +8,7 @@
 #include "menu.h"
 #include "netplay.h"
 #include "present.h"
+#include "scene.h"
 #include "gpu_picture.h"
 #include "soundtrack.h"
 #include "zoom.h"
@@ -156,6 +157,12 @@ struct Port {
     bool Screenshot();
     std::string shotSaid;
     int shotTicks = 0;
+    // The scene export (scene.h, issue #366): Shift+F12 or the Scene export page's Save scene, the picture and each of the
+    // board's layers by itself, in the player's folder's exports/scenes/; Ctrl+F12 or Record clip, the same for each frame
+    // of a few seconds (again: stopped there)
+    SceneExport scene;
+    void SaveScene();
+    void SceneClip();
     // One tick; true if the game ran (so that there is a new picture and sound)
     bool Tick();
     // The keys that work while playing: 'p' stops and starts, 'o' goes on by a frame, '-' and '=' change the

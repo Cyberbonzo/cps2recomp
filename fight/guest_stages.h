@@ -173,4 +173,8 @@ void Register(const Host &host, std::vector<Guest> guests);
 void Check(bool on);
 bool Report(FILE *out);
 
+// The board whose stage is under the game's picture this frame (Machine::guestBehind; none: the game's own stage), for
+// the scene export (port/scene.h), which draws its layers too
+Machine *ShownBoard();
+
 } // namespace cps2recomp::guest_stages

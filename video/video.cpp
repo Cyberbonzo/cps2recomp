@@ -428,9 +428,12 @@ void Video::RenderLineCps1(int line, uint32_t *out) {
         out[x] = m_palette[pens[x]];
     }
     if (markObjects) {
-        // (an object's pixel where nothing in front of it has drawn since: as RenderLineAs marks them)
+        // (an object's pixel where nothing in front of it has drawn since: as RenderLineAs marks them; and a marked
+        // scroll screen's, told by its pen's page: page n is scroll screen n's)
         for (int x = 0; x < width; x++) {
-            out[x] |= drawn[x] == pens[x] ? 0x80000000u | (static_cast<uint32_t>(pens[x] >> 4) & 0x1F) << 24 : 0;
+            const unsigned page = pens[x] >> 9;
+            const bool layer = drawn[x] != pens[x] && pens[x] != 0xBFF && page >= 1 && page <= 3 && ((markLayers >> page) & 1);
+            out[x] |= drawn[x] == pens[x] || layer ? 0x80000000u | (static_cast<uint32_t>(pens[x] >> 4) & 0x1F) << 24 : 0;
         }
     }
 }

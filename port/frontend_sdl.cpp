@@ -546,6 +546,10 @@ int RunWindowed(Port &port) {
                     port.Key('k', kKeyRestart);
                 } else if (!port.menu.IsOpen() && ev.key.scancode == SDL_SCANCODE_BACKSLASH && !ev.key.repeat) {
                     port.Key('k', kKeyExtra);
+                } else if (ev.key.scancode == SDL_SCANCODE_F12 && !ev.key.repeat && (ev.key.mod & SDL_KMOD_SHIFT)) {
+                    port.SaveScene(); // (the scene export: scene.h)
+                } else if (ev.key.scancode == SDL_SCANCODE_F12 && !ev.key.repeat && (ev.key.mod & SDL_KMOD_CTRL)) {
+                    port.SceneClip();
                 } else if (ev.key.scancode == SDL_SCANCODE_F12 && !ev.key.repeat) {
                     port.Screenshot();
                 } else if (ev.key.scancode == SDL_SCANCODE_F2) {

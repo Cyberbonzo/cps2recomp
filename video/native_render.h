@@ -117,6 +117,10 @@ public:
     uint16_t Priority() const {
         return m_priority;
     }
+    // (the scene export, port/scene.h: only the objects of these levels kept, bit n level n, to draw them alone)
+    void KeepLevels(unsigned levels) {
+        std::erase_if(m_tiles, [levels](const ObjectTile &t) { return !((levels >> t.level) & 1); });
+    }
     // (in a save state, as the game's side's: native.h, NativeVideo::Serialize)
     void Serialize(Archive &ar);
     // (as the board's picture starts: no colours, no objects, Video::Reset)

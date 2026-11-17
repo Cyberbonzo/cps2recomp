@@ -44,6 +44,7 @@ public:
     // The "Sound" row: the frontend plays nothing while this is set (--mute starts with it set)
     bool muted = false;
     bool hosting = false; // (a match hosted from the Online page, waited for: its row is Stop hosting)
+    bool recordingClip = false; // (a scene clip being recorded: the Scene export page's Record clip row is Stop recording)
     // During an online match: whether the match decides this feature (TheGame().features' place) for both players. The
     // menu then shows it as the match has it and doesn't change it (a change on one side alone would leave the games apart).
     std::function<bool(size_t feature)> matchDecides;

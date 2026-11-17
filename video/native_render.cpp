@@ -431,8 +431,11 @@ void Raster::LineCps1(int line, const Layers &layers, const uint8_t *videoRam, c
         out[x] = m_colours[pens[x]];
     }
     if (options.markObjects) {
+        // (an object's pixel; and a marked scroll screen's, told by its pen's page: page n is scroll screen n's)
         for (int x = 0; x < width; x++) {
-            out[x] |= drawn[x] == pens[x] ? 0x80000000u | (static_cast<uint32_t>(pens[x] >> 4) & 0x1F) << 24 : 0;
+            const unsigned page = pens[x] >> 9;
+            const bool layer = drawn[x] != pens[x] && pens[x] != kBackdrop && page >= 1 && page <= 3 && ((options.markLayers >> page) & 1);
+            out[x] |= drawn[x] == pens[x] || layer ? 0x80000000u | (static_cast<uint32_t>(pens[x] >> 4) & 0x1F) << 24 : 0;
         }
     }
 }
