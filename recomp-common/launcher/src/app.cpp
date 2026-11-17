@@ -29,6 +29,8 @@
 #include "i18n.h"
 #include "layout.h"
 #include "online.h"
+#include "countries.h"
+#include "flags.h"
 #include "steam.h"
 #include "ui.h"
 
@@ -1338,6 +1340,26 @@ void App::use_game_file(size_t which, const std::string& path) {
     });
 }
 
+// The game's file forgotten (Clear): none chosen, as before one was, until another is chosen or dropped. The file
+// itself is left where it is. What is found near the program or beside the download is looked for once a start, so
+// not again now.
+void App::clear_game_file(size_t which) {
+    Slot& one = *slots_[which];
+    if (one.checking) {
+        return;
+    }
+    if (one.checker.joinable()) {
+        one.checker.join();
+    }
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        one.file_path.clear();
+        one.file = FileCheck{};
+    }
+    prefs_.set(one.file_section, one.about->file_key, "");
+    prefs_.save();
+}
+
 // A file the folder the download was unpacked to had for a game (Description::find_beside), its check already done
 // on that thread: it becomes the game's unless the player chose one meanwhile, or the game's is usable. On this
 // thread, so that launcher.ini is written by one thread only.
@@ -2227,7 +2249,14 @@ void App::file_card(size_t which, float width) {
         status = file.message;
     }
     ImVec2 row_top = ImGui::GetCursorScreenPos();
-    row(width, shown.c_str(), status.c_str(), 130.0f, 36.0f, [&] {
+    const bool clearable = !one.file_path.empty() && !one.checking && !one.game.running();
+    row(width, shown.c_str(), status.c_str(), clearable ? 230.0f : 130.0f, 36.0f, [&] {
+        if (clearable) {
+            if (ui::button("Clear", Kind::Secondary, 90.0f)) {
+                clear_game_file(which);
+            }
+            ImGui::SameLine(0.0f, px(10));
+        }
         if (ui::button("Choose…", Kind::Secondary, 130.0f, !one.checking)) {
             // (the system's file dialog wants a mouse or a keyboard)
             if (ui::gamepad_in_use()) {
@@ -2572,6 +2601,7 @@ std::vector<std::string> App::host_arguments(const launcher::Online& online) con
     if (online.arcade_argument && prefs_.get("online", "arcade") == "1") {
         args.push_back(online.arcade_argument);
     }
+    delay_arguments(args, online);
     return args;
 }
 
@@ -2584,6 +2614,14 @@ std::vector<std::string> App::join_arguments(const launcher::Online& online, con
     return args;
 }
 
+void App::delay_arguments(std::vector<std::string>& args, const launcher::Online& online) const {
+    const std::string delay = prefs_.get("online", "delay");
+    if (online.delay_argument && delay.size() == 1 && delay[0] >= '0' && delay[0] <= '8') {
+        args.push_back(online.delay_argument);
+        args.push_back(delay);
+    }
+}
+
 void App::arcade_row(float width, const launcher::Online& online) {
     if (online.spectators_argument) {
         inset_separator(width);
@@ -2592,6 +2630,24 @@ void App::arcade_row(float width, const launcher::Online& online) {
             42.0f, 24.0f, [&] {
                 if (ui::toggle("##online_spectators", on)) {
                     prefs_.set("online", "spectators", on ? "0" : "1");
+                    prefs_.save();
+                }
+            });
+    }
+    if (online.delay_argument) {
+        inset_separator(width);
+        const std::string delay = prefs_.get("online", "delay");
+        int chosen = delay.size() == 1 && delay[0] >= '0' && delay[0] <= '8' ? delay[0] - '0' : 2;
+        std::vector<std::string> frames;
+        for (int n = 0; n <= 8; n++) {
+            frames.push_back(n == 1 ? Tr("1 frame") : TrFormat("{} frames", {std::to_string(n)}));
+        }
+        row(width, "Input delay",
+            "Frames each player's controls wait in the matches you host; the other player gets the same. Fewer feel quicker "
+            "but leave more to guess on a slow connection, which shows as corrections. 2 unless you choose.",
+            190.0f, 36.0f, [&] {
+                if (ui::dropdown("##online_delay", frames, chosen, 190.0f)) {
+                    prefs_.set("online", "delay", std::to_string(chosen));
                     prefs_.save();
                 }
             });
@@ -3040,6 +3096,7 @@ void App::follow_room(bool here) {
     launcher::RoomCheckIn me;
     me.secret = prefs_.get("online", "room");
     me.name = online_name_;
+    me.country = launcher::flags::known(prefs_.get("online", "country"));
     for (size_t which = 0; which < slots_.size(); which++) {
         if (can_play(which) || (slots_[which]->game.running())) {
             me.games.push_back(room_game(which));
@@ -3058,6 +3115,46 @@ void App::follow_room(bool here) {
         at = comma + 1;
     }
     room_fetch_ = std::async(std::launch::async, [url, me] { return launcher::room_check_in(url, me); });
+}
+
+// The country the player shows with their name in the waiting room ([online] country), chosen from every ISO country
+// by name; none unless chosen. Their flag beside the choice.
+void App::country_row(float width) {
+    inset_separator(width);
+    static std::vector<int> order;  // (the countries by name, in this language)
+    static std::string order_language;
+    if (order.empty() || order_language != recomp::i18n::Current()) {
+        order_language = recomp::i18n::Current();
+        order.clear();
+        for (int n = 0; n < launcher::kFlagCount; n++) {
+            order.push_back(n);
+        }
+        std::sort(order.begin(), order.end(), [](int a, int b) {
+            return std::strcmp(Tr(launcher::kCountryFlags[a].name), Tr(launcher::kCountryFlags[b].name)) < 0;
+        });
+    }
+    std::vector<std::string> names = {Tr("Not shown")};
+    const int mine = launcher::flags::find(prefs_.get("online", "country"));
+    int chosen = 0;
+    for (size_t i = 0; i < order.size(); i++) {
+        names.push_back(Tr(launcher::kCountryFlags[order[i]].name));
+        if (order[i] == mine) {
+            chosen = static_cast<int>(i) + 1;
+        }
+    }
+    row(width, "Your country",
+        "Shown with your name, as a flag, to the others in the waiting room. Only if you choose one: nothing works it out.",
+        306.0f, 36.0f, [&] {
+            const ImVec2 at = ImGui::GetCursorScreenPos();
+            ImGui::SetCursorScreenPos(ImVec2(at.x, at.y + px(7)));
+            launcher::flags::draw(SDL_GetRenderer(window_), mine < 0 ? "" : launcher::kCountryFlags[mine].code, 22.0f);
+            ImGui::SetCursorScreenPos(ImVec2(at.x + px(46), at.y));
+            if (ui::dropdown("##online_country", names, chosen, 260.0f)) {
+                prefs_.set("online", "country", chosen == 0 ? "" : launcher::kCountryFlags[order[static_cast<size_t>(chosen) - 1]].code);
+                prefs_.save();
+                room_at_ = 0;  // (said at once)
+            }
+        });
 }
 
 void App::block(const std::string& id) {
@@ -3092,6 +3189,7 @@ std::vector<std::string> App::invite_arguments(const launcher::Online& online, c
     if (online.arcade_argument && prefs_.get("online", "arcade") == "1") {
         args.push_back(online.arcade_argument);
     }
+    delay_arguments(args, online);
     return args;
 }
 
@@ -3218,9 +3316,18 @@ void App::room_card(float width, const std::vector<size_t>& playable) {
         if (!named) {
             detail += std::string(detail.empty() ? "" : " ") + Tr("Give yourself a name above to invite.");
         }
+        const int country = launcher::flags::find(player.country);
+        if (country >= 0) {
+            detail = std::string(Tr(launcher::kCountryFlags[country].name)) + (detail.empty() ? "" : " · " + detail);
+        }
         const launcher::Online* online = which < slots_.size() ? &slots_[which]->about->online : nullptr;
         ImGui::PushID(static_cast<int>(n));
-        row(width, player.name.c_str(), detail.c_str(), 240.0f, 36.0f, [&] {
+        row(width, player.name.c_str(), detail.c_str(), 284.0f, 36.0f, [&] {
+            // (their flag before the buttons: 30 points wide, then 14 of room; the space kept when they have none)
+            const ImVec2 at = ImGui::GetCursorScreenPos();
+            ImGui::SetCursorScreenPos(ImVec2(at.x, at.y + px(7)));
+            launcher::flags::draw(SDL_GetRenderer(window_), player.country, 22.0f);
+            ImGui::SetCursorScreenPos(ImVec2(at.x + px(44), at.y));
             if (ui::button("Invite", Kind::Secondary, 130.0f, named && online && online->invite_argument && !room_.id.empty() && can_play(which))) {
                 play(which, invite_arguments(*online, player));
             }
@@ -3246,6 +3353,7 @@ void App::room_card(float width, const std::vector<size_t>& playable) {
                 room_at_ = 0;  // (said at once)
             }
         });
+    country_row(width);
     const std::string blocked = prefs_.get("online", "blocked");
     if (!blocked.empty()) {
         inset_separator(width);
@@ -3519,11 +3627,18 @@ void App::library_page(float width) {
         ImGui::PushID(static_cast<int>(which));
         ImVec2 row_top = ImGui::GetCursorScreenPos();
         // (Play first, so that the ring coming into the row from the left is on it)
-        row(width, one.name.c_str(), status.c_str(), 230.0f, 36.0f, [&] {
+        const bool clearable = !one.file_path.empty() && !one.checking && !one.game.running();
+        row(width, one.name.c_str(), status.c_str(), clearable ? 330.0f : 230.0f, 36.0f, [&] {
             if (ui::button(one.game.running() ? "Playing…" : "Play", Kind::Primary, 110.0f, usable && !one.game.running())) {
                 play(which);
             }
             ImGui::SameLine(0.0f, px(10));
+            if (clearable) {
+                if (ui::button("Clear", Kind::Secondary, 90.0f)) {
+                    clear_game_file(which);
+                }
+                ImGui::SameLine(0.0f, px(10));
+            }
             if (ui::button("Choose…", Kind::Secondary, 110.0f, !one.checking)) {
                 if (ui::gamepad_in_use()) {
                     open_browser(which, false);

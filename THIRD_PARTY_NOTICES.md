@@ -85,6 +85,13 @@ archives carry them in `licenses/sound-decoders.txt`.
 | `third_party/dr_mp3.h` | dr_libs `dr_mp3` 0.7.4 (the same commit), by David Reid, after minimp3 by lieff | Public domain, or MIT No Attribution |
 | `third_party/dr_wav.h` | dr_libs `dr_wav` 0.14.6 (the same commit), by David Reid | Public domain, or MIT No Attribution |
 
+### Country flags (MIT)
+
+`recomp-common/launcher/flags.png` (compiled into the launcher) holds every ISO country's flag from
+[flag-icons](https://github.com/lipis/flag-icons) 7.2.3, Copyright (c) 2013 Panayiotis Lipiridis, MIT License;
+`recomp-common/launcher/src/countries.h` has their names from it. A release carries the license as
+`licenses/flag-icons-MIT.txt`.
+
 ## Downloaded at build time
 
 None of these is stored in this repository.
@@ -99,7 +106,7 @@ None of these is stored in this repository.
 | [slang-shaders](https://github.com/libretro/slang-shaders) (commit `2b0530b`) | Each file its own, stated at its top: crt-geom-mini (after cgwg's crt-geom), CRT Royale (TroggleMonkey), CRT Guest (guest(r), Dr. Venom) and zfast-crt, CRT Light (Greg Hogan) GPL-2.0-or-later; CRT Lottes (Timothy Lottes), scanline-fract (hunterk) and sharp-bilinear-scanlines (rsn8887) public domain; xBRZ (Hyllian, Zenju) and ScaleFX (Sp00kyFox) and the blur and gamma includes MIT; the stock pass (libretro), ossc (DariusG) and integer-scaling-scanlines with no notice, and crt-geom-mini's linearize pass none either | The presets the Display page's Shader names, with the files they use, in the app's `Resources/shaders` and the Linux and Windows games' `shaders` (`tools/shaders.py`) |
 
 Each download is checked against its published SHA-256. The release archives (`tools/release/`) carry the
-license texts of SDL 3, Dear ImGui and Inter (the font is inside the launcher), MAME's notice above, and the
+license texts of SDL 3, Dear ImGui, Inter (the font is inside the launcher) and flag-icons (the country flags), MAME's notice above, and the
 GPL-3.0 with the offer of source that goes with it (`SOURCE.txt`: the tag's source on GitHub). In release builds
 SDL 3 (3.4.16) is linked into every program; `zlib1.dll` is in the Windows archive, and there the MinGW-w64
 runtime (libstdc++, libgcc, winpthreads) is linked in: GPL-3.0 with the GCC Runtime Library Exception, and the

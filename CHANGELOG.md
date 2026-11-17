@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Input delay for hosting**: the launcher's Online page has an **Input delay** choice (0 to 8 frames, 2 unless chosen)
+  under Host, for the matches you host and the invitations you send; the other player gets the same.
+- **Country flags in the waiting room**: choose **Your country** on the Online page (none unless you do) and the
+  others in the waiting room see your flag and country beside your name, as you see theirs. Needs the online service
+  deployed with it (`online/`); an older service just doesn't pass countries on.
 - **The other set a game reads is looked for too** (#208, the check's other half): Vampire Savior Definitive reads
   `vsavj` and `vsav2`, and the game stops on Play without the second, which it looks for beside the first; the
   launcher's check now looks there too (the folder's `<set>`, then `<set>.zip`, as `port/main.cpp` does) and says it
