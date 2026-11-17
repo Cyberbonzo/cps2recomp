@@ -7,7 +7,8 @@
 # never changed here). What is this toolkit's is src/description.cpp: what it tells that launcher, and the
 # check of the ROM set. The game comes from these (cps2recomp/build.mk passes them from games/<id>/game.cfg):
 #   GAME_NAME GAME_EXE APP_ID HOME_ENV DISCLAIMER ROM_SET ROM_PARENT ROM_NAME and the set's file lists
-#   ROM_PROGRAM ROM_GRAPHICS ROM_SOUND_PROGRAM ROM_SAMPLES ROM_KEY
+#   ROM_PROGRAM ROM_GRAPHICS ROM_SOUND_PROGRAM ROM_SAMPLES ROM_KEY and, for a game that reads another set too
+#   (game.cfg's extra_set), EXTRA_SET
 # and, if the game has features whose switch belongs on the first page with "Full screen" (game.cfg, display):
 #   DISPLAY_SWITCHES  name|Title|What it says under it, and more of them with || between
 # and, for a game of more than two players or with buttons of its own (game.cfg, players and buttons):
@@ -62,6 +63,6 @@ target_compile_definitions(launcher PRIVATE
     LAUNCHER_ROM_PROGRAM="${ROM_PROGRAM}" LAUNCHER_ROM_GRAPHICS="${ROM_GRAPHICS}"
     LAUNCHER_ROM_SOUND_PROGRAM="${ROM_SOUND_PROGRAM}" LAUNCHER_ROM_SAMPLES="${ROM_SAMPLES}" LAUNCHER_ROM_KEY="${ROM_KEY}"
     LAUNCHER_DISPLAY_SWITCHES="${DISPLAY_SWITCHES}" LAUNCHER_PLAYERS="${PLAYERS}" LAUNCHER_BUTTONS="${BUTTONS}"
-    LAUNCHER_BOARD="${BOARD}" LAUNCHER_CPS_B="${CPS_B}" LAUNCHER_OTHER_SET="${OTHER_SET}")
+    LAUNCHER_BOARD="${BOARD}" LAUNCHER_CPS_B="${CPS_B}" LAUNCHER_OTHER_SET="${OTHER_SET}" LAUNCHER_EXTRA_SET="${EXTRA_SET}")
 find_package(ZLIB REQUIRED)
 target_link_libraries(launcher PRIVATE ZLIB::ZLIB)

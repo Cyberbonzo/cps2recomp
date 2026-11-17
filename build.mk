@@ -178,6 +178,7 @@ launcher: port
 	  -DROM_NAME="$(shell $(CFG) rom_name $(GAME))" -DROM_PROGRAM="$(shell $(CFG) program $(GAME))" \
 	  -DROM_GRAPHICS="$(shell $(CFG) graphics $(GAME))" -DROM_SOUND_PROGRAM="$(shell $(CFG) sound_program $(GAME))" \
 	  -DROM_SAMPLES="$(shell $(CFG) samples $(GAME))" -DROM_KEY="$(shell $(CFG) key $(GAME))" \
+	  -DEXTRA_SET="$(shell $(CFG) extra_set $(GAME))" \
 	  -DDISPLAY_SWITCHES="$(shell $(CFG) display $(GAME))" \
 	  -DPLAYERS="$(shell $(CFG) players $(GAME))" -DBUTTONS="$(shell $(CFG) buttons $(GAME))" \
 	  -DBOARD="$(shell $(CFG) board $(GAME))" -DCPS_B="$(shell $(CFG) cps_b $(GAME))" \
