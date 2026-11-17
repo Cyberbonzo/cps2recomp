@@ -7,6 +7,10 @@
 - **Country flags in the waiting room**: choose **Your country** on the Online page (none unless you do) and the
   others in the waiting room see your flag and country beside your name, as you see theirs. Needs the online service
   deployed with it (`online/`); an older service just doesn't pass countries on.
+- **Sound filter**: the in-game menu's **Game > Sound** page, every game. The QSound chip plays its samples without
+  smoothing between them, which leaves a hiss and grit in the treble that headphones and good speakers bring out;
+  **Soft** takes the treble down from about 8 kHz, **Softer** from about 5 kHz (a second-order low-pass on what is
+  played only: recordings and online play are as before). Off by default (`port/sound_filter.h`).
 - **The other set a game reads is looked for too** (#208, the check's other half): Vampire Savior Definitive reads
   `vsavj` and `vsav2`, and the game stops on Play without the second, which it looks for beside the first; the
   launcher's check now looks there too (the folder's `<set>`, then `<set>.zip`, as `port/main.cpp` does) and says it
