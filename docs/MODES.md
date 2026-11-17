@@ -75,6 +75,12 @@ Any stage with nobody on it, scrolled with the stick or by itself, with any tune
 One character by itself at any size, on a stage or on plain white or black, moved with your controls or going through
 its animations.
 
+**Save picture** saves the character as shown, by itself on a see-through background, as a PNG. **Save animation**
+saves every frame of the animation shown in a folder of its own: each frame as a PNG, a sheet of all of them, a looping
+animated PNG and GIF with the game's own timing, and `animation.json` (each frame's time in sixtieths of a second, and
+where the character stands in the frames). They go in `exports/` beside your saves, at the **Export size** chosen (1x
+to 8x, the board's pixels kept square).
+
 ![The model viewer in Street Fighter Alpha 2](screenshots/sfa2/model-viewer.gif)
 
 ### Colour editor

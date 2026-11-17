@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **Model viewer exports**: **Save picture** saves the character as shown on a see-through background (PNG);
+  **Save animation** saves every frame of the animation shown, each as a PNG, a sheet of them, a looping animated PNG
+  and GIF with the game's own frame times, and `animation.json`, in `exports/` beside the saves, at 1x to 8x (Export
+  size). Every game with the model viewer: the fighting games and the beat-'em-ups (`model/model.cpp`,
+  `model/image_files.h`).
+
 ## 1.6.0-beta.2
 
 **Seven games that stopped as they started in 1.6.0-beta.1 play again, Final Fight joins the collection, and stages

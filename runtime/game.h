@@ -213,6 +213,10 @@ int FastMotion();
 constexpr int kNextGame = 3;
 void SetMultiGame(const std::string &spec);
 const std::string &MultiGame();
+// The folder the player's files are in (settings.ini, the saves: with a slash at its end; "" when there is none), for the
+// game's sources that write files of their own there (the model viewer's exports)
+void SetPlayerFolder(const std::string &folder);
+const std::string &PlayerFolder();
 // The game's sources end the program, with this exit code: the window closes after the frame
 void EndProgram(int code);
 int ProgramEnded(); // (-1: not asked)

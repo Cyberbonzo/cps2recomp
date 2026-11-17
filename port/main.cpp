@@ -1011,6 +1011,7 @@ bool Port::Init(std::string &error) {
     machine->cpu.watchLow = opt.watchLow;
     machine->cpu.watchHigh = opt.watchHigh;
     machine->cpu.recording = !opt.recordEntries.empty();
+    cps2recomp::SetPlayerFolder(PlayerFolder());
     if (!opt.eepromPath.empty()) {
         std::vector<uint8_t> data;
         if (ReadFile(opt.eepromPath, data) && data.size() == sizeof(machine->eeprom.words)) {
