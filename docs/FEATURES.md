@@ -78,7 +78,7 @@ each frame's layers in `scene.json`; the files are written by threads beside the
 The stage viewer's **Save whole stage** puts a stage together from one end to the other ([more](MODES.md#stage-viewer)).
 
 **The scene diorama** (`tools/diorama/diorama.html`, issue #380) shows what these save as cut-outs at their own depths:
-open the file in a browser, then open a saved folder (or drop it on the page). Each layer is put further back and made
+the launcher's **Open diorama** (Games page, Tools) opens it in the browser, as does opening the file itself, then open a saved folder (or drop it on the page). Each layer is put further back and made
 larger by as much, so the front view (Game view) is the game's picture at any spread; turn it, pull the layers apart,
 hide or solo them, add shadows between them, haze or scanlines, and take a photo at up to 4x. A clip steps frame by
 frame or plays at 1x to 1/16x. A whole stage's layers go back by their parallax pace, so at a spread of 1 moving the
