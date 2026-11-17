@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Each game's files on its page**: every game's page in the launcher has a **This game's files** card with that
+  game's folder (its settings, saves, save states and logs) and a **Show** button that opens it.
 - **Input delay for hosting**: the launcher's Online page has an **Input delay** choice (0 to 8 frames, 2 unless chosen)
   under Host, for the matches you host and the invitations you send; the other player gets the same.
 - **Country flags in the waiting room**: choose **Your country** on the Online page (none unless you do) and the
