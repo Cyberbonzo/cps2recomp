@@ -9,6 +9,7 @@
 #include "../video/native.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <filesystem>
 #include <map>
