@@ -364,7 +364,11 @@ function urlSource(base) {
 }
 function sampleSource(sample) {
   return { name: sample.name, json: sample.json, get: async (rel) => {
-    const uri = sample.files[rel]; if (!uri) return null; return (await fetch(uri)).blob(); } };
+    const uri = sample.files[rel]; if (!uri) return null;
+    const comma = uri.indexOf(','), bytes = atob(uri.slice(comma + 1)), out = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) out[i] = bytes.charCodeAt(i);
+    return new Blob([out], { type: uri.slice(5, uri.indexOf(';')) });
+  } };
 }
 
 async function bitmap(blob) { return blob ? createImageBitmap(blob, { imageOrientation: 'flipY', premultiplyAlpha: 'none' }) : null; }
@@ -597,11 +601,16 @@ window.addEventListener('drop', async (e) => {
   openFiles(files);
 });
 
+// (a page can carry examples: window.DIORAMA_SAMPLES, each {name, json, files: {path: data URI}})
 const src = new URLSearchParams(location.search).get('src');
 if (src) show(urlSource(src));
-else if (window.DIORAMA_SAMPLE) {
-  show(sampleSource(window.DIORAMA_SAMPLE));
-  $('hint').textContent = `Showing an example: ${window.DIORAMA_SAMPLE.name}. Open your own saved folder on the left.`;
+else if (window.DIORAMA_SAMPLES && window.DIORAMA_SAMPLES.length) {
+  sources = window.DIORAMA_SAMPLES.map(sampleSource);
+  const which = $('which'); which.textContent = '';
+  sources.forEach((s, n) => { const o = document.createElement('option'); o.value = n; o.textContent = `Example: ${s.name}`; which.append(o); });
+  which.hidden = sources.length < 2;
+  show(sources[0]);
+  $('hint').textContent = 'Showing examples saved from Street Fighter Alpha 3. Open your own saved folder on the left.';
   $('hint').hidden = false;
 }
 
