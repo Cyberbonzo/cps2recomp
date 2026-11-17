@@ -707,6 +707,8 @@ inline constexpr recomp::i18n::Entry kPortuguese[] = {
     {"Saves the same for each frame from now, for as long as Clip length says, each layer's frames in a folder of their own (this row again, or Ctrl+F12, stops sooner). The game goes on as it does.", "Salva o mesmo para cada frame a partir de agora, pelo tempo que Duração do clipe disser, os frames de cada camada numa pasta própria (esta linha de novo, ou Ctrl+F12, para antes). O jogo continua normalmente."},
     {"Clip length", "Duração do clipe"},
     {"How long Record clip records for.", "Quanto tempo Gravar clipe grava."},
+    {"Show stages folder", "Mostrar pasta de cenários"},
+    {"Opens exports/stages beside your saves, where Save whole stage writes, in your file manager.", "Abre exports/stages ao lado dos seus saves, onde Salvar cenário inteiro escreve, no seu gerenciador de arquivos."},
     {"Show scenes folder", "Mostrar pasta de cenas"},
     {"Opens exports/scenes beside your saves, where Save scene and Record clip write, in your file manager.", "Abre exports/scenes ao lado dos seus saves, onde Salvar cena e Gravar clipe escrevem, no seu gerenciador de arquivos."},
     {"Stop recording", "Parar gravação"},
