@@ -144,7 +144,7 @@ void NativeVideo::Serialize(Archive &ar) {
     m_raster.Serialize(ar);
     if (!ar.Saving()) {
         m_inFrame = false; // (a frame begun before the state was put back is not one)
-        m_lastWhole = false;
+        m_lastWhole = m_lastWhole && keepLastFrame;
         m_hasPending = false;
     }
 }

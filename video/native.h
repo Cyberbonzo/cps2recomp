@@ -77,6 +77,9 @@ public:
     void *frameUser = nullptr;
 
     bool checking = false; // (--video check: the records compared with the board's)
+    // While set, a state put back keeps the last frame recorded whole (LastFrame): run-ahead's, whose frames ahead are put
+    // back every frame while their last is the picture shown (the scene export draws that frame again, port/scene.h)
+    static inline bool keepLastFrame = false;
     std::string checkName = "video check"; // (what its reports begin with: a guest board's says whose)
     uint64_t frame = 0;                // (for the reports: the machine's frame)
     const uint8_t *videoRam = nullptr; // (the game's side reads the buffers the game fills there)
