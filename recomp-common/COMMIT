@@ -1,5 +1,5 @@
 # A copy of recomp-common's src/ and launcher/, made by tools/sync-common.sh. Do not change it here.
-commit ddcbfe41304f35c7779e28ff6cd5b0e0ae8fe9ae
+commit e662c3ba6c6c219db54c767e7c3622c24d853d2c
 1c52d24d40cf1bf66dfa57e24ae73a6bdbf8f16ea4e9f8e186dca0adf2387aa1  folders.h
 06d9b4b81ca0a67de23c85133c1335f3954cefc6834887b9e4d785175d5bb12b  gamepads.h
 587201aed7fcfc7f6cdf124b08510be8f30f0d627350b54d838d43255d437fad  i18n.h
