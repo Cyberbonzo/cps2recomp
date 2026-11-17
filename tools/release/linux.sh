@@ -28,6 +28,8 @@ add_notices "$STAGE" "$BUILD/launcher"
 LIBRA=$("$ROOT/tools/librashader.sh")
 cp "$LIBRA/librashader.so" "$STAGE/"
 cp -R "$LIBRA/shaders" "$STAGE/"
+# (the launcher's Tools: the scene diorama, tools/diorama)
+cp "$ROOT/tools/diorama/diorama.html" "$STAGE/"
 cp "$LIBRA/librashader-LICENSE.md" "$STAGE/licenses/librashader-MPL-2.0.txt"
 cp "$LIBRA/librashader-LICENSE-GPL.md" "$STAGE/licenses/librashader-GPL-3.0.txt"
 rm -f "$OUT/$ARCHIVE-$SYSTEM.tar.gz"

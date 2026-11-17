@@ -24,6 +24,8 @@ for cfg in games/*/game.cfg; do
         fi
     done
 done
+# (the launcher's Tools: the scene diorama beside the programs, tools/diorama)
+cp tools/diorama/diorama.html "$B/"
 CFG="python3 tools/gamecfg.py"
 cmake -S launcher -B "$B/launcher" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="$PWD/$B" \
     -DCOLLECTION=ON -DGAMES="$games" \

@@ -40,6 +40,8 @@ if x86_64-w64-mingw32-objdump -p "$LIBRA/librashader.dll" | grep -i 'DLL Name' |
 fi
 cp "$LIBRA/librashader.dll" "$STAGE/"
 cp -R "$LIBRA/shaders" "$STAGE/"
+# (the launcher's Tools: the scene diorama, tools/diorama)
+cp "$ROOT/tools/diorama/diorama.html" "$STAGE/"
 cp "$LIBRA/librashader-LICENSE.md" "$STAGE/licenses/librashader-MPL-2.0.txt"
 cp "$LIBRA/librashader-LICENSE-GPL.md" "$STAGE/licenses/librashader-GPL-3.0.txt"
 # (zlib1.dll is in the archive and the MinGW-w64 and GCC runtimes are linked into the programs)

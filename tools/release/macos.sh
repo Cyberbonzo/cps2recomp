@@ -27,6 +27,8 @@ LIBRA=$("$ROOT/tools/librashader.sh")
 mkdir -p "$APP/Contents/Frameworks"
 cp "$LIBRA/librashader.dylib" "$APP/Contents/Frameworks/"
 cp -R "$LIBRA/shaders" "$APP/Contents/Resources/"
+# (the launcher's Tools: the scene diorama, tools/diorama)
+cp "$ROOT/tools/diorama/diorama.html" "$APP/Contents/Resources/"
 cp "$LIBRA/librashader-LICENSE.md" "$APP/Contents/Resources/licenses/librashader-MPL-2.0.txt"
 cp "$LIBRA/librashader-LICENSE-GPL.md" "$APP/Contents/Resources/licenses/librashader-GPL-3.0.txt"
 codesign --force --deep -s - "$APP"

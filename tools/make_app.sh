@@ -39,6 +39,8 @@ fi
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Frameworks" "$APP/Contents/Resources"
+# (the launcher's Tools: the scene diorama, tools/diorama)
+cp "$(dirname "$0")/diorama/diorama.html" "$APP/Contents/Resources/"
 for exe in $LAUNCHER $PROGRAMS; do
     cp "$B/$exe" "$APP/Contents/MacOS/"
 done
