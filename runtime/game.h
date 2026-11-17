@@ -217,6 +217,10 @@ const std::string &MultiGame();
 // game's sources that write files of their own there (the model viewer's exports)
 void SetPlayerFolder(const std::string &folder);
 const std::string &PlayerFolder();
+// The port's way to open a folder in the system's file manager (none: it can't), for the game's sources' "Show ... folder"
+// commands; true if it was asked to
+void SetFolderOpener(void (*open)(const std::string &folder));
+bool OpenFolder(const std::string &folder);
 // The game's sources end the program, with this exit code: the window closes after the frame
 void EndProgram(int code);
 int ProgramEnded(); // (-1: not asked)

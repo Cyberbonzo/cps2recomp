@@ -210,6 +210,8 @@ inline constexpr recomp::i18n::Entry kPortuguese[] = {
     {"Pairs fall", "Queda dos pares"},
     {"Picture shape", "Formato da imagem"},
     {"Play all", "Jogar todos"},
+    {"Show pictures folder", "Mostrar pasta de imagens"},
+    {"Opens the exports folder beside your saves (where Save picture and Save animation write) in your file manager.", "Abre a pasta exports ao lado dos seus saves (onde Salvar imagem e Salvar animação gravam) no seu gerenciador de arquivos."},
     {"Export", "Exportar"},
     {"Save the character shown, or every frame of the animation shown, as pictures and a GIF.", "Salva o personagem mostrado, ou cada frame da animação mostrada, como imagens e um GIF."},
     {"Save picture", "Salvar imagem"},

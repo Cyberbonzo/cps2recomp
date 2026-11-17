@@ -180,6 +180,28 @@ int RunWindowed(Port &port) {
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return 1;
     }
+    // (Show pictures folder, the model viewer's: the folder as a file:// address, its bytes outside the plain ones as %XX)
+    SetFolderOpener([](const std::string &folder) {
+        std::string url = "file://";
+#ifdef _WIN32
+        url += '/';
+#endif
+        for (const unsigned char c : folder) {
+            const bool plain = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '/' || c == '-' ||
+                               c == '_' || c == '.' || c == '~' || c == ':';
+            if (plain) {
+                url += static_cast<char>(c);
+            } else if (c == '\\') {
+                url += '/';
+            } else {
+                static const char kHex[] = "0123456789ABCDEF";
+                url += '%';
+                url += kHex[c >> 4];
+                url += kHex[c & 15];
+            }
+        }
+        SDL_OpenURL(url.c_str());
+    });
     // (controllers SDL doesn't know, issue #213: gamecontrollerdb.txt beside the program, in the launcher's folder or in
     // the game's own; recomp-common/gamepads.h)
     {
