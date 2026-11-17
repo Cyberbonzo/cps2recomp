@@ -654,12 +654,15 @@ namespace {
             Say("NOT SAVED: NO FOLDER");
             return;
         }
+        // (the animated files play at the viewer's speed: each frame's time made that many times longer; the frames' own
+        // times, in animation.json, stay the game's)
+        const int slowBy = kSlowBy[std::clamp(FeatureValue("model_speed"), 0, static_cast<int>(std::size(kSlowBy)) - 1)];
         std::vector<int> times;
         char file[32];
         std::string frames;
         for (size_t n = 0; n < pictures.size(); n++) {
             snprintf(file, sizeof(file), "frame %02d.png", static_cast<int>(n));
-            times.push_back(taken[n].time);
+            times.push_back(taken[n].time * slowBy);
             char line[160];
             snprintf(line, sizeof(line), "%s    {\"file\": \"%s\", \"time\": %d, \"address\": \"0x%06X\"}", n ? ",\n" : "", file,
                      taken[n].time, taken[n].frame);
@@ -682,11 +685,11 @@ namespace {
         // (what the frames are, for a program reading them: their times in sixtieths of a second, and where the character
         // stands in each, the same in all)
         std::string json = "{\n  \"character\": \"" + CharacterName() + "\",\n  \"animation\": \"" + animation + "\",\n";
-        char head[256];
+        char head[384];
         snprintf(head, sizeof(head),
-                 "  \"frames per second\": 60,\n  \"scale\": %d,\n  \"width\": %d,\n  \"height\": %d,\n  \"anchor\": {\"x\": %d, \"y\": %d},\n"
+                 "  \"frames per second\": 60,\n  \"animated files slowed by\": %d,\n  \"scale\": %d,\n  \"width\": %d,\n  \"height\": %d,\n  \"anchor\": {\"x\": %d, \"y\": %d},\n"
                  "  \"sheet columns\": %d,\n  \"frames\": [\n",
-                 size, pictures[0].width * size, pictures[0].height * size, anchorX * size, anchorY * size, across);
+                 slowBy, size, pictures[0].width * size, pictures[0].height * size, anchorX * size, anchorY * size, across);
         json += head + frames + "\n  ]\n}\n";
         // (the files written on a thread of their own: at the larger sizes they take a while, and the viewer goes on)
         const std::string shown = folder.substr(PlayerFolder().size());
@@ -920,7 +923,8 @@ void Register(const Description &description) {
     game.commands.push_back({"model_save_animation", kExportPage, "Save animation",
                              "Saves every frame of the animation shown, by itself on nothing, in a folder of its own in the exports "
                              "folder beside your saves: each frame as a PNG, all of them on one sheet, a looping animated PNG and "
-                             "GIF with the game's own timing, and a list of the frames' times for other programs.",
+                             "GIF with the game's own timing (slowed as the viewer's Speed is), and a list of the frames' times for "
+                             "other programs.",
                              [](Machine &) {
                                  if (g.on) {
                                      g.exportWanted = 2;
