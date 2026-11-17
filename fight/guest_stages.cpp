@@ -962,4 +962,8 @@ void Register(const Host &host, std::vector<Guest> guests) {
     game.state = StagesState;
 }
 
+Machine *ShownBoard() {
+    return g.guest > 0 && Shown() ? cps2recomp::Guest(Guests()[g.guest - 1].id) : nullptr;
+}
+
 } // namespace cps2recomp::guest_stages

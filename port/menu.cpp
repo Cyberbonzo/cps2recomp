@@ -139,6 +139,10 @@ void Menu::Open(bool withStates) {
                                        "Others can no longer join: the match's code stops working. Your game goes on as it is."});
             continue;
         }
+        if (recordingClip && !strcmp(command.name, "scene_clip")) {
+            config.commands.push_back({command.category, "Stop recording", "Ends the clip being recorded here; its frames so far are kept."});
+            continue;
+        }
         config.commands.push_back({command.category, command.title, command.description});
     }
     config.value = [](size_t feature) { return cps2recomp::FeatureSetting(cps2recomp::TheGame().features[feature].name); };

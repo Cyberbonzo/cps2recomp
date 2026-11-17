@@ -12,6 +12,7 @@
 #include "hud.h"
 #include "i18n.h"
 #include "../runtime/board.h"
+#include "../fight/alternative.h"
 #include "../fight/battle.h"
 #include "../fight/tag.h"
 #include "../fight/guest_stages.h"
@@ -48,6 +49,12 @@
 #endif
 
 using namespace cps2recomp;
+
+// (what the scene export says, in the language chosen: its words, then two spaces and the folder)
+static std::string SaidOfScene(const std::string &said) {
+    const size_t at = said.find("  ");
+    return at == std::string::npos ? recomp::Tr(said) : recomp::Tr(said.substr(0, at)) + said.substr(at);
+}
 
 namespace port {
 
@@ -614,6 +621,27 @@ void RegisterPortFeatures() {
                                   "During an online match, the time a packet takes to the other player and back (the farthest of "
                                   "them, with more than two machines), at the bottom of the picture (\"PING 42 ms\").",
                                   kFeatureEnhanced});
+    // (the scene export: Port::SaveScene, SceneClip; scene.h)
+    TheGame().pages.push_back({"Scene export", "Game",
+                               "The picture taken apart: each of the board's layers by itself, as pictures with nothing where a "
+                               "layer has nothing, for one frame or a few seconds."});
+    TheGame().commands.push_back({"scene_save", "Scene export", "Save scene",
+                                  "Saves the picture as it is now, and each of the board's layers by itself (its three scroll "
+                                  "screens and its objects, which hold the fighters, the panel and parts of stages) with nothing "
+                                  "where the layer has nothing, in a folder of its own in exports/scenes beside your saves, with a "
+                                  "scene.json of the layers' order, back to front. A fight on another game's stage has that "
+                                  "stage's layers too. Also Shift+F12.",
+                                  nullptr});
+    TheGame().commands.push_back({"scene_clip", "Scene export", "Record clip",
+                                  "Saves the same for each frame from now, for as long as Clip length says, each layer's frames in "
+                                  "a folder of their own (this row again, or Ctrl+F12, stops sooner). The game goes on as it does.",
+                                  nullptr});
+    TheGame().features.push_back({"scene_clip_length", "Scene export", "Clip length", "How long Record clip records for.", 0,
+                                  {"3 seconds", "5 seconds", "10 seconds"}});
+    TheGame().commands.push_back({"scene_show_folder", "Scene export", "Show scenes folder",
+                                  "Opens exports/scenes beside your saves, where Save scene and Record clip write, in your file "
+                                  "manager.",
+                                  nullptr});
     TheGame().commands.push_back({"online_host", "Online", "Host a match",
                                   "Others can join you online while you play on as you like (modes, the menu, save states): "
                                   "the match's code is at the bottom of the screen to give them, and with your name from the "
@@ -1239,6 +1267,21 @@ void Port::RunCommand(size_t index) {
     const auto &commands = TheGame().commands;
     if (index < commands.size() && !strcmp(commands[index].name, "online_host")) {
         HostFromMenu();
+        return;
+    }
+    if (index < commands.size() && !strcmp(commands[index].name, "scene_save")) {
+        SaveScene();
+        return;
+    }
+    if (index < commands.size() && !strcmp(commands[index].name, "scene_clip")) {
+        SceneClip();
+        return;
+    }
+    if (index < commands.size() && !strcmp(commands[index].name, "scene_show_folder")) {
+        const std::string folder = PlayerFolder() + "exports/scenes";
+        std::error_code error;
+        std::filesystem::create_directories(std::filesystem::path(std::u8string(folder.begin(), folder.end())), error);
+        OpenFolder(folder);
         return;
     }
     if (index < commands.size() && commands[index].run) {
@@ -1958,6 +2001,11 @@ bool Port::Windowed(std::vector<uint32_t> &pixels, Zoomed &zoomed, bool readouts
     if (shotTicks > 0) {
         shotTicks--;
     }
+    // (a scene clip written, or not: said as a screenshot is)
+    if (std::string said; scene.TakeSaid(said)) {
+        shotSaid = SaidOfScene(said);
+        shotTicks = kSpeedTicks;
+    }
     zoomed.keep.clear();
     zoomed.panel = false;
     if (!zoom.View(across, Video::kHeight, zoomed.view)) {
@@ -2088,6 +2136,73 @@ bool Port::Screenshot() {
     shotSaid = "SCREENSHOT SAVED  screenshots/" + name + ".png";
     shotTicks = kSpeedTicks;
     return true;
+}
+
+// The name a scene's folder is given: the game's and the time, as a screenshot's
+static std::string SceneName() {
+    char stamp[32] = "";
+    const std::time_t now = std::time(nullptr);
+    if (const std::tm *local = std::localtime(&now)) {
+        std::strftime(stamp, sizeof(stamp), "%Y-%m-%d %H.%M.%S", local);
+    }
+    return std::string(GAME_ID " ") + stamp;
+}
+
+void Port::SaveScene() {
+    shotSaid = SaidOfScene(scene.Save(*machine, PlayerFolder() + "exports/scenes/", SceneName()));
+    shotTicks = kSpeedTicks;
+}
+
+void Port::SceneClip() {
+    if (scene.Recording()) {
+        scene.StopClip();
+        shotSaid = recomp::Tr("SAVING SCENE CLIP...");
+    } else {
+        static const int kSeconds[] = {3, 5, 10};
+        const int seconds = kSeconds[std::clamp(FeatureValue("scene_clip_length"), 0, 2)];
+        shotSaid = SaidOfScene(scene.StartClip(PlayerFolder() + "exports/scenes/", SceneName() + " clip", seconds * 60));
+    }
+    shotTicks = kSpeedTicks;
+    menu.recordingClip = scene.Recording();
+}
+
+void Port::StageSweepFrame() {
+    switch (modes::StageSweep()) {
+    case modes::Sweep::None: break;
+    case modes::Sweep::Settling:
+        if (!stageStitch.Begun()) {
+            stageStitch.Begin(modes::SweepCamera());
+            shotSaid = recomp::Tr("SAVING WHOLE STAGE...");
+            shotTicks = 1 << 30; // (until it is saved)
+        }
+        break;
+    case modes::Sweep::Across: stageStitch.Add(*machine, modes::SweepCamera()); break;
+    case modes::Sweep::Done: {
+        const std::string stage = modes::SweepStageName();
+        std::string name = std::string(GAME_ID " ") + stage;
+        for (char &c : name) {
+            if (strchr("/\\:*?\"<>|", c)) {
+                c = ' ';
+            }
+        }
+        if (!scene.WriteStage(std::move(stageStitch), PlayerFolder() + "exports/stages/", name, stage)) {
+            shotSaid = recomp::Tr("A STAGE IS STILL BEING SAVED");
+            shotTicks = kSpeedTicks;
+        }
+        stageStitch = StageStitch();
+        modes::EndStageSweep();
+        break;
+    }
+    case modes::Sweep::Refused: {
+        // (a stage begun and ended under it: a state loaded, the viewer left; or Infinite chosen)
+        const bool begun = stageStitch.Begun();
+        stageStitch.End();
+        shotSaid = recomp::Tr(begun ? "WHOLE STAGE NOT SAVED" : "CHOOSE A STAGE (NOT INFINITE) TO SAVE");
+        shotTicks = kSpeedTicks;
+        modes::EndStageSweep();
+        break;
+    }
+    }
 }
 
 bool Port::SaveState(const std::string &path, std::string &error) {
@@ -3204,6 +3319,12 @@ void Port::RunFrame() {
         memcpy(machine->players, pressed, sizeof(pressed));
         RunAhead();
     }
+    // (the scene clip's frame: the picture shown, run-ahead's or not, and the records it was drawn from)
+    if (scene.Recording()) {
+        scene.Frame(*machine);
+        menu.recordingClip = scene.Recording();
+    }
+    StageSweepFrame();
     guest_stages::LookFrame(*machine);
     if (opt.shotEvery && frame % opt.shotEvery == 0) {
         char shot[512];
