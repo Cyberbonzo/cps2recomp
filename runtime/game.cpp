@@ -254,6 +254,19 @@ void SetPlayerFolder(const std::string &folder) {
 const std::string &PlayerFolder() {
     return g_playerFolder;
 }
+namespace {
+void (*g_folderOpener)(const std::string &) = nullptr;
+}
+void SetFolderOpener(void (*open)(const std::string &folder)) {
+    g_folderOpener = open;
+}
+bool OpenFolder(const std::string &folder) {
+    if (!g_folderOpener) {
+        return false;
+    }
+    g_folderOpener(folder);
+    return true;
+}
 void EndProgram(int code) {
     g_programEnded = code;
 }

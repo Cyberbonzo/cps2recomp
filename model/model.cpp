@@ -7,10 +7,13 @@
 #include "state.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstdio>
 #include <filesystem>
 #include <iterator>
 #include <map>
+#include <mutex>
+#include <thread>
 #include <string>
 #include <vector>
 
@@ -35,7 +38,10 @@ namespace {
     // draws the list the game made the frame before: by then the picture is the frame's), the most frames an animation
     // is taken to, the most a sheet has across, how long what was saved is said for, and the sizes
     constexpr int kSettleFrames = 3, kMostExportFrames = 256, kSheetAcross = 8, kSaidFor = 4 * kFramesASecond;
-    constexpr int kExportSizes[] = {1, 2, 3, 4, 6, 8};
+    constexpr int kExportSizes[] = {1, 2, 3, 4, 6, 8, 12, 16};
+    // ... and their page of the menu, under the viewer's
+    constexpr const char *kExportPage = "Export";
+    constexpr const char *kExportWords = "Save the character shown, or every frame of the animation shown, as pictures and a GIF.";
 
     Description g_d;
     int g_choices = 0; // the "Animation" choice's count: standing and every list's
@@ -250,7 +256,10 @@ namespace {
 
     // The animation's name over the picture for a while after it changes (set after the frame, when the other
     // modes' own readouts have been cleared)
+    void TakeSaid(); // (below, with the exports)
+
     void NameAnimation() {
+        TakeSaid();
         std::vector<HudLine> lines;
         if (g.table && g.named > 0) {
             g.named--;
@@ -439,6 +448,11 @@ namespace {
         uint32_t frame = 0; // its address
     };
 
+    // A UTF-8 name as a path (a folder with an accent, on Windows)
+    std::filesystem::path PathOf(const std::string &text) {
+        return std::filesystem::path(std::u8string(text.begin(), text.end()));
+    }
+
     int ExportSize() {
         return kExportSizes[std::clamp(FeatureValue("model_export_size"), 0, static_cast<int>(std::size(kExportSizes)) - 1)];
     }
@@ -465,22 +479,37 @@ namespace {
         std::error_code error;
         const std::string under = PlayerFolder() + "exports/";
         std::string folder = under + name;
-        for (int n = 2; std::filesystem::exists(std::filesystem::u8path(folder), error); n++) {
+        for (int n = 2; std::filesystem::exists(PathOf(folder), error); n++) {
             folder = under + name + " " + std::to_string(n);
         }
-        std::filesystem::create_directories(std::filesystem::u8path(folder), error);
+        std::filesystem::create_directories(PathOf(folder), error);
         return error ? "" : folder + "/";
     }
 
+    // What was saved, said over the picture: from the frame, or from the thread writing the files (taken up by the frame)
+    std::mutex g_sayLock;
+    std::string g_toSay;
+    bool g_saying = false;
+    std::atomic<bool> g_writing{false}; // (an export's files are being written)
     void Say(const std::string &text) {
-        g.said = text;
-        g.saidFor = kSaidFor;
+        std::lock_guard<std::mutex> lock(g_sayLock);
+        g_toSay = text;
+        g_saying = true;
         fprintf(stderr, "model viewer: %s\n", text.c_str());
+    }
+    void TakeSaid() {
+        std::lock_guard<std::mutex> lock(g_sayLock);
+        if (g_saying) {
+            g.said = g_toSay;
+            g.saidFor = g_writing ? 1 << 30 : kSaidFor; // ("saving" stays until it is done)
+            g_saying = false;
+        }
     }
 
     // Frames taken as pictures of one size, the character standing in the same place in each: as small as holds all of
-    // them, and `size` pixels to each of the board's. (anchorX and anchorY: where it stands in them.)
-    std::vector<image_files::Picture> Cut(const std::vector<Taken> &taken, int width, int height, int size, int &anchorX, int &anchorY) {
+    // them, at the board's own size (made larger as they are written). (anchorX and anchorY: where it stands in them.)
+    std::vector<image_files::Picture> Cut(const std::vector<Taken> &taken, int width, int height, int &anchorX, int &anchorY) {
+        constexpr int size = 1;
         int left = 1 << 20, top = 1 << 20, right = -(1 << 20), bottom = -(1 << 20); // (from the anchor)
         for (const Taken &one : taken) {
             for (int y = 0; y < height; y++) {
@@ -539,19 +568,19 @@ namespace {
         one.anchorX = g.anchorX;
         one.anchorY = g.anchorY;
         int anchorX = 0, anchorY = 0;
-        const std::vector<image_files::Picture> pictures = Cut({one}, g_modelWidth, Video::kHeight, ExportSize(), anchorX, anchorY);
+        const std::vector<image_files::Picture> pictures = Cut({one}, g_modelWidth, Video::kHeight, anchorX, anchorY);
         std::string name = CharacterName();
         if (g.table) {
             name += " " + ListName(g.table - 1) + std::to_string(g.number);
         }
         const std::string folder = PlayerFolder() + "exports/";
         std::error_code error;
-        std::filesystem::create_directories(std::filesystem::u8path(folder), error);
+        std::filesystem::create_directories(PathOf(folder), error);
         std::string file = name;
-        for (int n = 2; std::filesystem::exists(std::filesystem::u8path(folder + file + ".png"), error); n++) {
+        for (int n = 2; std::filesystem::exists(PathOf(folder + file + ".png"), error); n++) {
             file = name + " " + std::to_string(n);
         }
-        if (pictures.empty() || !image_files::WritePng(folder + file + ".png", pictures[0])) {
+        if (pictures.empty() || !image_files::WritePng(folder + file + ".png", pictures[0], ExportSize())) {
             Say("NOT SAVED");
             return;
         }
@@ -613,7 +642,7 @@ namespace {
             });
         const int width = machine.PictureWidth(), size = ExportSize();
         int anchorX = 0, anchorY = 0;
-        const std::vector<image_files::Picture> pictures = Cut(taken, width, Video::kHeight, size, anchorX, anchorY);
+        std::vector<image_files::Picture> pictures = Cut(taken, width, Video::kHeight, anchorX, anchorY);
         if (pictures.empty()) {
             Say("NOTHING TO SAVE: THE CHARACTER IS NOT DRAWN IN IT");
             return;
@@ -625,14 +654,15 @@ namespace {
             Say("NOT SAVED: NO FOLDER");
             return;
         }
-        bool ok = true;
+        // (the animated files play at the viewer's speed: each frame's time made that many times longer; the frames' own
+        // times, in animation.json, stay the game's)
+        const int slowBy = kSlowBy[std::clamp(FeatureValue("model_speed"), 0, static_cast<int>(std::size(kSlowBy)) - 1)];
         std::vector<int> times;
         char file[32];
         std::string frames;
         for (size_t n = 0; n < pictures.size(); n++) {
             snprintf(file, sizeof(file), "frame %02d.png", static_cast<int>(n));
-            ok = image_files::WritePng(folder + file, pictures[n]) && ok;
-            times.push_back(taken[n].time);
+            times.push_back(taken[n].time * slowBy);
             char line[160];
             snprintf(line, sizeof(line), "%s    {\"file\": \"%s\", \"time\": %d, \"address\": \"0x%06X\"}", n ? ",\n" : "", file,
                      taken[n].time, taken[n].frame);
@@ -652,21 +682,34 @@ namespace {
                             &sheet.pixels[static_cast<size_t>(atY + y) * sheet.width + atX]);
             }
         }
-        ok = image_files::WritePng(folder + "sheet.png", sheet) && ok;
-        ok = image_files::WriteApng(folder + name + ".png", pictures, times) && ok;
-        ok = image_files::WriteGif(folder + name + ".gif", pictures, times) && ok;
         // (what the frames are, for a program reading them: their times in sixtieths of a second, and where the character
         // stands in each, the same in all)
         std::string json = "{\n  \"character\": \"" + CharacterName() + "\",\n  \"animation\": \"" + animation + "\",\n";
-        char head[256];
+        char head[384];
         snprintf(head, sizeof(head),
-                 "  \"frames per second\": 60,\n  \"scale\": %d,\n  \"width\": %d,\n  \"height\": %d,\n  \"anchor\": {\"x\": %d, \"y\": %d},\n"
+                 "  \"frames per second\": 60,\n  \"animated files slowed by\": %d,\n  \"scale\": %d,\n  \"width\": %d,\n  \"height\": %d,\n  \"anchor\": {\"x\": %d, \"y\": %d},\n"
                  "  \"sheet columns\": %d,\n  \"frames\": [\n",
-                 size, pictures[0].width, pictures[0].height, anchorX, anchorY, across);
+                 slowBy, size, pictures[0].width * size, pictures[0].height * size, anchorX * size, anchorY * size, across);
         json += head + frames + "\n  ]\n}\n";
-        ok = image_files::WriteAll(folder + "animation.json", std::vector<uint8_t>(json.begin(), json.end())) && ok;
+        // (the files written on a thread of their own: at the larger sizes they take a while, and the viewer goes on)
         const std::string shown = folder.substr(PlayerFolder().size());
-        Say(ok ? "SAVED " + std::to_string(pictures.size()) + " FRAMES  " + shown : "NOT ALL SAVED  " + shown);
+        const size_t count = pictures.size();
+        g_writing = true;
+        Say("SAVING " + std::to_string(count) + " FRAMES...");
+        std::thread([folder, name, shown, size, json, times, count, pictures = std::move(pictures), sheet = std::move(sheet)] {
+            bool ok = true;
+            char file[32];
+            for (size_t n = 0; n < count; n++) {
+                snprintf(file, sizeof(file), "frame %02d.png", static_cast<int>(n));
+                ok = image_files::WritePng(folder + file, pictures[n], size) && ok;
+            }
+            ok = image_files::WritePng(folder + "sheet.png", sheet, size) && ok;
+            ok = image_files::WriteApng(folder + name + ".png", pictures, times, size) && ok;
+            ok = image_files::WriteGif(folder + name + ".gif", pictures, times, size) && ok;
+            ok = image_files::WriteAll(folder + "animation.json", std::vector<uint8_t>(json.begin(), json.end())) && ok;
+            g_writing = false;
+            Say(ok ? "SAVED " + std::to_string(count) + " FRAMES  " + shown : "NOT ALL SAVED  " + shown);
+        }).detach();
     }
 
     std::vector<const char *> Backgrounds() {
@@ -803,7 +846,9 @@ void Frame(Machine &machine) {
     if (g.exportWanted && !RunningAhead()) {
         const int wanted = g.exportWanted;
         g.exportWanted = 0;
-        if (wanted == 1) {
+        if (wanted == 2 && g_writing) {
+            Say("STILL SAVING THE LAST ONE");
+        } else if (wanted == 1) {
             ExportPicture(machine);
         } else {
             ExportAnimation(machine);
@@ -863,9 +908,11 @@ void Register(const Description &description) {
     game.pages.push_back({g_d.page, g_d.parent, g_d.pageWords});
     game.commands.push_back({"model_start", g_d.page, "Start", g_d.startWords, g_d.start});
     game.commands.push_back({"model_reset", g_d.page, "Reset options", g_d.resetWords, ResetChoices});
-    game.commands.push_back({"model_save_picture", g_d.page, "Save picture",
+    // (the exports: a page of their own under the viewer's)
+    game.pages.push_back({kExportPage, g_d.page, kExportWords});
+    game.commands.push_back({"model_save_picture", kExportPage, "Save picture",
                              "Saves the character as it is shown now, by itself on nothing, as a PNG in the exports folder beside "
-                             "your saves (at the export size below).",
+                             "your saves, at the export size chosen on this page.",
                              [](Machine &) {
                                  if (g.on) {
                                      g.exportWanted = 1;
@@ -873,10 +920,11 @@ void Register(const Description &description) {
                                      Say("START THE VIEWER FIRST");
                                  }
                              }});
-    game.commands.push_back({"model_save_animation", g_d.page, "Save animation",
+    game.commands.push_back({"model_save_animation", kExportPage, "Save animation",
                              "Saves every frame of the animation shown, by itself on nothing, in a folder of its own in the exports "
                              "folder beside your saves: each frame as a PNG, all of them on one sheet, a looping animated PNG and "
-                             "GIF with the game's own timing, and a list of the frames' times for other programs.",
+                             "GIF with the game's own timing (slowed as the viewer's Speed is), and a list of the frames' times for "
+                             "other programs.",
                              [](Machine &) {
                                  if (g.on) {
                                      g.exportWanted = 2;
@@ -884,6 +932,20 @@ void Register(const Description &description) {
                                      Say("START THE VIEWER FIRST");
                                  }
                              }});
+    game.commands.push_back({"model_show_folder", kExportPage, "Show pictures folder",
+                             "Opens the exports folder beside your saves (where Save picture and Save animation write) in your file "
+                             "manager.",
+                             [](Machine &) {
+                                 const std::string folder = PlayerFolder() + "exports";
+                                 std::error_code error;
+                                 std::filesystem::create_directories(PathOf(folder), error);
+                                 if (!OpenFolder(folder)) {
+                                     Say("CAN'T OPEN IT HERE: IT IS " + folder);
+                                 }
+                             }});
+    game.features.push_back({"model_export_size", kExportPage, "Export size",
+                             "How large the saved pictures are: each of the board's pixels as a square of this many.", 0,
+                             {"1x", "2x", "3x", "4x", "6x", "8x", "12x", "16x"}});
     game.features.push_back({"model_character", g_d.page, "Character", "Who is shown. Changing it while viewing goes to the new one.", 0,
                              g_d.characters});
     game.features.push_back({"model_background", g_d.page, "Background",
@@ -904,9 +966,6 @@ void Register(const Description &description) {
                              0,
                              {"At once", "1 second", "2 seconds", "3 seconds", "4 seconds", "5 seconds", "6 seconds", "7 seconds",
                               "8 seconds", "9 seconds", "10 seconds"}});
-    game.features.push_back({"model_export_size", g_d.page, "Export size",
-                             "How large the saved pictures are: each of the board's pixels as a square of this many.", 0,
-                             {"1x", "2x", "3x", "4x", "6x", "8x"}});
     game.features.push_back({"model_all", g_d.page, "Play all",
                              "Goes through all of the character's animations, one after another: each is shown once (and its "
                              "last frame held for \"Repeat after\") and then the next starts, round from the last to the first. "

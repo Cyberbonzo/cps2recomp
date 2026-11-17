@@ -4,14 +4,17 @@
 // The model viewer's exports as files: a picture with its see-through pixels as a PNG, frames with their times as an
 // animated PNG (APNG) and as a GIF. A pixel is red in the low byte, then green, then blue, then how solid it is (0:
 // not there, 255: there; nothing between: the board's pixels are one or the other).
+//
+// Pictures are kept at the board's own size and made larger as they are written (`scale`: each pixel a square of that
+// many), a row at a time: at 16x a long animation's frames would be gigabytes held whole.
 #pragma once
 
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
-#include <map>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <zlib.h>
 
@@ -58,25 +61,43 @@ namespace detail {
         out.insert(out.end(), data.begin(), data.end());
         Put32(out, static_cast<uint32_t>(crc32(0, out.data() + from, static_cast<uInt>(out.size() - from))));
     }
-    // A picture's rows as PNG has them (RGBA, no filter), packed
-    inline std::vector<uint8_t> Packed(const Picture &picture) {
-        std::vector<uint8_t> raw;
-        raw.reserve(static_cast<size_t>(picture.width * 4 + 1) * picture.height);
+    // A picture's rows as PNG has them (RGBA, no filter), made `scale` times larger and packed a row at a time
+    inline std::vector<uint8_t> Packed(const Picture &picture, int scale) {
+        z_stream z = {};
+        deflateInit(&z, 6);
+        std::vector<uint8_t> out, row(static_cast<size_t>(picture.width) * scale * 4 + 1);
+        uint8_t buffer[1 << 16];
+        auto pump = [&](int flush) {
+            do {
+                z.next_out = buffer;
+                z.avail_out = sizeof(buffer);
+                deflate(&z, flush);
+                out.insert(out.end(), buffer, buffer + (sizeof(buffer) - z.avail_out));
+            } while (z.avail_out == 0);
+        };
         for (int y = 0; y < picture.height; y++) {
-            raw.push_back(0);
+            row[0] = 0;
+            uint8_t *at = row.data() + 1;
             for (int x = 0; x < picture.width; x++) {
                 const uint32_t p = picture.pixels[static_cast<size_t>(y) * picture.width + x];
-                raw.push_back(static_cast<uint8_t>(p));
-                raw.push_back(static_cast<uint8_t>(p >> 8));
-                raw.push_back(static_cast<uint8_t>(p >> 16));
-                raw.push_back(static_cast<uint8_t>(p >> 24));
+                for (int n = 0; n < scale; n++) {
+                    *at++ = static_cast<uint8_t>(p);
+                    *at++ = static_cast<uint8_t>(p >> 8);
+                    *at++ = static_cast<uint8_t>(p >> 16);
+                    *at++ = static_cast<uint8_t>(p >> 24);
+                }
+            }
+            for (int n = 0; n < scale; n++) { // (the same row again for each of its copies)
+                z.next_in = row.data();
+                z.avail_in = static_cast<uInt>(row.size());
+                pump(Z_NO_FLUSH);
             }
         }
-        uLongf size = compressBound(static_cast<uLong>(raw.size()));
-        std::vector<uint8_t> z(size);
-        compress2(z.data(), &size, raw.data(), static_cast<uLong>(raw.size()), 9);
-        z.resize(size);
-        return z;
+        z.next_in = nullptr;
+        z.avail_in = 0;
+        pump(Z_FINISH);
+        deflateEnd(&z);
+        return out;
     }
     inline std::vector<uint8_t> Header(int width, int height) {
         std::vector<uint8_t> out = {0x89, 'P', 'N', 'G', 13, 10, 26, 10};
@@ -89,20 +110,20 @@ namespace detail {
     }
 } // namespace detail
 
-inline bool WritePng(const std::string &path, const Picture &picture) {
-    std::vector<uint8_t> out = detail::Header(picture.width, picture.height);
-    detail::Chunk(out, "IDAT", detail::Packed(picture));
+inline bool WritePng(const std::string &path, const Picture &picture, int scale = 1) {
+    std::vector<uint8_t> out = detail::Header(picture.width * scale, picture.height * scale);
+    detail::Chunk(out, "IDAT", detail::Packed(picture, scale));
     detail::Chunk(out, "IEND", {});
     return WriteAll(path, out);
 }
 
 // Frames of one size, each shown for `times[n]` sixtieths of a second, repeated for ever. A viewer that does not know
 // APNG shows the first frame.
-inline bool WriteApng(const std::string &path, const std::vector<Picture> &frames, const std::vector<int> &times) {
+inline bool WriteApng(const std::string &path, const std::vector<Picture> &frames, const std::vector<int> &times, int scale = 1) {
     if (frames.empty()) {
         return false;
     }
-    const int width = frames[0].width, height = frames[0].height;
+    const int width = frames[0].width * scale, height = frames[0].height * scale;
     std::vector<uint8_t> out = detail::Header(width, height);
     std::vector<uint8_t> actl;
     detail::Put32(actl, static_cast<uint32_t>(frames.size()));
@@ -121,7 +142,7 @@ inline bool WriteApng(const std::string &path, const std::vector<Picture> &frame
         fctl.push_back(1); // (cleared to nothing after it: the next frame is not drawn over this one)
         fctl.push_back(0); // (drawn in place of what is there)
         detail::Chunk(out, "fcTL", fctl);
-        const std::vector<uint8_t> z = detail::Packed(frames[n]);
+        const std::vector<uint8_t> z = detail::Packed(frames[n], scale);
         if (n == 0) {
             detail::Chunk(out, "IDAT", z);
         } else {
@@ -138,12 +159,12 @@ inline bool WriteApng(const std::string &path, const std::vector<Picture> &frame
 // The same as a GIF: one table of up to 255 colours for all the frames (the board's characters have far fewer; past
 // that, a colour is the nearest of the table's) and the 256th for see-through. A GIF counts in hundredths of a second,
 // so the times are rounded with what each loses carried to the next, to keep the whole the board's.
-inline bool WriteGif(const std::string &path, const std::vector<Picture> &frames, const std::vector<int> &times) {
+inline bool WriteGif(const std::string &path, const std::vector<Picture> &frames, const std::vector<int> &times, int scale = 1) {
     if (frames.empty()) {
         return false;
     }
-    const int width = frames[0].width, height = frames[0].height;
-    std::map<uint32_t, uint8_t> index;
+    const int width = frames[0].width * scale, height = frames[0].height * scale;
+    std::unordered_map<uint32_t, uint8_t> index;
     std::vector<uint32_t> colours;
     for (const Picture &frame : frames) {
         for (uint32_t p : frame.pixels) {
@@ -192,6 +213,16 @@ inline bool WriteGif(const std::string &path, const std::vector<Picture> &frames
     }
     out.insert(out.end(), {0x21, 0xFF, 11, 'N', 'E', 'T', 'S', 'C', 'A', 'P', 'E', '2', '.', '0', 3, 1, 0, 0, 0}); // (for ever)
 
+    // (the LZW table: for each code and the byte after it, the code of that string; 0: none yet)
+    std::vector<uint16_t> table(static_cast<size_t>(4096) * 256);
+    std::vector<uint32_t> used; // (its entries set, to clear only those when it starts again)
+    auto restart = [&] {
+        for (uint32_t at : used) {
+            table[at] = 0;
+        }
+        used.clear();
+    };
+    std::vector<uint8_t> row;
     int owed = 0; // (in sixtieths of a hundredth: the time the rounding has lost so far)
     for (size_t n = 0; n < frames.size(); n++) {
         const int wanted = std::max(1, times[n]) * 100 + owed; // (in sixtieths of a hundredth of a second)
@@ -219,34 +250,43 @@ inline bool WriteGif(const std::string &path, const std::vector<Picture> &frames
                 count -= 8;
             }
         };
-        std::map<uint32_t, int> table; // (a string's code and the byte after it, as one key)
+        restart();
         code(kClear);
         int prefix = -1;
-        for (uint32_t p : frames[n].pixels) {
-            const uint8_t c = lookup(p);
-            if (prefix < 0) {
-                prefix = c;
-                continue;
+        const Picture &frame = frames[n];
+        row.resize(static_cast<size_t>(width));
+        for (int y = 0; y < frame.height; y++) {
+            for (int x = 0; x < frame.width; x++) {
+                std::fill_n(&row[static_cast<size_t>(x) * scale], scale, lookup(frame.pixels[static_cast<size_t>(y) * frame.width + x]));
             }
-            const uint32_t key = (static_cast<uint32_t>(prefix) << 8) | c;
-            const auto at = table.find(key);
-            if (at != table.end()) {
-                prefix = at->second;
-                continue;
-            }
-            code(prefix);
-            if (next < 4096) {
-                table[key] = next++;
-                if (next > (1 << size) && size < 12) {
-                    size++;
+            for (int copy = 0; copy < scale; copy++) {
+                for (uint8_t c : row) {
+                    if (prefix < 0) {
+                        prefix = c;
+                        continue;
+                    }
+                    const uint32_t key = static_cast<uint32_t>(prefix) * 256 + c;
+                    uint16_t &entry = table[key];
+                    if (entry) {
+                        prefix = entry;
+                        continue;
+                    }
+                    code(prefix);
+                    if (next < 4096) {
+                        entry = static_cast<uint16_t>(next++);
+                        used.push_back(key);
+                        if (next > (1 << size) && size < 12) {
+                            size++;
+                        }
+                    } else {
+                        code(kClear);
+                        restart();
+                        next = kEnd + 1;
+                        size = 9;
+                    }
+                    prefix = c;
                 }
-            } else {
-                code(kClear);
-                table.clear();
-                next = kEnd + 1;
-                size = 9;
             }
-            prefix = c;
         }
         if (prefix >= 0) {
             code(prefix);

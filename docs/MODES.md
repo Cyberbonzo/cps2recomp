@@ -78,8 +78,8 @@ its animations.
 **Save picture** saves the character as shown, by itself on a see-through background, as a PNG. **Save animation**
 saves every frame of the animation shown in a folder of its own: each frame as a PNG, a sheet of all of them, a looping
 animated PNG and GIF with the game's own timing, and `animation.json` (each frame's time in sixtieths of a second, and
-where the character stands in the frames). They go in `exports/` beside your saves, at the **Export size** chosen (1x
-to 8x, the board's pixels kept square).
+where the character stands in the frames). They are on the viewer's **Export** page, and go in `exports/` beside your saves, at the **Export size** chosen (1x
+to 16x, the board's pixels kept square). The animated PNG and GIF play at the viewer's **Speed**. **Show pictures folder** opens that folder.
 
 ![The model viewer in Street Fighter Alpha 2](screenshots/sfa2/model-viewer.gif)
 
