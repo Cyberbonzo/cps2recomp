@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **The other set a game reads is looked for too** (#208, the check's other half): Vampire Savior Definitive reads
+  `vsavj` and `vsav2`, and the game stops on Play without the second, which it looks for beside the first; the
+  launcher's check now looks there too (the folder's `<set>`, then `<set>.zip`, as `port/main.cpp` does) and says it
+  before Play. In a collection, where that set may be chosen on the page of the game it is, the set is marked usable
+  with a note rather than refused.
 - **Scene export** (issue #366): the in-game menu's **Game > Scene export** page, every game. **Save scene**
   (Shift+F12) saves the picture and each of the board's layers by itself as see-through PNGs (scroll screens 1-3; the
   objects, a CPS-2's split by where their level puts them among the screens), with `scene.json` of their order; a fight

@@ -99,6 +99,19 @@ std::string sets_named(const GameInfo& game) {
     return text;
 }
 
+// A game that reads another set too (game.cfg's extra_set) looks for it beside its own, by the set's name: the
+// folder's <set>, then <set>.zip (port/main.cpp). Whether it is there, so that the launcher can say it before Play
+// rather than the game after it.
+bool extra_set_beside(const GameInfo& game, const std::string& path) {
+    if (!game.extra_set || !*game.extra_set) {
+        return true;
+    }
+    std::error_code error;
+    const std::filesystem::path folder = std::filesystem::u8path(path).parent_path();
+    const std::filesystem::path beside = folder / game.extra_set;
+    return std::filesystem::exists(beside, error) || std::filesystem::exists(std::filesystem::u8path(beside.u8string() + ".zip"), error);
+}
+
 // A ROM set: the set's zip (with its parent set's zip beside it, if the collection keeps shared files
 // there) or a folder with the set's files. Every file is checked against the checksums the port was made
 // from, and the program is deciphered with the set's key, as the game itself does when it starts. The
@@ -121,6 +134,20 @@ launcher::FileCheck check_rom_set(const GameInfo& game, const std::string& path)
     if (cps2recomp::LoadRomSet(path, list, set, message)) {
         check.result = launcher::FileCheck::Result::Good;
         check.message = set.name.empty() ? game.rom_name : set.name;
+        if (!extra_set_beside(game, path)) {
+            const std::string extra = game.extra_set;
+#ifdef LAUNCHER_COLLECTION
+            // (a collection's player may have chosen that set on the page of the game it is, and the launcher gives
+            // it to this one then: say it, but let it run)
+            check.result = launcher::FileCheck::Result::Usable;
+            check.message += "; it also needs " + extra + ".zip beside it, or chosen on its page.";
+#else
+            // (this launcher starts the game with this set alone, and the game looks for the other beside it: it
+            // would stop on Play)
+            check.result = launcher::FileCheck::Result::NotUsable;
+            check.message = "Not usable: it also needs " + extra + ".zip beside it.";
+#endif
+        }
     } else {
         check.message = "Not usable: " + message + ". This port needs the set " + sets_named(game) + (*game.key ? ", with its key file" : "") +
                         ". Other versions of the game will not work.";
@@ -612,6 +639,9 @@ const launcher::Collection& launcher::describe_collection() {
 #ifndef LAUNCHER_OTHER_SET
 #define LAUNCHER_OTHER_SET ""
 #endif
+#ifndef LAUNCHER_EXTRA_SET
+#define LAUNCHER_EXTRA_SET ""
+#endif
 
 namespace {
 
@@ -620,7 +650,7 @@ const GameInfo& only_game() {
     static const GameInfo game = {LAUNCHER_GAME_EXE, LAUNCHER_GAME_NAME, LAUNCHER_ROM_SET, LAUNCHER_ROM_PARENT, LAUNCHER_ROM_NAME,
                                   LAUNCHER_ROM_PROGRAM, LAUNCHER_ROM_GRAPHICS, LAUNCHER_ROM_SOUND_PROGRAM, LAUNCHER_ROM_SAMPLES,
                                   LAUNCHER_ROM_KEY, LAUNCHER_DISPLAY_SWITCHES, LAUNCHER_PLAYERS, LAUNCHER_BUTTONS,
-                                  LAUNCHER_BOARD, LAUNCHER_CPS_B, "", "", LAUNCHER_OTHER_SET, "", ""};
+                                  LAUNCHER_BOARD, LAUNCHER_CPS_B, LAUNCHER_EXTRA_SET, "", LAUNCHER_OTHER_SET, "", ""};
     return game;
 }
 
