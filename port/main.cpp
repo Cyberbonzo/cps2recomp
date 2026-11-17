@@ -2593,7 +2593,9 @@ void Port::RunAhead() {
             TheGame().frame(*machine);
         }
     }
+    NativeVideo::keepLastFrame = true; // (the frame shown is the last ahead: still the scene's)
     PutBackState(kept);
+    NativeVideo::keepLastFrame = false;
     SetRunningAhead(false);
     machine->audio.resize(sound);
     memcpy(machine->players, held, sizeof(held));
