@@ -36,6 +36,9 @@ namespace {
     // is taken to, the most a sheet has across, how long what was saved is said for, and the sizes
     constexpr int kSettleFrames = 3, kMostExportFrames = 256, kSheetAcross = 8, kSaidFor = 4 * kFramesASecond;
     constexpr int kExportSizes[] = {1, 2, 3, 4, 6, 8};
+    // ... and their page of the menu, under the viewer's
+    constexpr const char *kExportPage = "Export";
+    constexpr const char *kExportWords = "Save the character shown, or every frame of the animation shown, as pictures and a GIF.";
 
     Description g_d;
     int g_choices = 0; // the "Animation" choice's count: standing and every list's
@@ -439,6 +442,11 @@ namespace {
         uint32_t frame = 0; // its address
     };
 
+    // A UTF-8 name as a path (a folder with an accent, on Windows)
+    std::filesystem::path PathOf(const std::string &text) {
+        return std::filesystem::path(std::u8string(text.begin(), text.end()));
+    }
+
     int ExportSize() {
         return kExportSizes[std::clamp(FeatureValue("model_export_size"), 0, static_cast<int>(std::size(kExportSizes)) - 1)];
     }
@@ -465,10 +473,10 @@ namespace {
         std::error_code error;
         const std::string under = PlayerFolder() + "exports/";
         std::string folder = under + name;
-        for (int n = 2; std::filesystem::exists(std::filesystem::u8path(folder), error); n++) {
+        for (int n = 2; std::filesystem::exists(PathOf(folder), error); n++) {
             folder = under + name + " " + std::to_string(n);
         }
-        std::filesystem::create_directories(std::filesystem::u8path(folder), error);
+        std::filesystem::create_directories(PathOf(folder), error);
         return error ? "" : folder + "/";
     }
 
@@ -546,9 +554,9 @@ namespace {
         }
         const std::string folder = PlayerFolder() + "exports/";
         std::error_code error;
-        std::filesystem::create_directories(std::filesystem::u8path(folder), error);
+        std::filesystem::create_directories(PathOf(folder), error);
         std::string file = name;
-        for (int n = 2; std::filesystem::exists(std::filesystem::u8path(folder + file + ".png"), error); n++) {
+        for (int n = 2; std::filesystem::exists(PathOf(folder + file + ".png"), error); n++) {
             file = name + " " + std::to_string(n);
         }
         if (pictures.empty() || !image_files::WritePng(folder + file + ".png", pictures[0])) {
@@ -863,9 +871,11 @@ void Register(const Description &description) {
     game.pages.push_back({g_d.page, g_d.parent, g_d.pageWords});
     game.commands.push_back({"model_start", g_d.page, "Start", g_d.startWords, g_d.start});
     game.commands.push_back({"model_reset", g_d.page, "Reset options", g_d.resetWords, ResetChoices});
-    game.commands.push_back({"model_save_picture", g_d.page, "Save picture",
+    // (the exports: a page of their own under the viewer's)
+    game.pages.push_back({kExportPage, g_d.page, kExportWords});
+    game.commands.push_back({"model_save_picture", kExportPage, "Save picture",
                              "Saves the character as it is shown now, by itself on nothing, as a PNG in the exports folder beside "
-                             "your saves (at the export size below).",
+                             "your saves, at the export size chosen on this page.",
                              [](Machine &) {
                                  if (g.on) {
                                      g.exportWanted = 1;
@@ -873,7 +883,7 @@ void Register(const Description &description) {
                                      Say("START THE VIEWER FIRST");
                                  }
                              }});
-    game.commands.push_back({"model_save_animation", g_d.page, "Save animation",
+    game.commands.push_back({"model_save_animation", kExportPage, "Save animation",
                              "Saves every frame of the animation shown, by itself on nothing, in a folder of its own in the exports "
                              "folder beside your saves: each frame as a PNG, all of them on one sheet, a looping animated PNG and "
                              "GIF with the game's own timing, and a list of the frames' times for other programs.",
@@ -884,6 +894,9 @@ void Register(const Description &description) {
                                      Say("START THE VIEWER FIRST");
                                  }
                              }});
+    game.features.push_back({"model_export_size", kExportPage, "Export size",
+                             "How large the saved pictures are: each of the board's pixels as a square of this many.", 0,
+                             {"1x", "2x", "3x", "4x", "6x", "8x"}});
     game.features.push_back({"model_character", g_d.page, "Character", "Who is shown. Changing it while viewing goes to the new one.", 0,
                              g_d.characters});
     game.features.push_back({"model_background", g_d.page, "Background",
@@ -904,9 +917,6 @@ void Register(const Description &description) {
                              0,
                              {"At once", "1 second", "2 seconds", "3 seconds", "4 seconds", "5 seconds", "6 seconds", "7 seconds",
                               "8 seconds", "9 seconds", "10 seconds"}});
-    game.features.push_back({"model_export_size", g_d.page, "Export size",
-                             "How large the saved pictures are: each of the board's pixels as a square of this many.", 0,
-                             {"1x", "2x", "3x", "4x", "6x", "8x"}});
     game.features.push_back({"model_all", g_d.page, "Play all",
                              "Goes through all of the character's animations, one after another: each is shown once (and its "
                              "last frame held for \"Repeat after\") and then the next starts, round from the last to the first. "
