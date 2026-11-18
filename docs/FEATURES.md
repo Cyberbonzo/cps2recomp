@@ -164,7 +164,11 @@ it covered there in its place. A clip steps frame by frame or plays at 1x to 1/1
 each player's as a layer of their own just in front of that player (with the board's layers, in front of the frontmost
 objects), drawn from `scene.json`'s list, and the readout in front of everything; each can be switched off in the list
 like any layer. A whole stage's layers go back by their parallax pace, so at a spread of 1 moving the camera across it
-gives the game's own parallax. Nothing leaves the browser.
+gives the game's own parallax. **Save 3D model (glTF)** writes what is shown as one `.glb` file for Blender and other
+3D programs: the backdrop, each layer that is on, each object picked out and each overlay as a flat cut-out where it is
+(at the spread chosen), each an object of its own named as in the list, and the camera as it looks; a pixel a
+centimetre, as wide as the page shows it, the pictures unlit and sharp (nearest filtering), see-through pixels cut out
+(a clip's: the frame shown). From its camera, Blender draws the game's picture. Nothing leaves the browser.
 
 **Rapid fire** is the port's own (`rapid_fire`, Game page, every game): a held button is the game's pressed for two
 frames and let go for two, for the first button or for all of them, from the frame it goes down. Movies keep what the
