@@ -89,8 +89,10 @@ The stage viewer's **Save whole stage** puts a stage together from one end to th
 **The scene diorama** (`tools/diorama/diorama.html`, issue #380) shows what these save as cut-outs at their own depths:
 the launcher's **Open diorama** (Games page, Tools) opens it in the browser, as does opening the file itself, then open a saved folder (or drop it on the page). Each layer is put further back and made
 larger by as much, so the front view (Game view) is the game's picture at any spread; turn it, pull the layers apart,
-hide or solo them, add shadows between them, haze or scanlines, and take a photo at up to 4x. A clip steps frame by
-frame or plays at 1x to 1/16x. A whole stage's layers go back by their parallax pace, so at a spread of 1 moving the
+hide or solo them, add shadows between them, haze or scanlines, take a photo at up to 4x, or record a video (MP4, or
+WebM where the browser makes no MP4: a clip once through, a scene or stage turning). The board's pixels are shown as on
+its 4:3 screen (or square, when chosen). Every scene opened is kept in the browser's list until its data for the page is
+cleared. A clip steps frame by frame or plays at 1x to 1/16x. A whole stage's layers go back by their parallax pace, so at a spread of 1 moving the
 camera across it gives the game's own parallax. Nothing leaves the browser.
 
 **Rapid fire** is the port's own (`rapid_fire`, Game page, every game): a held button is the game's pressed for two
