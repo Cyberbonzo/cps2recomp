@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Tommy McLeroy. Part of cps2recomp.
 //
 // The model viewer's exports as files: a picture with its see-through pixels as a PNG, frames with their times as an
-// animated PNG (APNG) and as a GIF. A pixel is red in the low byte, then green, then blue, then how solid it is (0:
+// animated PNG (APNG) and as a GIF; and any picture, or pictures laid over each other, as an SVG. A pixel is red in the low byte, then green, then blue, then how solid it is (0:
 // not there, 255: there; nothing between: the board's pixels are one or the other).
 //
 // Pictures are kept at the board's own size and made larger as they are written (`scale`: each pixel a square of that
@@ -305,6 +305,157 @@ inline bool WriteGif(const std::string &path, const std::vector<Picture> &frames
     }
     out.push_back(0x3B);
     return WriteAll(path, out);
+}
+
+
+// A picture as SVG (issue #368): each pixel a square of the picture's grid, so that it scales to any size exactly.
+// What a row has of a colour side by side is one rectangle, and the same rectangle in the rows below is made taller,
+// so a layer's flat areas are a few; each colour's rectangles are one path. See-through pixels are left out (a pixel
+// partly see-through, as a hit box's fill, keeps how much). `layers`: pictures laid over each other in a grid
+// `columns` x `rows`, the first at the back, each at its place in it and a group of its own named as given (a drawing
+// program shows them as its layers). It is shown `width` x `height` (the grid stretched to it: the board's pixels on
+// its 4:3 screen, say).
+struct SvgLayer {
+    std::string name;
+    const Picture *picture = nullptr;
+    int x = 0, y = 0; // (where its top left is in the grid)
+};
+namespace detail {
+    inline std::string SvgName(const std::string &text) {
+        std::string out;
+        for (const char c : text) {
+            switch (c) {
+            case '&': out += "&amp;"; break;
+            case '<': out += "&lt;"; break;
+            case '>': out += "&gt;"; break;
+            case '"': out += "&quot;"; break;
+            default: out += c;
+            }
+        }
+        return out;
+    }
+    // A picture's paths: `behind`, a colour drawn under all of it as one rectangle (its commonest, in an opaque picture),
+    // whose pixels then need none of their own
+    inline void SvgPaths(std::string &out, const Picture &picture, bool opaque) {
+        const int w = picture.width, h = picture.height;
+        uint32_t behind = 0;
+        bool hasBehind = false;
+        if (opaque) {
+            std::unordered_map<uint32_t, size_t> count;
+            for (const uint32_t p : picture.pixels) {
+                count[p | 0xFF000000u]++;
+            }
+            size_t most = 0;
+            for (const auto &[colour, n] : count) {
+                if (n > most) {
+                    most = n;
+                    behind = colour;
+                }
+            }
+            hasBehind = most > 0;
+        }
+        struct Open {
+            int x, w, top;
+            uint32_t colour;
+        };
+        std::unordered_map<uint32_t, std::string> paths; // (each colour's rectangles)
+        std::vector<uint32_t> order;                     // (the colours as first met, for the same file every time)
+        auto close = [&](const Open &o, int bottom) {
+            auto [it, made] = paths.try_emplace(o.colour);
+            if (made) {
+                order.push_back(o.colour);
+            }
+            char text[64];
+            snprintf(text, sizeof(text), "M%d %dh%dv%dh-%dz", o.x, o.top, o.w, bottom - o.top, o.w);
+            it->second += text;
+        };
+        std::vector<Open> open, next; // (the rectangles still growing down, by where they start across)
+        for (int y = 0; y <= h; y++) {
+            next.clear();
+            size_t at = 0; // (in `open`, sorted across)
+            for (int x = 0; y < h && x < w;) {
+                uint32_t colour = picture.pixels[static_cast<size_t>(y) * w + x];
+                if (opaque) {
+                    colour |= 0xFF000000u;
+                }
+                int end = x + 1;
+                while (end < w && (opaque ? picture.pixels[static_cast<size_t>(y) * w + end] | 0xFF000000u
+                                          : picture.pixels[static_cast<size_t>(y) * w + end]) == colour) {
+                    end++;
+                }
+                if ((colour >> 24) != 0 && !(hasBehind && colour == behind)) {
+                    while (at < open.size() && open[at].x < x) {
+                        close(open[at++], y);
+                    }
+                    if (at < open.size() && open[at].x == x && open[at].w == end - x && open[at].colour == colour) {
+                        next.push_back(open[at++]); // (the same run as the row above: it grows)
+                    } else {
+                        next.push_back({x, end - x, y, colour});
+                    }
+                }
+                x = end;
+            }
+            while (at < open.size()) {
+                close(open[at++], y);
+            }
+            open.swap(next);
+        }
+        char text[96];
+        if (hasBehind) {
+            snprintf(text, sizeof(text), "<rect width=\"%d\" height=\"%d\" fill=\"#%02x%02x%02x\"/>\n", w, h, behind & 0xFF,
+                     (behind >> 8) & 0xFF, (behind >> 16) & 0xFF);
+            out += text;
+        }
+        for (const uint32_t colour : order) {
+            const unsigned alpha = colour >> 24;
+            snprintf(text, sizeof(text), "<path fill=\"#%02x%02x%02x\"", colour & 0xFF, (colour >> 8) & 0xFF, (colour >> 16) & 0xFF);
+            out += text;
+            if (alpha < 255) {
+                snprintf(text, sizeof(text), " fill-opacity=\"%.3g\"", alpha / 255.0);
+                out += text;
+            }
+            out += " d=\"" + paths[colour] + "\"/>\n";
+        }
+    }
+    inline bool Opaque(const Picture &picture) {
+        return std::all_of(picture.pixels.begin(), picture.pixels.end(), [](uint32_t p) { return (p >> 24) == 0xFF; });
+    }
+} // namespace detail
+
+inline bool WriteSvg(const std::string &path, const std::vector<SvgLayer> &layers, int columns, int rows, double width, double height) {
+    if (layers.empty() || columns <= 0 || rows <= 0) {
+        return false;
+    }
+    char head[512];
+    snprintf(head, sizeof(head),
+             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+             "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:inkscape=\"http://www.inkscape.org/namespaces/inkscape\" "
+             "width=\"%.6g\" height=\"%.6g\" viewBox=\"0 0 %d %d\" preserveAspectRatio=\"none\" shape-rendering=\"crispEdges\">\n",
+             width, height, columns, rows);
+    std::string out = head;
+    for (const SvgLayer &layer : layers) {
+        if (!layer.picture || layer.picture->width <= 0 || layer.picture->height <= 0) {
+            continue;
+        }
+        if (layers.size() > 1) {
+            const std::string name = detail::SvgName(layer.name);
+            out += "<g id=\"" + name + "\" inkscape:groupmode=\"layer\" inkscape:label=\"" + name + "\"";
+            if (layer.x || layer.y) {
+                out += " transform=\"translate(" + std::to_string(layer.x) + " " + std::to_string(layer.y) + ")\"";
+            }
+            out += ">\n";
+        }
+        // (one picture by itself: its commonest colour drawn behind it all; laid over others, only its own pixels)
+        detail::SvgPaths(out, *layer.picture, layers.size() == 1 && detail::Opaque(*layer.picture));
+        if (layers.size() > 1) {
+            out += "</g>\n";
+        }
+    }
+    out += "</svg>\n";
+    return WriteAll(path, std::vector<uint8_t>(out.begin(), out.end()));
+}
+inline bool WriteSvg(const std::string &path, const Picture &picture, double width, double height) {
+    return WriteSvg(path, std::vector<SvgLayer>{{"picture", &picture}}, picture.width, picture.height, width, height);
 }
 
 } // namespace cps2recomp::image_files

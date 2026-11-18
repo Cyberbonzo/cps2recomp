@@ -835,6 +835,40 @@ std::string SceneExport::Save(Machine &machine, const std::string &under, const 
     if (folder.empty() || !WriteScene(scene, folder, 0)) {
         return "SCENE NOT SAVED";
     }
+    // (the Game page's SVG pictures too, issue #368: scene.svg, the board's layers back to front and what is drawn over
+    // them, each a group; and parts.svg, its parts, in a fighting game's round)
+    if (cps2recomp::FeatureOn("export_svg")) {
+        double width = 0, height = 0;
+        SvgSize(scene.width, scene.height, width, height);
+        std::vector<image_files::Picture> pictures;
+        auto svg = [&](const std::string &file, const std::vector<const std::vector<Layer> *> &lists) {
+            pictures.clear();
+            pictures.reserve(32);
+            std::vector<image_files::SvgLayer> layers;
+            image_files::Picture backdrop = AsPicture(std::vector<uint32_t>(static_cast<size_t>(scene.width) * scene.height, scene.backdrop | 0xFF000000u),
+                                                      scene.width, scene.height);
+            layers.push_back({"backdrop", &backdrop});
+            for (const auto *list : lists) {
+                for (const Layer &layer : *list) {
+                    if (!layer.empty) {
+                        pictures.push_back(AsPicture(layer.pixels, scene.width, scene.height));
+                    }
+                }
+            }
+            size_t n = 0;
+            for (const auto *list : lists) {
+                for (const Layer &layer : *list) {
+                    if (!layer.empty) {
+                        layers.push_back({layer.name, &pictures[n++]});
+                    }
+                }
+            }
+            return image_files::WriteSvg(folder + file, layers, scene.width, scene.height, width, height);
+        };
+        if (!svg("scene.svg", {&scene.layers, &scene.overlays}) || (!scene.parts.empty() && !svg("parts.svg", {&scene.parts, &scene.overlays}))) {
+            return "SCENE NOT SAVED";
+        }
+    }
     std::string entriesJson;
     if (!scene.entries.empty() && !WriteEntries(scene, folder, entriesJson)) {
         return "SCENE NOT SAVED";
@@ -1217,6 +1251,10 @@ std::string StageStitch::Write(const std::string &under, const std::string &name
     whole.pixels.assign(static_cast<size_t>(across) * down, m_backdrop | 0xFF000000u);
     bool written = true;
     std::string layers;
+    // (stage.svg: the backdrop, then each layer where it is in the whole)
+    std::vector<image_files::Picture> ones;
+    ones.reserve(m_layers.size());
+    std::vector<image_files::SvgLayer> svgLayers{{"backdrop", &whole}};
     for (size_t n = 0; n < m_layers.size(); n++) {
         const Canvas &c = m_layers[n];
         const Placed &p = placed[n];
@@ -1243,12 +1281,23 @@ std::string StageStitch::Write(const std::string &under, const std::string &name
                 }
             }
             written = image_files::WritePng(folder + c.name + ".png", one) && written;
+            if (svg) {
+                ones.push_back(one);
+                svgLayers.push_back({c.name, &ones.back(), p.left + p.shift - left, p.top - top});
+            }
             char place[160];
             snprintf(place, sizeof(place), ", \"x\": %d, \"y\": %d, \"width\": %d, \"height\": %d, \"pace\": %.3f",
                      p.left + p.shift - left, p.top - top, one.width, one.height, p.pace);
             json += place;
         }
         layers += "    " + json + "}" + (n + 1 < m_layers.size() ? ",\n" : "\n");
+    }
+    if (svg) {
+        // (the backdrop by itself, under the layers: `whole` is written below, all of them put together)
+        image_files::Picture backdrop = whole;
+        std::fill(backdrop.pixels.begin(), backdrop.pixels.end(), m_backdrop | 0xFF000000u);
+        svgLayers[0].picture = &backdrop;
+        written = image_files::WriteSvg(folder + "stage.svg", svgLayers, across, down, across * svgPixelWidth, down * svgPixelHeight) && written;
     }
     written = image_files::WritePng(folder + "stage.png", whole) && written;
     const std::string json = "{\n  \"kind\": \"stage\",\n  \"stage\": " + Quoted(stage) + ",\n  \"width\": " + std::to_string(across) +

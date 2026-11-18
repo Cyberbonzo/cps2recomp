@@ -17,6 +17,7 @@
 #include "../fight/tag.h"
 #include "../fight/guest_stages.h"
 #include "png_write.h"
+#include "../model/image_files.h"
 #include "present.h"
 #include "gpu_picture.h"
 #include "../runtime/spare.h"
@@ -642,6 +643,13 @@ void RegisterPortFeatures() {
                                   "Opens exports/scenes beside your saves, where Save scene and Record clip write, in your file "
                                   "manager.",
                                   nullptr});
+    // (SVG beside the PNGs: issue #368, model/image_files.h's WriteSvg)
+    TheGame().features.push_back({"export_svg", "Game", "SVG pictures too",
+                                  "Screenshots (F12), Save scene, the stage viewer's Save whole stage and the model viewer's "
+                                  "saves also write SVG pictures beside their PNGs: each pixel a square, so they scale to "
+                                  "any size exactly. A scene's and a whole stage's has each layer as a layer of its own "
+                                  "(scene.svg, parts.svg, stage.svg), for drawing programs. Not for clips.",
+                                  0});
     // (the video recording: Port::RecordVideo, video_record.h)
     TheGame().pages.push_back({"Video", "Game", "What you play and hear, recorded as an MP4 video that plays anywhere."});
     TheGame().commands.push_back({"video_record", "Video", "Record video",
@@ -2180,6 +2188,21 @@ bool Port::Screenshot() {
     }
     fprintf(stderr, "screenshot: %s\n", path.c_str());
     shotSaid = "SCREENSHOT SAVED  screenshots/" + name + ".png";
+    if (FeatureOn("export_svg")) {
+        // (the same as an SVG: the Game page's SVG pictures too)
+        cps2recomp::image_files::Picture picture;
+        picture.width = ShownWidth();
+        picture.height = Video::kHeight;
+        picture.pixels.resize(shown.size());
+        for (size_t n = 0; n < shown.size(); n++) {
+            picture.pixels[n] = shown[n] | 0xFF000000u;
+        }
+        double width = 0, height = 0;
+        port::SvgSize(picture.width, picture.height, width, height);
+        if (cps2recomp::image_files::WriteSvg(folder + name + ".svg", picture, width, height)) {
+            shotSaid += " .svg";
+        }
+    }
     shotTicks = kSpeedTicks;
     return true;
 }
@@ -2322,6 +2345,8 @@ void Port::StageSweepFrame() {
                 c = ' ';
             }
         }
+        stageStitch.svg = FeatureOn("export_svg"); // (stage.svg too: the Game page's SVG pictures too)
+        port::SvgSize(1, 1, stageStitch.svgPixelWidth, stageStitch.svgPixelHeight);
         if (!scene.WriteStage(std::move(stageStitch), PlayerFolder() + "exports/stages/", name, stage)) {
             shotSaid = recomp::Tr("A STAGE IS STILL BEING SAVED");
             shotTicks = kSpeedTicks;
