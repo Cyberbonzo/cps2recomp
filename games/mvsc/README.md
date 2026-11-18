@@ -159,7 +159,8 @@ side's one panel moves both of its characters:
   Attack; the partner's buttons move only the partner's character, so the partner can't call a tag in.
 - Both teams' hyper combo gauges fill slowly by themselves, besides what the fighting gives: one point every seventh
   step of the game, so a level in 1,008 steps (14.5 seconds at seven steps in six frames), not during the team's own Duo
-  Team Attack.
+  Team Attack. **Cross Fever gauges: Only by fighting** (Alternative modes page, the host's choice online) turns this
+  off.
 - Start is the taunt of whoever is on point, and holding it keeps taunting. (On the Dreamcast Start alone pauses, so
   its taunt is the taunt button, light punch unless changed, with Start; holding both keeps taunting there.)
 - The rest is the board's, which the Dreamcast's game shares: how long the attack lasts (by the gauge's levels, and half

@@ -40,6 +40,8 @@ namespace {
     using namespace mvsc;
 
     constexpr const char *kFeature = "cross_fever";
+    // (issue #363: the gauges' filling by themselves, which competitive players may want off; the host's, as the mode)
+    constexpr const char *kGaugeFeature = "cross_fever_gauge";
 
     // On with tag team's people routed (co-op or 2 vs 2, and no mode of the sources' own)
     bool On() {
@@ -132,7 +134,7 @@ namespace {
             if (g_gaugeSteps < 7) {
                 g_gaugeSteps++;
             }
-            if (!On() || g_gaugeSteps < 7) {
+            if (!On() || FeatureValue(kGaugeFeature) != 0 || g_gaugeSteps < 7) {
                 return false;
             }
             g_gaugeSteps = 0;
@@ -246,6 +248,10 @@ void RegisterCrossFever() {
                                   "Fever mode. Both teams' hyper combo gauges fill slowly by themselves. The person on point "
                                   "tags out (HP+HK); the partner can't call a tag.",
                                   kFeatureMatch});
+    TheGame().features.push_back({kGaugeFeature, modes::kModes, "Cross Fever gauges",
+                                  "In Cross Fever, whether both teams' hyper combo gauges also fill slowly by themselves, as "
+                                  "on the Dreamcast, or only by the fighting, as in the arcade's other modes.",
+                                  kFeatureMatch, {"Fill by themselves", "Only by fighting"}});
 }
 
 } // namespace cps2recomp

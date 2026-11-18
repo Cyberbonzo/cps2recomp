@@ -686,8 +686,14 @@ void RegisterPortFeatures() {
     // (names: shown unless hidden, whatever the preset, so a switch that hides them)
     TheGame().features.push_back({"online_hide_names", "Online", "Hide names",
                                   "During an online match, each player's name is under their life bar (the name each gave on "
-                                  "the launcher's Online page): this hides them.",
+                                  "the launcher's Online page), and under it a win streak of two or more: this hides them.",
                                   0});
+    // (issue #363: under the life bars they can cover a game's second bars, Marvel vs. Capcom's partners)
+    TheGame().features.push_back({"online_names_place", "Online", "Names shown",
+                                  "Where the players' names and win streaks are during an online match: under each side's "
+                                  "life bar, or along the very top of the picture, each side's on one line, out of the way "
+                                  "of the bars and the score.",
+                                  0, {"Under the life bars", "At the top"}});
     TheGame().features.push_back({"online_delay", "Online", "Input delay",
                                   "During an online match, how many frames each player's own controls are held back, at the bottom "
                                   "of the picture (\"DELAY 2\"): the host chooses it.",
@@ -1789,6 +1795,7 @@ void Port::Shown(std::vector<uint32_t> &pixels, std::vector<SDL_Rect> *panels, b
         };
         // Each teammate keeps their player number; first-to scores remain team scores.
         const bool teams = tag::Chosen() != tag::kOff;
+        const bool hidden = FeatureOn("online_hide_names");
         if (net->Set().Target()) {
             // Keep the score centred even when the players' names have different lengths.
             constexpr float size = 1;
@@ -1809,7 +1816,7 @@ void Port::Shown(std::vector<uint32_t> &pixels, std::vector<SDL_Rect> *panels, b
             smallText(leftAt, left, {0, 220, 220, 255});
             smallText(centre, format, {255, 210, 80, 255});
             smallText(rightAt, right, {0, 220, 220, 255});
-            if (!teams && !FeatureOn("online_hide_names")) {
+            if (!teams && !hidden) {
                 for (int side = 0; side < 2; ++side) {
                     std::string name = net->Name(side);
                     if (name.empty()) {
@@ -1824,7 +1831,8 @@ void Port::Shown(std::vector<uint32_t> &pixels, std::vector<SDL_Rect> *panels, b
                 panels->push_back({0, 0, across, 11});
             }
         }
-        for (int side = 0; side < 2 && (!net->Set().Target() || teams); side++) {
+        const bool atTop = FeatureValue("online_names_place") == 1;
+        for (int side = 0; side < 2 && (!net->Set().Target() || teams) && !hidden; side++) {
             float y = 38.0f;
             std::vector<std::pair<std::string, bool>> lines; // (each line, and whether it is drawn bright)
             bool named = false;
@@ -1841,12 +1849,44 @@ void Port::Shown(std::vector<uint32_t> &pixels, std::vector<SDL_Rect> *panels, b
                     lines.push_back({name, true});
                 }
             }
-            for (size_t n = 0; named && n < lines.size() && !FeatureOn("online_hide_names"); n++) {
-                under(side, y, lines[n].first, lines[n].second ? recomp::text::Color{255, 255, 255, 255} : recomp::text::Color{150, 150, 160, 255});
-                y += 12;
+            if (!named) {
+                lines.clear();
             }
             if (streak[side] >= 2) {
-                under(side, y, "STREAK " + std::to_string(streak[side]), {255, 210, 80, 255});
+                lines.push_back({"STREAK " + std::to_string(streak[side]), true});
+            }
+            if (atTop) {
+                // One line a side along the top edge (in the first-to strip when there is one), each part in its colour
+                const float gap = recomp::text::TextWidth("  ", 1);
+                float width = 0;
+                for (size_t n = 0; n < lines.size(); n++) {
+                    width += (n ? gap : 0) + recomp::text::TextWidth(lines[n].first.c_str(), 1);
+                }
+                if (lines.empty()) {
+                    continue;
+                }
+                float x = side == 0 ? 10.0f : W - 10.0f - width;
+                const float top = 2.0f;
+                canvas.Fill(x - 3, top - 2, width + 6, 12, {20, 22, 30, 220});
+                if (panels) {
+                    panels->push_back({static_cast<int>(x) - 3, static_cast<int>(top) - 2, static_cast<int>(width) + 7, 12});
+                }
+                for (size_t n = 0; n < lines.size(); n++) {
+                    const bool isStreak = streak[side] >= 2 && n + 1 == lines.size();
+                    const recomp::text::Color colour = isStreak ? recomp::text::Color{255, 210, 80, 255}
+                                                       : lines[n].second ? recomp::text::Color{255, 255, 255, 255}
+                                                                         : recomp::text::Color{150, 150, 160, 255};
+                    canvas.Text(x, top, 1, 0, colour, lines[n].first.c_str());
+                    x += recomp::text::TextWidth(lines[n].first.c_str(), 1) + gap;
+                }
+                continue;
+            }
+            for (size_t n = 0; n < lines.size(); n++) {
+                const bool isStreak = streak[side] >= 2 && n + 1 == lines.size();
+                under(side, y, lines[n].first, isStreak ? recomp::text::Color{255, 210, 80, 255}
+                                               : lines[n].second ? recomp::text::Color{255, 255, 255, 255}
+                                                                 : recomp::text::Color{150, 150, 160, 255});
+                y += 12;
             }
         }
         // The chat: its lines at the left, above the super gauges, the newest lowest, and the line being typed under them
