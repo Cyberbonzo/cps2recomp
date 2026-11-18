@@ -59,6 +59,30 @@ F12 saves the picture as the window shows it, at the board's size (384 by 224, w
 readouts on it but not the camera's zoom, to `screenshots/` in the game's folder, as `<game> <date> <time>.png`
 (`Port::Screenshot`, issue #31). Where it went is said at the bottom for a few seconds.
 
+## Video recording
+
+The in-game menu's **Game > Video** page, every game (`port/video_record.h`, issue #376). **Record video** (Alt+F12)
+records what is played and heard as an MP4 in `videos/` in the game's folder, as `<game> <date> <time>.mp4`, until the
+row (now **Stop recording video**) or Alt+F12 again; quitting the game finishes it too. The picture is as screenshots
+take it, readouts and all, without the port's lines at the bottom (the speed, the zoom's label, what was saved: the
+window says **RECORDING VIDEO** and the time all the while, the video doesn't). The sound is the game's as heard (the
+Sound filter's too) and the custom soundtrack's, mixed at 48 kHz.
+
+The picture is made larger with each of the board's pixels a sharp block (only the edges between blocks blended, as
+the Display page's Sharp scaling does), in the shape the Display page shows it in (4:3, or square pixels); **Video
+size** chooses 3 times the board's lines (672, the default), 2, 4 or 1080 lines. The size is the game's widest picture's
+(its widescreen), fixed for the file: a narrower picture has black beside it. A vertical game turned upright is
+recorded upright. The video's time is the game's: a frame for each of the board's frames run, so stopped or in the menu
+nothing is recorded and slowed or sped up it plays at the board's speed.
+
+It is H.264 (Constrained Baseline, BT.709 said in the stream, a key frame every two seconds, the same quantizer for
+every picture) and AAC-LC at 48 kHz, which every player, browser and phone plays: minih264 and minimp4 in
+`third_party/`, FAAC downloaded at build time. The encoding is done on a thread of its own: should it fall behind
+(a slow machine at a large size), a picture is left out and the one before shown longer, the sound all kept, rather
+than the game held up. `--record-video FILE.mp4` records a whole run, from its first frame to its last, headless or not;
+headless (or `--unthrottled`) nothing is left out, the game waiting for the encoder instead, so `--movie M.txt
+--headless --record-video M.mp4` makes a movie's play into a video faster than it plays.
+
 ## Scene export
 
 The picture taken apart (`port/scene.h`, issue #366; the in-game menu's **Game > Scene export** page, every game).
@@ -113,12 +137,11 @@ WebM where the browser makes no MP4: a clip once through, a scene or stage turni
 its 4:3 screen (or square, when chosen). Every scene opened is kept in the browser's list until its data for the page is
 cleared. In a saved scene, click an object to pick it out of its layer (a frame is drawn round it): hide it, show it
 alone, or bring it forward or back a step at a time (Delete, [ and ]); its layer is drawn again without it, the objects
-it covered there in its place. A clip steps frame by frame or plays at 1x to 1/16x. A whole stage's layers go back by their parallax pace, so at a spread of 1 moving the
-
-cleared. A clip steps frame by frame or plays at 1x to 1/16x. A scene saved with hit boxes shows each player's as a layer
-of their own just in front of that player (with the board's layers, in front of the frontmost objects), drawn from
-`scene.json`'s list, and the readout in front of everything; each can be switched off in the list like any layer. A whole stage's layers go back by their parallax pace, so at a spread of 1 moving the
-camera across it gives the game's own parallax. Nothing leaves the browser.
+it covered there in its place. A clip steps frame by frame or plays at 1x to 1/16x. A scene saved with hit boxes shows
+each player's as a layer of their own just in front of that player (with the board's layers, in front of the frontmost
+objects), drawn from `scene.json`'s list, and the readout in front of everything; each can be switched off in the list
+like any layer. A whole stage's layers go back by their parallax pace, so at a spread of 1 moving the camera across it
+gives the game's own parallax. Nothing leaves the browser.
 
 **Rapid fire** is the port's own (`rapid_fire`, Game page, every game): a held button is the game's pressed for two
 frames and let go for two, for the first button or for all of them, from the frame it goes down. Movies keep what the

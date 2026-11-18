@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Video recording** (issue #376): the in-game menu's **Game > Video** page, every game. **Record video** (Alt+F12)
+  records what you play and hear as an MP4 (H.264 and AAC, which plays anywhere) in `videos/` beside your saves, until
+  you stop it: the picture as screenshots take it, larger (3 times the board's lines unless **Video size** says 2, 4
+  or 1080 lines) with each pixel a sharp block, in the Display page's shape; the game's sound and the custom
+  soundtrack's. Stopped or in the menu nothing is recorded; slowed or sped up it plays at the board's speed.
+  `--record-video FILE.mp4` records a whole run, and with `--movie` and `--headless` makes a movie into a video.
 - **Each object by itself** (issue #397): Save scene also saves every object entry of the board's list drawn alone and
   whole, side by side in `entries.png`, with `entry-map.png` (which entry each object pixel is of) and an `entries`
   list in `scene.json`: entry number, tile, colour set, level, the box it covers, its layer, its part and what the game
