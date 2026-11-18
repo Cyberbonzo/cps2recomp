@@ -736,23 +736,25 @@ async function openFiles(files) {
       : 'Nothing was opened: drop the folder itself, or use Open a saved folder.';
     return;
   }
-  // (each kept: its own files by their paths in its folder)
-  let first = null;
-  for (const one of found) {
-    const dir = one.dir;
-    const own = {};
-    for (const { file, path } of files) {
-      const p = path.replace(/\\/g, '/');
-      if (p.startsWith(dir)) own[p.slice(dir.length)] = file;
+  // (the first shown at once, from what was opened; each kept meanwhile, its own files by their paths in its folder, and
+  // the list shows them when they are)
+  const metas = found.map((one) => ({ id: `${one.name}|${one.dir}`, name: one.name, json: one.json, added: Date.now() }));
+  visit.unshift(...found.map((one, n) => ({ ...one, id: metas[n].id })));
+  await refreshList(metas[0].id);
+  const showing = show(sources[Number($('which').value)]);
+  (async () => {
+    for (const [n, one] of found.entries()) {
+      const own = {};
+      for (const { file, path } of files) {
+        const p = path.replace(/\\/g, '/');
+        if (p.startsWith(one.dir)) own[p.slice(one.dir.length)] = file;
+      }
+      if (await store.put(metas[n], own)) visit = visit.filter((v) => v.id !== metas[n].id);
     }
-    const meta = { id: `${one.name}|${dir}`, name: one.name, json: one.json, added: Date.now() };
-    $('progress').textContent = `Keeping ${one.name}…`;
-    const kept = await store.put(meta, own);
-    if (!kept) visit.unshift({ ...one, id: meta.id });
-    first = first || meta.id;
-  }
-  const source = await refreshList(first);
-  if (source) await show(source);
+    const at = $('which').value, id = sources[Number(at)] && sources[Number(at)].id;
+    await refreshList(id);
+  })();
+  await showing;
 }
 $('pick').addEventListener('change', (e) => openFiles([...e.target.files].map((file) => ({ file, path: file.webkitRelativePath || file.name }))));
 $('which').addEventListener('change', (e) => { const s = sources[Number(e.target.value)]; if (s) show(s); });

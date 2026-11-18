@@ -1345,7 +1345,16 @@ namespace {
 
     // One of the stage machines for a frame: on its way to its round, or showing its stage with the camera
     // where it is wanted
+    NativeVideo::Kept g_backKept; // (the stage behind's last frame, its records copied: StageBehind)
+    bool g_backShown = false;     //   and it is under the fighters in the picture shown
     void RunStage(Machine &machine, Spare &spare, int stage, int cameraX, int cameraY, Made *made) {
+        // (the stage behind: its frame's records kept, for the scene export to draw its layers: battle.h, StageBehind)
+        auto keep = [&spare](Machine &m) {
+            NativeVideo::FrameData frame;
+            if (&spare == &g_back && spare.ready && m.nativeVideo.LastFrame(frame)) {
+                g_backKept.Keep(frame);
+            }
+        };
         RunSpare(machine, spare, [&](Machine &m) {
             Wanted().stage = stage;
             if (!spare.ready) {
@@ -1358,7 +1367,7 @@ namespace {
                 CameraAt().x = cameraX;
                 CameraAt().y = cameraY;
             }
-        }, made);
+        }, made, keep);
     }
 
     // The fighters laid over a stage's picture: the pixels the fighters' machine drew an object at. `show` of
@@ -1393,6 +1402,7 @@ namespace {
     // of 256 is how much of the fighters is seen (they fade when one match follows another).
     void Layer(Machine &machine, int show) {
         static Made fighters, back, next;
+        g_backShown = false;
         Take(machine, g_soundBefore, fighters);
         const int cameraY = CameraY();
         const int cameraX = g.way == kStageScroll ? g.backCamera / 256 : CameraX();
@@ -1478,6 +1488,7 @@ namespace {
         const bool falling = g.out >= 0 && (g.phase == Phase::Falling || g.phase == Phase::Dropping || g.phase == Phase::Over);
         Over(back.picture, fighters.picture, show, falling ? g.out : -1);
         fighters.picture = back.picture;
+        g_backShown = !nextShown || nextGain == 0; // (a stage alone: not two faded or side by side)
         // The sound: the fighters', and the stages' music, one fading into the other
         g_backSound.Mix(fighters.sound, 256 - nextGain);
         if (nextShown) {
@@ -2189,6 +2200,10 @@ bool RingOutLetsOut(uint32_t player) {
     const bool left = camera <= CameraLeft() + leftEnd && x - half <= edge - margin;
     const bool right = camera >= CameraRight() - rightEnd && x + half >= edge + Video::kWidth + margin;
     return left || right;
+}
+
+bool battle::StageBehind(NativeVideo::FrameData &frame) {
+    return g_backShown && g_backKept.Get(frame);
 }
 
 battle::Part battle::PartOf(uint32_t tile, uint16_t attributes) {

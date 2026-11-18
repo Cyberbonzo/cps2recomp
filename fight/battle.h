@@ -247,6 +247,10 @@ int RoundsToWin();
 enum Part { kUnknown = -1, kOther = 0, kStage, kPlayer1, kPlayer2, kPanel };
 Part PartOf(uint32_t tile, uint16_t attributes);
 unsigned PanelLayers(); // (the scroll screens that are the panel: Description::panelLayers)
+// The stage under the fighters in the picture shown, when another machine draws it (the endless battle's: the fighters'
+// machine draws only them): its last frame's records. False when the fighters' machine draws its own stage, or two stages
+// are shown at once (one fading into the next, or side by side).
+bool StageBehind(NativeVideo::FrameData &frame);
 bool OnlineSets();
 bool TwoPeopleNow(); // both active player records belong to people, not the computer
 // Online (port.h, OnlineEvent): a mode begun on both sides at the same frame, its choices at random from `seed` (so both

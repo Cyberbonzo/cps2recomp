@@ -348,6 +348,47 @@ bool NativeVideo::LastFrame(FrameData &data) const {
     return true;
 }
 
+bool NativeVideo::ShownFrame(FrameData &data) const {
+    return m_shown.Get(data);
+}
+
+void NativeVideo::Kept::Keep(const FrameData &frame) {
+    whole = frame.whole;
+    number = frame.frame;
+    video.assign(frame.video, frame.video + 0x30000);
+    hasExtra = frame.scrollExtra != nullptr;
+    if (hasExtra) {
+        scrollExtra.assign(frame.scrollExtra, frame.scrollExtra + 0x30000 / 4);
+    }
+    raster = *frame.raster;
+    options = frame.options;
+    events = *frame.events;
+    uploads = *frame.uploads;
+    for (int n = 0; n < 224; n++) {
+        layers[n] = frame.layers[n];
+        overrides[n] = frame.overrides ? frame.overrides[n] : std::vector<native_video::TileOverride>();
+    }
+}
+
+bool NativeVideo::Kept::Get(FrameData &data) const {
+    if (!whole) {
+        return false;
+    }
+    data = FrameData();
+    data.frame = number;
+    data.video = video.data();
+    data.raster = &raster;
+    data.events = &events;
+    data.uploads = &uploads;
+    data.layers = layers;
+    data.scrollExtra = hasExtra ? scrollExtra.data() : nullptr;
+    data.overrides = overrides;
+    data.options = options;
+    data.board = nullptr;
+    data.whole = true;
+    return true;
+}
+
 void NativeVideo::DrawFrame(const FrameData &frame, uint32_t *picture, int pitch) {
     // (on copies: the frame's video RAM, palette and maps' marks as at its first line, each line drawn with what was
     // written before it, as the GPU's bands draw it)
@@ -379,6 +420,10 @@ void NativeVideo::DrawFrame(const FrameData &frame, uint32_t *picture, int pitch
 void NativeVideo::FrameEnd() {
     m_inFrame = false;
     m_lastWhole = m_frameComparable;
+    // (the shown frame's records kept: ShownFrame)
+    if (m_frameComparable && !inSpare) {
+        m_shown.Keep(FrameRecords());
+    }
     if (frameDrawn) {
         frameDrawn(FrameRecords(), frameUser);
     }

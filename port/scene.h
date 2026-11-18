@@ -80,7 +80,7 @@ private:
     struct Clip {
         std::atomic<bool> on{false};
         std::string folder;
-        int wanted = 0, taken = 0;
+        int wanted = 0, taken = 0, missed = 0;
         std::vector<std::string> names; // (the first frame's layers, in its order: the folders)
         std::string json;               // (each frame's line of scene.json)
         std::vector<std::string> partNames; // (... and the parts', issue #367)

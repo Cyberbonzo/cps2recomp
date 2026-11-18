@@ -394,7 +394,7 @@ namespace {
 
 bool SceneExport::Take(Machine &machine, Scene &scene) {
     NativeVideo::FrameData frame;
-    if (!machine.nativeVideo.LastFrame(frame)) {
+    if (!machine.nativeVideo.ShownFrame(frame)) {
         return false;
     }
     const int width = Video::kWidth + 2 * frame.options.side;
@@ -423,8 +423,14 @@ bool SceneExport::Take(Machine &machine, Scene &scene) {
             }
         }
     }
+    // (the endless battle's stage, which a machine of its own draws under the fighters: as another game's stage is)
+    if (!guest && battle::StageBehind(stage) && Video::kWidth + 2 * stage.options.side == width) {
+        scene.backdrop = stage.raster->Colours()[0xBFF] & 0xFFFFFF;
+        BoardLayers(stage, width, "stage-", "stage", 0, scene.layers);
+        guest = true;
+    }
     BoardLayers(frame, width, "", "game", 0, scene.layers);
-    BoardParts(frame, width, guest ? &stage : nullptr, machine.guestShift, scene.parts);
+    BoardParts(frame, width, guest ? &stage : nullptr, guest && machine.guestBehind ? machine.guestShift : 0, scene.parts);
     return true;
 }
 
@@ -488,6 +494,7 @@ std::string SceneExport::StartClip(const std::string &under, const std::string &
     }
     m_clip.wanted = frames;
     m_clip.taken = 0;
+    m_clip.missed = 0;
     m_clip.names.clear();
     m_clip.json.clear();
     m_clip.partNames.clear();
@@ -508,7 +515,11 @@ void SceneExport::Frame(Machine &machine) {
     }
     Job job;
     if (!Take(machine, job.scene)) {
-        return; // (no records this frame: a frame of the clip fewer)
+        // (no records this frame: a frame of the clip fewer; none for as long as the clip was to be, and it ends)
+        if (++m_clip.missed >= m_clip.wanted) {
+            StopClip();
+        }
+        return;
     }
     const Scene &scene = job.scene;
     std::string order, empty;
