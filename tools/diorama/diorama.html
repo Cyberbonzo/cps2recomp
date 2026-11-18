@@ -86,6 +86,7 @@ label.check input { accent-color: var(--marquee); }
 #layers .tag.scroll { background: var(--cool); }
 #layers .tag.objects { background: var(--warm); }
 #layers .tag.part { background: var(--marquee); }
+#layers .tag.boxes, #layers .tag.hud { background: var(--ink, #e8e4da); }
 #layers .solo { padding: 2px 6px; font-size: 11px; }
 .meta { font: 12px var(--mono); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 
@@ -297,7 +298,12 @@ function baseDepth(n) {
     return D * (1 / pace - 1);
   }
   const step = Math.max(W, H) * 0.12;
-  return (layers.length - 1 - n) * step;
+  // (what the port drew over the picture, issue #398: the hit boxes a little in front of the layer they go with, the
+  // readout in front of everything)
+  if (info.attach !== undefined) return baseDepth(info.attach) - step * 0.3;
+  if (info.kind === 'hud') return -step * 0.6;
+  const main = layers.filter((l) => !l.info.overlay).length;
+  return (main - 1 - n) * step;
 }
 
 function layout() {
@@ -335,7 +341,7 @@ function applyLook() {
   const shadow = Number($('shadow').value);
   layers.forEach((l, n) => {
     l.shadow.material.opacity = shadow;
-    l.shadow.visible = l.on && shadow > 0 && n > 0;
+    l.shadow.visible = l.on && shadow > 0 && n > 0 && !l.info.overlay;
     l.mesh.visible = l.on;
   });
   $('scan').hidden = !$('crt').checked;
@@ -426,9 +432,14 @@ async function open(source) {
   const byParts = doc.parts && $('split').value === 'parts';
   const list = ((byParts ? doc.parts : doc.layers) || []).map((l) => (byParts ? { ...l, kind: 'part' } : l))
     .filter((l) => kind === 'clip' ? l.folder : l.file);
+  // (the readout training mode drew over the picture, issue #398: a layer in front of everything; the hit boxes are drawn
+  // here from the list in scene.json instead, each player's beside that player)
+  for (const o of doc.overlays || []) {
+    if (o.name === 'overlay-hud' && (kind === 'clip' ? o.folder : o.file)) list.push({ ...o, label: 'readout', kind: 'hud', overlay: true });
+  }
   frames = kind === 'clip' ? doc.frames : 1;
   // a clip's frames: which layers each has
-  const has = kind === 'clip' ? (doc.frameList || []).map((f) => new Set(byParts ? f.parts || [] : f.layers)) : null;
+  const has = kind === 'clip' ? (doc.frameList || []).map((f) => new Set([...(byParts ? f.parts || [] : f.layers), ...(f.overlays || [])])) : null;
   // every layer's pictures (a clip's, every frame's), eight at a time
   let loaded = 0; const total = list.length * frames;
   const all = list.map(() => new Array(frames).fill(blank));
@@ -451,13 +462,15 @@ async function open(source) {
     const textures = all[k];
     const w = info.width ?? W, h = info.height ?? H;
     const geo = new THREE.PlaneGeometry(w, h);
-    const mat = new THREE.MeshBasicMaterial({ map: textures[0], alphaTest: 0.5, side: THREE.DoubleSide });
+    const mat = info.overlay ? overlayMaterial(textures[0]) : new THREE.MeshBasicMaterial({ map: textures[0], alphaTest: 0.5, side: THREE.DoubleSide });
     const mesh = new THREE.Mesh(geo, mat);
+    if (info.overlay) mesh.renderOrder = 2;
     const shadowMat = new THREE.MeshBasicMaterial({ map: textures[0], color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide });
     const shadow = new THREE.Mesh(geo, shadowMat);
     root.add(shadow); root.add(mesh);
     layers.push({ info, mesh, shadow, textures, on: true });
   }
+  addBoxLayers(byParts);
   // the board's backdrop
   const backdrop = new THREE.Color(doc.backdrop || '#000000');
   backdropMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: backdrop }));
@@ -473,10 +486,66 @@ async function open(source) {
   $('spread').value = kind === 'stage' ? 0.3 : 1;
   $('backdrop').checked = kind !== 'stage';
   const what = kind === 'stage' ? `Whole stage${doc.stage ? ': ' + doc.stage : ''}` : kind === 'clip' ? `Clip, ${frames} frames` : `Scene, frame ${doc.frame ?? ''}`;
-  $('about').textContent = `${what} · ${W}×${H} · ${layers.length} layers`;
+  const overlays = layers.filter((l) => l.info.overlay).length;
+  $('about').textContent = `${what} · ${W}×${H} · ${layers.length - overlays} layers${overlays ? ' · training overlays' : ''}`;
   listLayers();
   layout(); applyLook(); setFrame(0);
   view('angle');
+}
+
+// ---------- the hit boxes (issue #398) ----------
+// A clip's or a scene's boxes, each frame's (scene.json "boxes": each with its player, 1 or 2, or null where the game does
+// not say; its kind; its rectangle in the picture; its colour and how solid its inside is), drawn as the game draws them:
+// an outline and a faint inside. Each player's are a layer of their own, just in front of that player (the parts' player
+// layer; with the board's layers, the frontmost objects layer), so that they turn with the fighter.
+function overlayMaterial(map) {
+  return new THREE.MeshBasicMaterial({ map, transparent: true, alphaTest: 0.01, depthWrite: false, side: THREE.DoubleSide });
+}
+function boxesOf(frame) {
+  if (kind === 'clip') { const f = doc.frameList && doc.frameList[frame]; return (f && f.boxes) || []; }
+  return doc.boxes || [];
+}
+function addBoxLayers(byParts) {
+  if (kind === 'stage') return;
+  const players = new Set();
+  for (let n = 0; n < frames; n++) for (const b of boxesOf(n)) players.add(b.player ?? 0);
+  if (!players.size) return;
+  const main = layers.filter((l) => !l.info.overlay);
+  let lastObjects = -1;
+  main.forEach((l, n) => { if (l.info.kind === 'objects') lastObjects = n; });
+  // (the player in front: the later of the two in the parts, back to front)
+  const playerAt = (p) => main.findIndex((l) => l.info.name === `part-player${p}`);
+  const front = Math.max(playerAt(1), playerAt(2));
+  for (const p of [...players].sort()) {
+    let attach = byParts ? (p ? playerAt(p) : front) : lastObjects;
+    if (attach < 0) attach = byParts ? front : main.length - 1;
+    if (attach < 0) attach = main.length - 1;
+    const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
+    const g = canvas.getContext('2d');
+    const map = texture(canvas); // (a canvas is turned the right way up by WebGL, as the pictures' bitmaps are when decoded)
+    const draw = (frame) => {
+      g.clearRect(0, 0, W, H);
+      for (const b of boxesOf(frame)) {
+        if ((b.player ?? 0) !== p) continue;
+        const hex = /^#[0-9a-f]{6}$/i.test(b.colour || '') ? b.colour : '#ffffff';
+        const srgb = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ');
+        g.fillStyle = `rgba(${srgb}, ${(b.fill ?? 56) / 255})`;
+        g.fillRect(b.x, b.y, b.width, b.height);
+        if ((b.fill ?? 56) < 255) {
+          g.strokeStyle = `rgb(${srgb})`; g.lineWidth = 1;
+          g.strokeRect(b.x + 0.5, b.y + 0.5, b.width - 1, b.height - 1);
+        }
+      }
+      map.needsUpdate = true;
+    };
+    const geo = new THREE.PlaneGeometry(W, H);
+    const mesh = new THREE.Mesh(geo, overlayMaterial(map));
+    mesh.renderOrder = 1;
+    const shadow = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ visible: false }));
+    root.add(mesh);
+    const name = p ? `hit boxes, player ${p}` : 'hit boxes, whose not known';
+    layers.push({ info: { name, kind: 'boxes', overlay: true, attach }, mesh, shadow, textures: new Array(frames).fill(map), on: true, draw });
+  }
 }
 
 function listLayers() {
@@ -487,11 +556,11 @@ function listLayers() {
     box.setAttribute('aria-label', `Show ${l.info.name}`);
     box.onchange = () => { l.on = box.checked; li.classList.toggle('off', !l.on); applyLook(); };
     const name = document.createElement('label'); name.className = 'name'; name.htmlFor = box.id;
-    name.textContent = l.info.kind === 'part' ? l.info.name.replace(/^part-/, '') : l.info.name;
+    name.textContent = l.info.label || (l.info.kind === 'part' ? l.info.name.replace(/^part-/, '') : l.info.name);
     if (typeof l.info.pace === 'number') name.title = `pace ${l.info.pace}`;
     const right = document.createElement('span'); right.className = 'row'; right.style.flex = '0 0 auto';
     const tag = document.createElement('span'); tag.className = `tag ${l.info.kind}`;
-    tag.textContent = l.info.kind === 'scroll' ? `${l.info.tile}px` : l.info.kind === 'part' ? 'part' : 'obj';
+    tag.textContent = l.info.kind === 'scroll' ? `${l.info.tile}px` : l.info.kind === 'part' ? 'part' : l.info.kind === 'boxes' ? 'boxes' : l.info.kind === 'hud' ? 'readout' : 'obj';
     const solo = document.createElement('button'); solo.className = 'solo'; solo.textContent = 'Solo';
     solo.title = 'Show this layer alone (again: all)';
     solo.onclick = () => {
@@ -509,6 +578,7 @@ function listLayers() {
 function setFrame(n) {
   frameAt = (n + frames) % frames;
   for (const l of layers) {
+    if (l.draw) l.draw(frameAt);
     const t = l.textures[frameAt] || blank;
     l.mesh.material.map = t; l.shadow.material.map = t;
     l.mesh.material.needsUpdate = l.shadow.material.needsUpdate = true;

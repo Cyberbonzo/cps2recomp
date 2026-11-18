@@ -98,7 +98,7 @@ namespace {
             const fight::BoxKind kind = box.kind == BoxKind::Attack ? fight::BoxKind::Attack :
                                         box.kind == BoxKind::Push   ? fight::BoxKind::Push :
                                                                       fight::BoxKind::Hurt;
-            boxes.push_back({kind, box.x, box.y, box.halfWidth, box.halfHeight, box.thrown});
+            boxes.push_back({kind, box.x, box.y, box.halfWidth, box.halfHeight, box.thrown, box.player});
         }
         return boxes;
     }

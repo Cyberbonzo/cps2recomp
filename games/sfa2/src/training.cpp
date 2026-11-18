@@ -206,7 +206,7 @@ namespace {
             }
             const bool right = Ram8(player + kFacesRight) != 0;
             const int point = static_cast<int16_t>(Ram16(player + kX)) + (right ? kThrowAhead : -kThrowAhead);
-            boxes.push_back({fight::BoxKind::ThrowRange, point, kThrowZoneHeight / 2, kThrowReach, kThrowZoneHeight / 2, false});
+            boxes.push_back({fight::BoxKind::ThrowRange, point, kThrowZoneHeight / 2, kThrowReach, kThrowZoneHeight / 2, false, static_cast<int8_t>(n)});
             // (the other's push box's edge: its offset less its half width, turned about as the box is)
             const uint32_t frame = Ram32(other + kFrame), table = Ram32(other + kPushBoxes);
             if (frame >= 0x400000 || table >= 0x400000) {
@@ -222,7 +222,7 @@ namespace {
                 edge = -edge;
             }
             edge += static_cast<int16_t>(Ram16(other + kX));
-            boxes.push_back({fight::BoxKind::Throw, edge, kThrowZoneHeight / 2, 1, kThrowZoneHeight / 2, false});
+            boxes.push_back({fight::BoxKind::Throw, edge, kThrowZoneHeight / 2, 1, kThrowZoneHeight / 2, false, static_cast<int8_t>(n)});
         }
     }
 

@@ -112,7 +112,7 @@ namespace {
         }
         const int x = static_cast<int16_t>(Ram16(object + kX)) + (Ram8(object + kFacesRight) ? -across : across);
         const int y = static_cast<int16_t>(Ram16(object + kY)) + up;
-        boxes.push_back({kind, x, y, halfWidth, halfHeight, thrown});
+        boxes.push_back({kind, x, y, halfWidth, halfHeight, thrown, fight::Whose(object, Player(0), Player(1))});
     }
 
     // An object's boxes, as the hit test (022F86) reads them: those it can be hit in and its push box by the record's
@@ -167,7 +167,7 @@ namespace {
             const int across = static_cast<int16_t>(Mem16(c, box + kBoxX)), up = static_cast<int16_t>(Mem16(c, box + kBoxY));
             const int x = static_cast<int16_t>(Ram16(player + kX)) + (Ram8(player + kFacesRight) ? -across : across);
             boxes.push_back({fight::BoxKind::ThrowRange, x, static_cast<int16_t>(Ram16(player + kY)) + up, Mem16(c, box + kBoxHalfWidth),
-                             Mem16(c, box + kBoxHalfHeight), false});
+                             Mem16(c, box + kBoxHalfHeight), false, static_cast<int8_t>(n)});
         }
     }
 

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Training mode's aids in the scene export** (issue #398): Save scene and Record clip also save what is drawn over the
+  picture, as layers of their own: `overlay-boxes` (the hit boxes) and `overlay-hud` (the input display, the combo
+  readout, frame data and the frame meter); and `scene.json` lists each frame's hit boxes with their player, kind and
+  rectangle. The scene diorama shows each player's boxes beside that player, and the readout in front, each with a switch.
 - **Scene export by what is in it** (issue #367): in a round of a fighting game, Save scene and Record clip also save the
   picture as its parts: the stage behind the fighters, each player, the stage in front of them and the panel, each
   whole (`part-*.png`, `parts` in `scene.json`). The scene diorama shows them by default, the board's layers when chosen.

@@ -8,7 +8,10 @@
 #include "../fight/guest_stages.h"
 #include "../machine/machine.h"
 #include "../model/image_files.h"
+#include "../runtime/game.h"
 #include "../video/native.h"
+#include "hud.h"
+#include "port.h"
 
 #include <algorithm>
 #include <cmath>
@@ -334,6 +337,111 @@ namespace {
         }
     }
 
+    // What the port draws over the picture (issue #398), the parts of it asked for (port/hud.h), by itself, as Port::Shown
+    // draws it (a vertical game turned upright: the boxes on the board's picture, the text upright). DrawHud blends, so
+    // it is drawn over black and over white: how much the white comes through is how much the pixel lets through, and
+    // over black is its colour times how solid it is.
+    void Overlay(int width, unsigned parts, const char *name, std::vector<SceneExport::Layer> &out) {
+        const size_t size = static_cast<size_t>(width) * Video::kHeight;
+        std::vector<uint32_t> over[2] = {std::vector<uint32_t>(size, 0xFF000000u), std::vector<uint32_t>(size, 0xFFFFFFFFu)};
+        for (std::vector<uint32_t> &pixels : over) {
+            DrawHud(pixels.data(), width, Video::kHeight, nullptr, parts & ~kHudText);
+            if (!(parts & kHudText)) {
+                continue;
+            }
+            if (!Turned()) {
+                DrawHud(pixels.data(), width, Video::kHeight, nullptr, kHudText);
+                continue;
+            }
+            std::vector<uint32_t> upright;
+            TurnPicture(pixels.data(), width, upright);
+            DrawHud(upright.data(), Video::kHeight, width, nullptr, kHudText);
+            for (int y = 0; y < Video::kHeight; y++) {
+                for (int x = 0; x < width; x++) {
+                    pixels[static_cast<size_t>(y) * width + x] = upright[static_cast<size_t>(width - 1 - x) * Video::kHeight + y];
+                }
+            }
+        }
+        SceneExport::Layer one;
+        one.name = name;
+        one.board = "overlay";
+        one.pixels.assign(size, 0);
+        for (size_t n = 0; n < size; n++) {
+            const uint32_t black = over[0][n], white = over[1][n];
+            int through = 0;
+            for (int shift = 0; shift < 24; shift += 8) {
+                through = std::max(through, static_cast<int>((white >> shift) & 0xFF) - static_cast<int>((black >> shift) & 0xFF));
+            }
+            const int solid = 255 - std::clamp(through, 0, 255);
+            if (solid == 0) {
+                continue;
+            }
+            uint32_t pixel = static_cast<uint32_t>(solid) << 24;
+            for (int shift = 0; shift < 24; shift += 8) {
+                const int colour = (static_cast<int>((black >> shift) & 0xFF) * 255 + solid / 2) / solid;
+                pixel |= static_cast<uint32_t>(std::min(colour, 255)) << shift;
+            }
+            one.pixels[n] = pixel;
+            one.empty = false;
+        }
+        out.push_back(std::move(one));
+    }
+
+    // The overlays and the hit boxes' list (issue #398). A box whose player the game's sources do not know (something
+    // thrown, in most games) goes with the player whose picture it covers more of (the parts', when there are any).
+    void Overlays(SceneExport::Scene &scene) {
+        const std::vector<cps2recomp::HudBox> &boxes = cps2recomp::Boxes();
+        if (boxes.empty() && cps2recomp::Hud().empty()) {
+            return;
+        }
+        Overlay(scene.width, kHudHitBoxes, "overlay-boxes", scene.overlays);
+        Overlay(scene.width, kHudText | kHudDrawnBoxes, "overlay-hud", scene.overlays);
+        const SceneExport::Layer *player[2] = {};
+        for (const SceneExport::Layer &part : scene.parts) {
+            if (part.name == "part-player1" || part.name == "part-player2") {
+                player[part.name.back() - '1'] = &part;
+            }
+        }
+        for (const cps2recomp::HudBox &box : boxes) {
+            if (box.kind == cps2recomp::kHudDrawn || box.width <= 0 || box.height <= 0 || box.x >= scene.width ||
+                box.y >= scene.height || box.x + box.width <= 0 || box.y + box.height <= 0) {
+                continue;
+            }
+            SceneExport::Scene::Box one;
+            one.player = box.player;
+            one.kind = box.kind;
+            one.thrown = box.thrown;
+            one.x = box.x, one.y = box.y, one.width = box.width, one.height = box.height;
+            one.colour = box.r | (box.g << 8) | (box.b << 16);
+            one.fill = box.fill;
+            if (one.player < 0 && player[0] && player[1]) {
+                int covered[2] = {};
+                for (int y = std::max(box.y, 0); y < std::min(box.y + box.height, scene.height); y++) {
+                    for (int x = std::max(box.x, 0); x < std::min(box.x + box.width, scene.width); x++) {
+                        for (int p = 0; p < 2; p++) {
+                            covered[p] += player[p]->pixels[static_cast<size_t>(y) * scene.width + x] != 0;
+                        }
+                    }
+                }
+                one.player = covered[0] == covered[1] ? -1 : covered[1] > covered[0] ? 1 : 0;
+            }
+            scene.boxes.push_back(one);
+        }
+    }
+
+    std::string BoxesJson(const SceneExport::Scene &scene) {
+        static const char *const kKinds[] = {"", "hurt", "attack", "push", "throw", "throw-range", "body", "shot", "ship"};
+        std::string json;
+        for (const SceneExport::Scene::Box &box : scene.boxes) {
+            json += std::string(json.empty() ? "" : ", ") + "{\"player\": " + (box.player < 0 ? "null" : std::to_string(box.player + 1)) +
+                    ", \"kind\": \"" + (box.kind < std::size(kKinds) ? kKinds[box.kind] : "") + "\"" + (box.thrown ? ", \"thrown\": true" : "") +
+                    ", \"x\": " + std::to_string(box.x) + ", \"y\": " + std::to_string(box.y) + ", \"width\": " + std::to_string(box.width) +
+                    ", \"height\": " + std::to_string(box.height) + ", \"colour\": " + Quoted(Hex(box.colour)) +
+                    ", \"fill\": " + std::to_string(box.fill) + "}";
+        }
+        return "[" + json + "]";
+    }
+
     image_files::Picture AsPicture(const std::vector<uint32_t> &pixels, int width, int height) {
         image_files::Picture picture;
         picture.width = width;
@@ -356,7 +464,7 @@ namespace {
             return folder + name + "/" + file;
         };
         bool written = image_files::WritePng(path("picture"), AsPicture(scene.picture, scene.width, scene.height));
-        for (const auto *list : {&scene.layers, &scene.parts}) {
+        for (const auto *list : {&scene.layers, &scene.parts, &scene.overlays}) {
             for (const SceneExport::Layer &layer : *list) {
                 if (!layer.empty) {
                     written = image_files::WritePng(path(layer.name), AsPicture(layer.pixels, scene.width, scene.height)) && written;
@@ -367,7 +475,8 @@ namespace {
     }
 
     std::string LayerJson(const SceneExport::Layer &layer, bool still) {
-        if (layer.board == "part") { // (a part of the picture by what is in it: its name, and its file or folder)
+        if (layer.board == "part" || layer.board == "overlay") { // (a part of the picture by what is in it, or what is drawn
+                                                                 // over it: its name, and its file or folder)
             return "{\"name\": " + Quoted(layer.name) + ", " +
                    (still ? "\"file\": " + (layer.empty ? std::string("null") : Quoted(layer.name + ".png")) : "\"folder\": " + Quoted(layer.name)) +
                    "}";
@@ -431,6 +540,9 @@ bool SceneExport::Take(Machine &machine, Scene &scene) {
     }
     BoardLayers(frame, width, "", "game", 0, scene.layers);
     BoardParts(frame, width, guest ? &stage : nullptr, guest && machine.guestBehind ? machine.guestShift : 0, scene.parts);
+    scene.overlays.clear();
+    scene.boxes.clear();
+    Overlays(scene);
     return true;
 }
 
@@ -471,6 +583,13 @@ std::string SceneExport::Save(Machine &machine, const std::string &under, const 
         }
         json += "  ]";
     }
+    if (!scene.overlays.empty()) {
+        json += ",\n  \"overlays\": [\n";
+        for (size_t n = 0; n < scene.overlays.size(); n++) {
+            json += "    " + LayerJson(scene.overlays[n], true) + (n + 1 < scene.overlays.size() ? ",\n" : "\n");
+        }
+        json += "  ],\n  \"boxes\": " + BoxesJson(scene);
+    }
     json += "\n}\n";
     if (!image_files::WriteAll(folder + "scene.json", std::vector<uint8_t>(json.begin(), json.end()))) {
         return "SCENE NOT SAVED";
@@ -499,6 +618,8 @@ std::string SceneExport::StartClip(const std::string &under, const std::string &
     m_clip.json.clear();
     m_clip.partNames.clear();
     m_clip.partsJson.clear();
+    m_clip.overlayNames.clear();
+    m_clip.overlaysJson.clear();
     m_clip.on = true;
     if (m_writers.empty()) {
         const unsigned threads = std::clamp(std::thread::hardware_concurrency() / 2, 1u, 4u);
@@ -540,12 +661,23 @@ void SceneExport::Frame(Machine &machine) {
             parts += std::string(parts.empty() ? "" : ", ") + Quoted(part.name);
         }
     }
+    std::string overlays; // (what is drawn over the picture, issue #398: those this frame has)
+    for (const Layer &overlay : scene.overlays) {
+        if (std::find(m_clip.overlayNames.begin(), m_clip.overlayNames.end(), overlay.name) == m_clip.overlayNames.end()) {
+            m_clip.overlayNames.push_back(overlay.name);
+            m_clip.overlaysJson += std::string(m_clip.overlaysJson.empty() ? "" : "\x1F") + LayerJson(overlay, false);
+        }
+        if (!overlay.empty) {
+            overlays += std::string(overlays.empty() ? "" : ", ") + Quoted(overlay.name);
+        }
+    }
     m_clip.taken++;
     job.folder = m_clip.folder;
     job.number = m_clip.taken;
     m_frameJson += std::string(m_frameJson.empty() ? "" : ",\n") + "    {\"number\": " + std::to_string(job.number) +
                    ", \"frame\": " + std::to_string(scene.frame) + ", \"backdrop\": " + Quoted(Hex(scene.backdrop)) +
-                   ", \"layers\": [" + order + "]" + (m_clip.partNames.empty() ? "" : ", \"parts\": [" + parts + "]") + "}";
+                   ", \"layers\": [" + order + "]" + (m_clip.partNames.empty() ? "" : ", \"parts\": [" + parts + "]") +
+                   (scene.overlays.empty() ? "" : ", \"overlays\": [" + overlays + "], \"boxes\": " + BoxesJson(scene)) + "}";
     m_width = scene.width;
     m_height = scene.height;
     bool full;
@@ -576,7 +708,8 @@ void SceneExport::StopClip(bool cutShort) {
         return out;
     };
     const std::string layers = list(m_clip.json);
-    const std::string parts = m_clip.partsJson.empty() ? "" : ",\n  \"parts\": [\n" + list(m_clip.partsJson) + "  ]";
+    const std::string parts = (m_clip.partsJson.empty() ? "" : ",\n  \"parts\": [\n" + list(m_clip.partsJson) + "  ]") +
+                              (m_clip.overlaysJson.empty() ? "" : ",\n  \"overlays\": [\n" + list(m_clip.overlaysJson) + "  ]");
     std::string json = "{\n  \"kind\": \"clip\",\n  \"width\": " + std::to_string(m_width) + ",\n  \"height\": " +
                        std::to_string(m_height) + ",\n  \"fps\": 59.637405,\n  \"frames\": " + std::to_string(m_clip.taken) +
                        ",\n  \"picture\": \"picture\",\n  \"layers\": [\n" + (m_clip.taken ? layers : "") +

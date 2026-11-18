@@ -313,7 +313,12 @@ struct StageBox {
     BoxKind kind;
     int x, y, halfWidth, halfHeight;
     bool thrown = false; // it belongs to something thrown, not to a player
+    int8_t player = -1;  // whose: 0 or 1, -1 not known (something thrown, mostly; for the scene export, port/scene.h)
 };
+// Whose a box is, by the record it is of: 0 or 1 for a player's own, -1 for anything else (StageBox::player)
+inline int8_t Whose(uint32_t record, uint32_t player1, uint32_t player2) {
+    return record == player1 ? 0 : record == player2 ? 1 : -1;
+}
 // The HUD's box for one in the stage, with the camera's place (the picture's left edge and bottom in the stage)
 // and the picture's line that the floor is on with the camera at the bottom
 HudBox ToPicture(const StageBox &box, int cameraX, int cameraY, int floorLine);
