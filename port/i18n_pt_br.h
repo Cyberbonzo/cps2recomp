@@ -801,6 +801,18 @@ inline constexpr recomp::i18n::Entry kPortuguese[] = {
     {"VIDEO NOT SAVED", "VÍDEO NÃO SALVO"},
     {"SVG pictures too", "Imagens SVG também"},
     {"Screenshots (F12), Save scene, the stage viewer's Save whole stage and the model viewer's saves also write SVG pictures beside their PNGs: each pixel a square, so they scale to any size exactly. A scene's and a whole stage's has each layer as a layer of its own (scene.svg, parts.svg, stage.svg), for drawing programs. Not for clips.", "As capturas (F12), Salvar cena, Salvar cenário inteiro do visualizador de cenários e o que o visualizador de modelos salva gravam também imagens SVG ao lado dos PNG: cada pixel um quadrado, então elas escalam para qualquer tamanho com exatidão. A de uma cena e a de um cenário inteiro têm cada camada como uma camada própria (scene.svg, parts.svg, stage.svg), para programas de desenho. Não para os clipes."},
+    {"Save replay", "Salvar replay"},
+    {"Saves what was just played, as long as Replay length says, as a video in videos (as Record video's, its sound too): kept all the while, so it needs no recording started. Made beside the game in a few seconds, which goes on meanwhile. Also Alt+Shift+F12.", "Salva o que acabou de ser jogado, pelo tempo que Duração do replay diz, como um vídeo em videos (como o de Gravar vídeo, com o som também): é guardado o tempo todo, então não é preciso começar a gravar. Feito ao lado do jogo em alguns segundos, e o jogo continua enquanto isso. Também Alt+Shift+F12."},
+    {"Replay length", "Duração do replay"},
+    {"How much of what was just played Save replay saves. Kept as a save state every second and the controls of every frame, so a minute of it is a few dozen megabytes of memory. Not online.", "Quanto do que acabou de ser jogado Salvar replay salva. Guardado como um estado a cada segundo e os controles de cada frame, então um minuto são algumas dezenas de megabytes de memória. Não online."},
+    {"60 seconds", "60 segundos"},
+    {"Off", "Desligado"},
+    {"A REPLAY IS STILL BEING SAVED", "UM REPLAY AINDA ESTÁ SENDO SALVO"},
+    {"NOTHING TO REPLAY YET", "AINDA NÃO HÁ NADA PARA O REPLAY"},
+    {"REPLAY LENGTH IS OFF", "A DURAÇÃO DO REPLAY ESTÁ DESLIGADA"},
+    {"REPLAY NOT SAVED", "REPLAY NÃO SALVO"},
+    {"SAVING REPLAY...", "SALVANDO REPLAY..."},
+    {"REPLAY SAVED", "REPLAY SALVO"},
 };
 
 } // namespace port

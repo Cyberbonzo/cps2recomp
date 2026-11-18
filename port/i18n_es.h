@@ -812,6 +812,18 @@ inline constexpr recomp::i18n::Entry kSpanish[] = {
     {"VIDEO NOT SAVED", "VÍDEO NO GUARDADO"},
     {"SVG pictures too", "También imágenes SVG"},
     {"Screenshots (F12), Save scene, the stage viewer's Save whole stage and the model viewer's saves also write SVG pictures beside their PNGs: each pixel a square, so they scale to any size exactly. A scene's and a whole stage's has each layer as a layer of its own (scene.svg, parts.svg, stage.svg), for drawing programs. Not for clips.", "Las capturas (F12), Guardar escena, Guardar escenario entero del visor de escenarios y lo que guarda el visor de modelos escriben también imágenes SVG junto a sus PNG: cada píxel un cuadrado, así que se escalan a cualquier tamaño con exactitud. La de una escena y la de un escenario entero tienen cada capa como una capa propia (scene.svg, parts.svg, stage.svg), para programas de dibujo. No para los clips."},
+    {"Save replay", "Guardar repetición"},
+    {"Saves what was just played, as long as Replay length says, as a video in videos (as Record video's, its sound too): kept all the while, so it needs no recording started. Made beside the game in a few seconds, which goes on meanwhile. Also Alt+Shift+F12.", "Guarda lo que se acaba de jugar, tanto como diga Duración de la repetición, como un vídeo en videos (como el de Grabar vídeo, también con su sonido): se guarda todo el tiempo, así que no hace falta empezar a grabar. Se hace junto al juego en unos segundos, y el juego sigue mientras. También Alt+Shift+F12."},
+    {"Replay length", "Duración de la repetición"},
+    {"How much of what was just played Save replay saves. Kept as a save state every second and the controls of every frame, so a minute of it is a few dozen megabytes of memory. Not online.", "Cuánto de lo que se acaba de jugar guarda Guardar repetición. Se guarda como un estado cada segundo y los controles de cada frame, así que un minuto son unas decenas de megabytes de memoria. No en línea."},
+    {"60 seconds", "60 segundos"},
+    {"Off", "No"},
+    {"A REPLAY IS STILL BEING SAVED", "TODAVÍA SE ESTÁ GUARDANDO UNA REPETICIÓN"},
+    {"NOTHING TO REPLAY YET", "AÚN NO HAY NADA QUE REPETIR"},
+    {"REPLAY LENGTH IS OFF", "LA DURACIÓN DE LA REPETICIÓN ESTÁ EN NO"},
+    {"REPLAY NOT SAVED", "REPETICIÓN NO GUARDADA"},
+    {"SAVING REPLAY...", "GUARDANDO REPETICIÓN..."},
+    {"REPLAY SAVED", "REPETICIÓN GUARDADA"},
 };
 
 } // namespace port

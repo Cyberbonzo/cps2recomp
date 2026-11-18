@@ -654,6 +654,8 @@ int RunWindowed(Port &port) {
                     port.Key('k', kKeyExtra);
                 } else if (ev.key.scancode == SDL_SCANCODE_F12 && !ev.key.repeat && (ev.key.mod & SDL_KMOD_SHIFT)) {
                     port.SaveScene(); // (the scene export: scene.h)
+                } else if (ev.key.scancode == SDL_SCANCODE_F12 && !ev.key.repeat && (ev.key.mod & SDL_KMOD_ALT) && (ev.key.mod & SDL_KMOD_SHIFT)) {
+                    port.SaveReplay(); // (the instant replay: the last seconds played)
                 } else if (ev.key.scancode == SDL_SCANCODE_F12 && !ev.key.repeat && (ev.key.mod & SDL_KMOD_ALT)) {
                     port.RecordVideo(); // (the video recording: video_record.h)
                 } else if (ev.key.scancode == SDL_SCANCODE_F12 && !ev.key.repeat && (ev.key.mod & SDL_KMOD_CTRL)) {
@@ -978,6 +980,7 @@ int RunWindowed(Port &port) {
         const auto rate = port.menu.GameRate();
         const double pace = port.paused ? 1.0 : static_cast<double>(rate.frames) / rate.ticks;
         const bool ran = port.Tick();
+        port.ReplayMake(); // (the instant replay being made, if it is: a few of its frames beside the game's)
 
         if (audio && silent != (port.menu.muted || audioLog)) {
             silent = port.menu.muted || audioLog;
@@ -1148,6 +1151,9 @@ int RunWindowed(Port &port) {
     }
     presenter.Close();
     SDL_DestroyWindow(window);
+    while (port.replay.making) { // (a replay being made, finished first)
+        port.ReplayMake();
+    }
     port.StopVideo(); // (a video being recorded finished: before SDL_Quit, which takes its sound converters with it)
     SDL_Quit();
     return 0;

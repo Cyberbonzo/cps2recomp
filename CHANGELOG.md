@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Instant replay**: the in-game menu's **Game > Video** page's **Save replay** (Alt+Shift+F12) saves the last 30
+  seconds just played as a video, with no recording started (**Replay length**: 30, 60 or 10 seconds, or off). The
+  game keeps a state every second and every frame's controls, and plays them again into the video beside the game in a
+  few seconds, which goes on as it does.
 - **Arcade monitor** (its own section on the launcher's Features page; in the menu, under Display), every game:
   **Full screen resolution → 384 x 224** switches the screen to the board's own resolution (an arcade monitor's
   modeline from CRT Emudriver, or a custom resolution) and fills it pixel for pixel; **Super resolution** switches it
