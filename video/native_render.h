@@ -121,6 +121,10 @@ public:
     void KeepLevels(unsigned levels) {
         std::erase_if(m_tiles, [levels](const ObjectTile &t) { return !((levels >> t.level) & 1); });
     }
+    // (... or only the objects `keep` says so of: their parts, port/scene.h)
+    template <class Keep> void KeepTiles(Keep keep) {
+        std::erase_if(m_tiles, [&](const ObjectTile &t) { return !keep(t); });
+    }
     // (in a save state, as the game's side's: native.h, NativeVideo::Serialize)
     void Serialize(Archive &ar);
     // (as the board's picture starts: no colours, no objects, Video::Reset)

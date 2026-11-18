@@ -70,6 +70,15 @@ more than one layer (`objects-0` to `objects-3`: how many scroll screens are beh
 layers back to front; laid over each other on the backdrop colour in that order they make `picture.png` again. A
 fight on another game's stage has that game's layers too (`stage-...`), behind the game's.
 
+In a round of a fighting game, the scene is also saved by what is in it (issue #367): `part-stage-behind`, `part-player1`,
+`part-player2`, `part-stage-front` and `part-panel` (and `part-other`: shadows, and anything the game does not name),
+listed under `parts` in `scene.json` back to front. Each part is the frame drawn again with only its objects and scroll
+screens, so a fighter is whole where the other stands in front of it. The game's own description says what each object
+is (`battle::PartOf`: the panel's, a player's by their colour sets, the stage's); the stage's pieces are behind or in
+front of the fighters by where they are among the layers, and on another game's stage by that game's marks of what is in
+front. Clips have the parts too, a folder each. Not yet right in Street Fighter II, Champion Edition and Hyper
+Fighting, whose fighters' colour sets go by character (issue #394).
+
 Each layer is the frame drawn again from its records (`video/native.h`, `LastFrame`) with only that layer on, so what
 the game changed part way down the screen is in it as it was. **Record clip** (Ctrl+F12) does the same for every frame
 of 3, 5 or 10 seconds (**Clip length**), each layer's frames in a folder of their own (`objects/0001.png`...), with

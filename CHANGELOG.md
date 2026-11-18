@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Scene export by what is in it** (issue #367): in a round of a fighting game, Save scene and Record clip also save the
+  picture as its parts: the stage behind the fighters, each player, the stage in front of them and the panel, each
+  whole (`part-*.png`, `parts` in `scene.json`). The scene diorama shows them by default, the board's layers when chosen.
 - **Each game's files on its page**: every game's page in the launcher has a **This game's files** card with that
   game's folder (its settings, saves, save states and logs) and a **Show** button that opens it.
 - **Input delay for hosting**: the launcher's Online page has an **Input delay** choice (0 to 8 frames, 2 unless chosen)
