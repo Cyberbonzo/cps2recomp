@@ -51,8 +51,10 @@ mode the monitor can't take is never chosen while playing.
   fills it pixel for pixel. *Super resolution* switches it to a mode of the board's 224 lines and 1920 columns or more
   (CRT Emudriver's 2560 x 224, say) and stretches the picture across it: the lines one for one, and the columns, many
   screen columns to each, blended by the monitor itself so that every column comes out the same width, which a
-  graphics card can't do at 384. Either way only a mode of exactly 224 lines at the refresh nearest the board's
-  59.64 Hz (within 5 Hz) is used; if the screen doesn't list one, full screen stays at its own resolution, and the
+  graphics card can't do at 384. Where the screen has no super resolution of 224 lines (some cards' sets go no lower
+  than 240p), one of 240 lines is used instead, 2560 x 240 say: the picture's 224 lines one for one in its middle, 8
+  black lines above and below, never stretched. Either way only a mode of exactly 224 lines (or, for a super
+  resolution, 240) at the refresh nearest the board's 59.64 Hz (within 5 Hz) is used; if the screen doesn't list one, full screen stays at its own resolution, and the
   log says so. Turn Widescreen off with it. A vertical game is shown as the board sends it, for a monitor turned on
   its side.
 - **Screen**: which screen the game opens on and goes full screen on (the main one, or the second, third or fourth in

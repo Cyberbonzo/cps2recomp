@@ -6,6 +6,10 @@
   seconds just played as a video, with no recording started (**Replay length**: 30, 60 or 10 seconds, or off). The
   game keeps a state every second and every frame's controls, and plays them again into the video beside the game in a
   few seconds, which goes on as it does.
+- **Super resolution at 240 lines**: where the screen has no super resolution of 224 lines (CRT Emudriver's sets on some
+  cards go no lower than 240p), the Arcade monitor's **Super resolution** uses one of 240 lines and 1920 or more
+  columns, 2560 x 240 say, with the picture's 224 lines one for one in its middle and 8 black lines above and below.
+  Before, it found no mode and full screen stayed at the desktop's resolution (480i on such a card).
 - **Arcade monitor** (its own section on the launcher's Features page; in the menu, under Display), every game:
   **Full screen resolution → 384 x 224** switches the screen to the board's own resolution (an arcade monitor's
   modeline from CRT Emudriver, or a custom resolution) and fills it pixel for pixel; **Super resolution** switches it

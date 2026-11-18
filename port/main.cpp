@@ -728,7 +728,8 @@ void RegisterPortFeatures() {
     TheGame().features.push_back({"crt_resolution", "Arcade monitor", "Full screen resolution",
                                   "For an arcade monitor (CRT Emudriver or a custom resolution). 384 x 224: full screen switches to "
                                   "the board's own resolution, pixel for pixel. Super resolution: to one of its 224 lines and "
-                                  "1920 or more columns (2560 x 224, say), the picture stretched across. Only such a mode near "
+                                  "1920 or more columns (2560 x 224, say), the picture stretched across; with none, one of 240 "
+                                  "lines (2560 x 240), the 224 in its middle. Only such a mode near "
                                   "59.64 Hz is used; if there is none, full screen stays as it was. Set on the launcher.",
                                   kFeatureLauncherOnly, {"Off", "384 x 224", "Super resolution"}});
     TheGame().features.push_back({"crt_screen", "Arcade monitor", "Screen",

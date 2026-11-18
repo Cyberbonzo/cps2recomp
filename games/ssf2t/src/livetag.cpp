@@ -18,6 +18,7 @@
 // SSF2T_SWAP_FREE, as soon after as the player can act.
 #include "battle.h"
 #include "machine.h"
+#include "session.h"
 #include "ssf2t.h"
 
 #include <algorithm>
@@ -256,11 +257,11 @@ void LiveTagBeforeFrame(Machine &machine) {
             g_faces = true;
         }
         // The bar as drawn (kBar) only steps down to the health (00E33A/01006A: it is stepped by one until the two are
-        // alike), so a newcomer's health put back above it would have it go on down past nothing, the bar drawn empty:
-        // it is put at the health then, as a round's start puts it
+        // alike), so health put back above it (a newcomer's, or training's health refill) would have it go on down past
+        // nothing, the bar drawn empty: it is put at the health then, as a round's start puts it
         const uint32_t record = Player(player);
         const int16_t health = static_cast<int16_t>(Ram16(record + kHealth)), bar = static_cast<int16_t>(Ram16(record + kBar));
-        if (TeamBattle() && Ram16(kMode) == kModeGame && Ram16(kGameStep) == kGameMatch && health >= 0 && health <= kHealthFull &&
+        if ((TeamBattle() || session::InSession()) && Ram16(kMode) == kModeGame && Ram16(kGameStep) == kGameMatch && health >= 0 && health <= kHealthFull &&
             bar < health) {
             SetRam16(record + kBar, static_cast<uint16_t>(health));
         }

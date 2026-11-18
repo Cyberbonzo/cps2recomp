@@ -73,21 +73,30 @@ namespace {
     // The screen's mode for the Arcade monitor page's resolution, at the refresh nearest the board's 59.64 Hz and no
     // further than 5 Hz from it; false: it has none. ArcadeMode::Board: exactly the board's 384 x 224 (an arcade
     // monitor's modeline, from CRT Emudriver or a custom resolution). ArcadeMode::Super: a super resolution, the board's
-    // 224 lines and 1920 columns or more (CRT Emudriver's 2560 x 224), the widest of those at that refresh. Never
-    // another number of lines or another rate: a monitor of 15 kHz can be harmed by a mode it cannot take
+    // 224 lines and 1920 columns or more (CRT Emudriver's 2560 x 224), the widest of those at that refresh; where the
+    // screen has none of 224 lines, one of 240 (2560 x 240: not every card's set goes below 240p), the picture's lines
+    // then one for one in its middle (FitArcade). Never another number of lines or another rate: a monitor of 15 kHz
+    // can be harmed by a mode it cannot take
+    constexpr int kSuperTallLines = 240; // (a super resolution of 240p, where the card has none of 224)
     bool ArcadeModeOf(SDL_DisplayID display, ArcadeMode want, SDL_DisplayMode &found) {
         int count = 0;
         SDL_DisplayMode **modes = SDL_GetFullscreenDisplayModes(display, &count);
         bool any = false;
+        long foundLines = 0;
         const float rate = static_cast<float>(Machine::kFramesPerSecond);
         for (int i = 0; modes && i < count; i++) {
             const SDL_DisplayMode &mode = *modes[i];
             const float density = mode.pixel_density > 0 ? mode.pixel_density : 1.0f;
             const long w = std::lround(mode.w * density), h = std::lround(mode.h * density);
-            const bool size = h == Video::kHeight && (want == ArcadeMode::Super ? w >= 1920 : w == Video::kWidth);
+            const bool size = want == ArcadeMode::Super ? (h == Video::kHeight || h == kSuperTallLines) && w >= 1920
+                                                        : h == Video::kHeight && w == Video::kWidth;
             const float off = std::fabs(mode.refresh_rate - rate), was = std::fabs(found.refresh_rate - rate);
-            if (size && off <= 5.0f && (!any || off < was - 0.01f || (std::fabs(off - was) <= 0.01f && mode.w > found.w))) {
+            // (224 lines before 240; then the refresh nearest the board's; then the widest)
+            const bool better = !any || (h == Video::kHeight && foundLines != Video::kHeight) ||
+                                (h == foundLines && (off < was - 0.01f || (std::fabs(off - was) <= 0.01f && mode.w > found.w)));
+            if (size && off <= 5.0f && better) {
                 found = mode;
+                foundLines = h;
                 any = true;
             }
         }
@@ -108,7 +117,7 @@ namespace {
         }
         if (want != ArcadeMode::Off) {
             fprintf(stderr, "full screen: the screen has no %s mode of %d lines near %.2f Hz; full screen stays at its own resolution\n",
-                    want == ArcadeMode::Super ? "super resolution (1920 columns or more)" : "384-column", Video::kHeight, Machine::kFramesPerSecond);
+                    want == ArcadeMode::Super ? "super resolution (1920 columns or more, or of 240 lines)" : "384-column", Video::kHeight, Machine::kFramesPerSecond);
         }
         SDL_SetWindowFullscreenMode(window, nullptr);
     }
@@ -924,8 +933,14 @@ int RunWindowed(Port &port) {
         // super resolution's columns stretched over its many, its lines one for one)
         const bool arcadeScreen = window && (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN) && SDL_GetWindowFullscreenMode(window);
         const Shape shape = arcadeScreen ? Shape::Fill : DisplayShape();
-        const SDL_FRect where = turned ? FitPicture(width, height, Video::kHeight, port.ShownWidth(), shape, DisplayScaling())
-                                       : FitPicture(width, height, shapeColumns, Video::kHeight, shape, DisplayScaling());
+        SDL_FRect where = turned ? FitPicture(width, height, Video::kHeight, port.ShownWidth(), shape, DisplayScaling())
+                                 : FitPicture(width, height, shapeColumns, Video::kHeight, shape, DisplayScaling());
+        // (an arcade mode of more lines than the board's, a super resolution of 240: its 224 lines one for one in the
+        // middle, the lines above and below black, never 224 stretched over 240)
+        if (arcadeScreen && !turned && height > Video::kHeight && height < 2 * Video::kHeight) {
+            where.h = static_cast<float>(Video::kHeight);
+            where.y = std::floor((height - Video::kHeight) / 2.0f);
+        }
         const SDL_FRect menuWhere = turned ? FitPicture(width, height, port.ShownWidth(), Video::kHeight, shape, DisplayScaling()) : where;
         // (the menu compact where the Arcade monitor page asks for it, or on the arcade monitor itself; drawn again when
         // that changes)
