@@ -318,6 +318,9 @@ void Raster::DrawObjects(int rasterLine, const Layers &layers, const PictureOpti
                 if (marks && priority[px] != 31) {
                     marks[px] = static_cast<uint8_t>(t.marks & (shown ? 0xFF : ~kFrontPixel));
                 }
+                if (options.objectEntries && priority[px] != 31) {
+                    options.objectEntries[static_cast<size_t>(rasterLine - kFirstLine) * width + px] = static_cast<uint16_t>(t.entry + 1);
+                }
                 priority[px] = 31;
             }
         }
@@ -405,6 +408,9 @@ void Raster::LineCps1(int line, const Layers &layers, const uint8_t *videoRam, c
                     const uint8_t pen = pixels[t.flipX ? 15 - k : k];
                     if (pen != 15) {
                         claimed[px] = 1;
+                        if (options.objectEntries) {
+                            options.objectEntries[static_cast<size_t>(line) * width + px] = static_cast<uint16_t>(t.entry + 1);
+                        }
                         if (!high[px]) {
                             pens[px] = static_cast<uint16_t>(t.colour + pen);
                             if (options.markObjects) {

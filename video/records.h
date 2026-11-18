@@ -74,6 +74,8 @@ namespace native_video {
         bool (*panelObject)(uint32_t tile, uint16_t attributes) = nullptr;
         bool markFront = false;
         unsigned frontLevel = 0;
+        // (the scene export's, port/scene.h: each pixel's front object, 1 + its entry (0 none), lines of the picture's width)
+        uint16_t *objectEntries = nullptr;
     };
 
     // The board's side: the upload the palette chip makes now, from its registers and video RAM
