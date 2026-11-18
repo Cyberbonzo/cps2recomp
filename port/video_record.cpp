@@ -118,6 +118,7 @@ struct VideoRecorder::State {
     std::vector<int16_t> soundWaiting;
     std::vector<uint32_t> rgb;       // (the picture made larger, the video's size)
     std::vector<uint8_t> y, u, v;    // (... and as the H.264 takes it)
+    int stride = 0;                  // (its planes' lines: the width made a multiple of 16, as minih264's SIMD wants)
     Taps across, down;
     int tapsColumns = 0, tapsWidth = 0, tapsRows = 0, tapsHeight = 0;
     uint64_t framesOut = 0;          // (the board's frames encoded)
@@ -228,9 +229,12 @@ bool VideoRecorder::Start(const std::string &path, int width, int height, double
     }
 
     s.rgb.assign(static_cast<size_t>(width) * height, 0);
-    s.y.resize(static_cast<size_t>(width) * height);
-    s.u.resize(static_cast<size_t>(width / 2) * (height / 2));
-    s.v.resize(s.u.size());
+    // (minih264's NEON and SSE2 code wants each plane's lines a multiple of 8 bytes apart, so the light's a multiple of
+    // 16: the picture keeps its width, the lines are longer, what is past its right edge black)
+    s.stride = (width + 15) & ~15;
+    s.y.assign(static_cast<size_t>(s.stride) * height, 16);
+    s.u.assign(static_cast<size_t>(s.stride / 2) * (height / 2), 128);
+    s.v.assign(s.u.size(), 128);
 
     m_state = std::move(state);
     m_path = path;
@@ -415,7 +419,7 @@ void VideoRecorder::Encode(Job &job) {
     const int W = m_width, H = m_height;
     for (int y = 0; y < H; y++) {
         const uint32_t *from = &s.rgb[static_cast<size_t>(y) * W];
-        uint8_t *to = &s.y[static_cast<size_t>(y) * W];
+        uint8_t *to = &s.y[static_cast<size_t>(y) * s.stride];
         for (int x = 0; x < W; x++) {
             const int r = from[x] & 0xFF, g = (from[x] >> 8) & 0xFF, b = (from[x] >> 16) & 0xFF;
             to[x] = static_cast<uint8_t>(16 + ((47 * r + 157 * g + 16 * b + 128) >> 8));
@@ -431,7 +435,7 @@ void VideoRecorder::Encode(Job &job) {
                 g += (c >> 8) & 0xFF;
                 b += (c >> 16) & 0xFF;
             }
-            const size_t at = static_cast<size_t>(y) * (W / 2) + x;
+            const size_t at = static_cast<size_t>(y) * (s.stride / 2) + x;
             s.u[at] = static_cast<uint8_t>(std::clamp(128 + ((-26 * r - 87 * g + 113 * b + 512) >> 10), 16, 240));
             s.v[at] = static_cast<uint8_t>(std::clamp(128 + ((113 * r - 102 * g - 11 * b + 512) >> 10), 16, 240));
         }
@@ -440,8 +444,8 @@ void VideoRecorder::Encode(Job &job) {
     planes.yuv[0] = s.y.data();
     planes.yuv[1] = s.u.data();
     planes.yuv[2] = s.v.data();
-    planes.stride[0] = W;
-    planes.stride[1] = planes.stride[2] = W / 2;
+    planes.stride[0] = s.stride;
+    planes.stride[1] = planes.stride[2] = s.stride / 2;
     H264E_run_param_t run{};
     run.encode_speed = 2;
     run.qp_min = run.qp_max = Quantizer(m_height);
