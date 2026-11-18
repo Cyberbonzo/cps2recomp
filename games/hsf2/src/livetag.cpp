@@ -16,6 +16,7 @@
 // HSF2_SWAP_FREE, as soon after as the player can act.
 #include "battle.h"
 #include "machine.h"
+#include "session.h"
 #include "hsf2.h"
 
 #include <algorithm>
@@ -59,6 +60,7 @@ namespace {
     };
     constexpr Bytes kKept[] = {{0x012, 0x013}, {0x02A, 0x02E}, {0x1BC, 0x1C0}, {0x1CC, 0x1D4}, {0x2B4, 0x2B5}};
     constexpr uint32_t kClearedFrom = 0x00E, kClearedTo = 0x300;
+    constexpr uint32_t kBar = 0x1BC;               // word: the health as the bar draws it (011FE6 steps it down to the health)
     constexpr uint32_t kHalfWidth = 0x1C2;         // word: half the player's width, by character (0052D6, the table at 0054B6)
     constexpr uint32_t kHalfWidths = 0x0054B6;
 
@@ -266,6 +268,14 @@ void LiveTagBeforeFrame(Machine &machine) {
             g_colours[player] = false;
             Colour(machine.cpu, player);
             g_faces = true;
+        }
+        // The bar as drawn (kBar) only steps down to the health (011FE6: it is stepped by one until the two are alike),
+        // so health put back above it (a newcomer's, or training's health refill) would have it go on down past nothing,
+        // the bar drawn empty: it is put at the health then, as a round's start puts it
+        const uint32_t record = Player(player);
+        const int16_t health = static_cast<int16_t>(Ram16(record + kHealth)), bar = static_cast<int16_t>(Ram16(record + kBar));
+        if ((TeamBattle() || session::InSession()) && InMatch() && health >= 0 && health <= kHealthFull && bar < health) {
+            SetRam16(record + kBar, static_cast<uint16_t>(health));
         }
     }
 

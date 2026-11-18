@@ -5,6 +5,10 @@
 - **The scene diorama as a 3D model**: **Save 3D model (glTF)** writes the scene as shown as a `.glb`: each layer, object
   picked out and overlay a flat cut-out at its depth, named as in the list, with the camera, for Blender (File > Import
   > glTF 2.0) and other 3D programs. From its camera Blender draws the game's picture.
+- **Super resolution at 240 lines**: where the screen has no super resolution of 224 lines (CRT Emudriver's sets on some
+  cards go no lower than 240p), the Arcade monitor's **Super resolution** uses one of 240 lines and 1920 or more
+  columns, 2560 x 240 say, with the picture's 224 lines one for one in its middle and 8 black lines above and below.
+  Before, it found no mode and full screen stayed at the desktop's resolution (480i on such a card).
 - **Arcade monitor** (its own section on the launcher's Features page; in the menu, under Display), every game:
   **Full screen resolution → 384 x 224** switches the screen to the board's own resolution (an arcade monitor's
   modeline from CRT Emudriver, or a custom resolution) and fills it pixel for pixel; **Super resolution** switches it
