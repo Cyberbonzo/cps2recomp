@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Arcade monitor** (its own section on the launcher's Features page; in the menu, under Display), every game:
+  **Full screen resolution → 384 x 224** switches the screen to the board's own resolution (an arcade monitor's
+  modeline from CRT Emudriver, or a custom resolution) and fills it pixel for pixel; **Super resolution** switches it
+  to a mode of the board's 224 lines and 1920 or more columns (CRT Emudriver's 2560 x 224) and stretches the picture
+  across it, line for line, which the monitor's own blending makes even. Only such a mode is used, at the refresh
+  nearest 59.64 Hz; if the screen doesn't list one, full screen stays at the desktop's resolution. A vertical game is
+  shown as the board sends it (turn the monitor). **Screen** chooses which monitor the game opens and goes full screen
+  on. Both are set on the launcher: the in-game menu can only turn them back off, so a wrong mode is never sent to the
+  monitor while playing. **Compact menu**: the in-game menu in small letters with its rows close together (on by
+  itself at an arcade resolution). The menu is also drawn on the screen's own pixels wherever the picture is under 672
+  lines, so its letters are no longer shrunk.
 - **SVG pictures** (issue #368): the Game page's **SVG pictures too** writes an SVG beside the PNGs of screenshots,
   Save scene, Save whole stage and the model viewer's saves: each pixel a square, so it scales to any size exactly, in
   the Display page's shape. A scene's (`scene.svg`, `parts.svg`) and a whole stage's (`stage.svg`) has each layer as a

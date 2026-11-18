@@ -53,6 +53,72 @@ namespace {
 
     constexpr int kDead = 16000; // how far a stick or a trigger must go to count
 
+#ifndef __ANDROID__ // (a phone: its one screen, full)
+    // The Arcade monitor page's screen (DisplayScreen): the main display, or the others in the order SDL lists them;
+    // the main one where the one chosen is not connected
+    SDL_DisplayID ChosenDisplay() {
+        const SDL_DisplayID primary = SDL_GetPrimaryDisplay();
+        SDL_DisplayID chosen = primary;
+        int count = 0, other = 0;
+        SDL_DisplayID *all = SDL_GetDisplays(&count);
+        for (int i = 0; all && i < count; i++) {
+            if (all[i] != primary && ++other == DisplayScreen()) {
+                chosen = all[i];
+            }
+        }
+        SDL_free(all);
+        return chosen;
+    }
+
+    // The screen's mode for the Arcade monitor page's resolution, at the refresh nearest the board's 59.64 Hz and no
+    // further than 5 Hz from it; false: it has none. ArcadeMode::Board: exactly the board's 384 x 224 (an arcade
+    // monitor's modeline, from CRT Emudriver or a custom resolution). ArcadeMode::Super: a super resolution, the board's
+    // 224 lines and 1920 columns or more (CRT Emudriver's 2560 x 224), the widest of those at that refresh. Never
+    // another number of lines or another rate: a monitor of 15 kHz can be harmed by a mode it cannot take
+    bool ArcadeModeOf(SDL_DisplayID display, ArcadeMode want, SDL_DisplayMode &found) {
+        int count = 0;
+        SDL_DisplayMode **modes = SDL_GetFullscreenDisplayModes(display, &count);
+        bool any = false;
+        const float rate = static_cast<float>(Machine::kFramesPerSecond);
+        for (int i = 0; modes && i < count; i++) {
+            const SDL_DisplayMode &mode = *modes[i];
+            const float density = mode.pixel_density > 0 ? mode.pixel_density : 1.0f;
+            const long w = std::lround(mode.w * density), h = std::lround(mode.h * density);
+            const bool size = h == Video::kHeight && (want == ArcadeMode::Super ? w >= 1920 : w == Video::kWidth);
+            const float off = std::fabs(mode.refresh_rate - rate), was = std::fabs(found.refresh_rate - rate);
+            if (size && off <= 5.0f && (!any || off < was - 0.01f || (std::fabs(off - was) <= 0.01f && mode.w > found.w))) {
+                found = mode;
+                any = true;
+            }
+        }
+        SDL_free(modes);
+        return any;
+    }
+
+    // The window's full screen as the Arcade monitor page says (ArcadeResolution): its mode on the chosen screen where
+    // it has one; else the desktop's own. Kept by the window for F11 too
+    void SetFullscreenMode(SDL_Window *window) {
+        SDL_DisplayMode mode{};
+        const ArcadeMode want = ArcadeResolution();
+        if (want != ArcadeMode::Off && ArcadeModeOf(ChosenDisplay(), want, mode)) {
+            if (!SDL_SetWindowFullscreenMode(window, &mode)) {
+                fprintf(stderr, "full screen %dx%d at %.2f Hz: %s\n", mode.w, mode.h, mode.refresh_rate, SDL_GetError());
+            }
+            return;
+        }
+        if (want != ArcadeMode::Off) {
+            fprintf(stderr, "full screen: the screen has no %s mode of %d lines near %.2f Hz; full screen stays at its own resolution\n",
+                    want == ArcadeMode::Super ? "super resolution (1920 columns or more)" : "384-column", Video::kHeight, Machine::kFramesPerSecond);
+        }
+        SDL_SetWindowFullscreenMode(window, nullptr);
+    }
+    // The window in the middle of the chosen screen
+    void CentreOnScreen(SDL_Window *window) {
+        const SDL_DisplayID display = ChosenDisplay();
+        SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED_DISPLAY(display), SDL_WINDOWPOS_CENTERED_DISPLAY(display));
+    }
+#endif
+
     bool KeyBound(SDL_Scancode key) {
         for (int player = 0; player < Players(); player++) {
             for (int action = 0; action < Table().table.count; action++) {
@@ -244,15 +310,34 @@ int RunWindowed(Port &port) {
         if (at) {
             SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_X_NUMBER, at->x);
             SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_Y_NUMBER, at->y);
+        } else {
+#ifndef __ANDROID__
+            // (on the Arcade monitor page's screen)
+            const SDL_DisplayID display = ChosenDisplay();
+            SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_X_NUMBER, SDL_WINDOWPOS_CENTERED_DISPLAY(display));
+            SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_Y_NUMBER, SDL_WINDOWPOS_CENTERED_DISPLAY(display));
+#endif
         }
 #ifdef __ANDROID__
         fullscreen = true; // (a phone's whole screen, its bars hidden)
+        const bool fullscreenNow = true;
+#else
+        // (an arcade resolution: made a window, given its mode, then made full screen)
+        const bool fullscreenNow = fullscreen && ArcadeResolution() == ArcadeMode::Off;
 #endif
         SDL_SetNumberProperty(properties, SDL_PROP_WINDOW_CREATE_FLAGS_NUMBER,
-                              SDL_WINDOW_RESIZABLE | (fullscreen ? SDL_WINDOW_FULLSCREEN : 0) | (at && at->maximized ? SDL_WINDOW_MAXIMIZED : 0) |
+                              SDL_WINDOW_RESIZABLE | (fullscreenNow ? SDL_WINDOW_FULLSCREEN : 0) | (at && at->maximized ? SDL_WINDOW_MAXIMIZED : 0) |
                                   (opengl ? SDL_WINDOW_OPENGL : 0) | (getenv("CPS2RECOMP_HIDDEN_WINDOW") ? SDL_WINDOW_HIDDEN : 0)); // (hidden: for tests)
         SDL_Window *made = SDL_CreateWindowWithProperties(properties);
         SDL_DestroyProperties(properties);
+#ifndef __ANDROID__
+        if (made) {
+            SetFullscreenMode(made);
+            if (fullscreen && !fullscreenNow) {
+                SDL_SetWindowFullscreen(made, true);
+            }
+        }
+#endif
         // (in front: on macOS a program started by one that is not, as the launcher is behind a Multi game run's
         // last game, opens behind the other windows)
         if (made && !getenv("CPS2RECOMP_HIDDEN_WINDOW")) {
@@ -405,6 +490,8 @@ int RunWindowed(Port &port) {
     // controls work the menu; buttons held as it closes do not reach the game until let go.
     std::vector<uint32_t> menuBase, menuPicture, shown;
     uint32_t menuWidth = 0, menuHeight = 0;
+    // (the menu's picture's size where it is drawn on the screen's own pixels: Port::MenuPicture; 0: as usual)
+    int menuWantWidth = 0, menuWantHeight = 0;
     bool menuDirty = false;
     uint16_t previousPad = 0, heldAtClose = 0;
     recomp::MenuRepeat menuRepeat; // (the arrows held go on through the rows and the choices)
@@ -429,7 +516,7 @@ int RunWindowed(Port &port) {
         if (port.menu.IsOpen()) {
             port.menu.Close();
         } else {
-            port.MenuPicture(menuBase, menuWidth, menuHeight);
+            port.MenuPicture(menuBase, menuWidth, menuHeight, menuWantWidth, menuWantHeight);
             port.menu.Open(true);
             menuDirty = true;
         }
@@ -793,6 +880,31 @@ int RunWindowed(Port &port) {
             }
         }
         followShader();
+#ifndef __ANDROID__
+        // The Arcade monitor page's screen or resolution changed (the menu can put them back to off): the window to that
+        // screen, full screen in that mode
+        if (window) {
+            static int shownScreen = DisplayScreen();
+            static ArcadeMode shownArcade = ArcadeResolution();
+            if (DisplayScreen() != shownScreen || ArcadeResolution() != shownArcade) {
+                const bool full = SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN;
+                if (full) {
+                    SDL_SetWindowFullscreen(window, false);
+                    SDL_SyncWindow(window);
+                }
+                if (DisplayScreen() != shownScreen) {
+                    CentreOnScreen(window);
+                }
+                SetFullscreenMode(window);
+                if (full) {
+                    SDL_SetWindowFullscreen(window, true);
+                }
+                SDL_SyncWindow(window);
+                shownScreen = DisplayScreen();
+                shownArcade = ArcadeResolution();
+            }
+        }
+#endif
         presenter.SetVsync(FeatureOn("display_vsync")); // (the Display page's VSync, as changed in the menu)
         if (port.quit) {
             break;
@@ -806,9 +918,36 @@ int RunWindowed(Port &port) {
         const bool turned = Turned();
         // (a framed picture, Port::Framed: in the shape of its columns)
         const int shapeColumns = port.FramedColumns() ? port.FramedColumns() : port.ShownWidth();
-        const SDL_FRect where = turned ? FitPicture(width, height, Video::kHeight, port.ShownWidth(), DisplayShape(), DisplayScaling())
-                                       : FitPicture(width, height, shapeColumns, Video::kHeight, DisplayShape(), DisplayScaling());
-        const SDL_FRect menuWhere = turned ? FitPicture(width, height, port.ShownWidth(), Video::kHeight, DisplayShape(), DisplayScaling()) : where;
+        // (full screen in an arcade resolution: the picture fills the screen's mode, whose shape the monitor gives it; a
+        // super resolution's columns stretched over its many, its lines one for one)
+        const bool arcadeScreen = window && (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN) && SDL_GetWindowFullscreenMode(window);
+        const Shape shape = arcadeScreen ? Shape::Fill : DisplayShape();
+        const SDL_FRect where = turned ? FitPicture(width, height, Video::kHeight, port.ShownWidth(), shape, DisplayScaling())
+                                       : FitPicture(width, height, shapeColumns, Video::kHeight, shape, DisplayScaling());
+        const SDL_FRect menuWhere = turned ? FitPicture(width, height, port.ShownWidth(), Video::kHeight, shape, DisplayScaling()) : where;
+        // (the menu compact where the Arcade monitor page asks for it, or on the arcade monitor itself; drawn again when
+        // that changes)
+        if (const bool compact = CompactMenuChosen() || arcadeScreen; compact != port.menu.Compact()) {
+            port.menu.SetCompact(compact);
+            menuBase.clear();
+            menuDirty = true;
+        }
+        // (the picture shown smaller than the menu's usual 672 lines (a small window, an arcade monitor): the menu drawn
+        // on the screen's own pixels there, so that its letters are not shrunk; on an arcade monitor, on the board's
+        // pixels, which a super resolution stretches as it does the game's; drawn again when that changes)
+        {
+            int wantWidth = static_cast<int>(std::lround(menuWhere.w)), wantHeight = static_cast<int>(std::lround(menuWhere.h));
+            if (arcadeScreen && wantHeight == Video::kHeight) {
+                wantWidth = std::min(wantWidth, port.ShownWidth());
+            }
+            const bool own = wantHeight >= Video::kHeight && wantHeight < 3 * Video::kHeight;
+            if ((own ? wantWidth : 0) != menuWantWidth || (own ? wantHeight : 0) != menuWantHeight) {
+                menuWantWidth = own ? wantWidth : 0;
+                menuWantHeight = own ? wantHeight : 0;
+                menuBase.clear(); // (made again at the new size)
+                menuDirty = true;
+            }
+        }
         touch.Layout(width, height, where);
         int touchWidth = 0, touchHeight = 0;
         if (touch.TakePicture(touchPicture, touchWidth, touchHeight)) {
@@ -817,6 +956,10 @@ int RunWindowed(Port &port) {
 
         if (port.menu.IsOpen()) {
             // The game's picture as it was, with the menu over it
+            if (menuBase.empty()) {
+                port.MenuPicture(menuBase, menuWidth, menuHeight, menuWantWidth, menuWantHeight); // (the size changed)
+                menuDirty = true;
+            }
             if (menuDirty) {
                 menuDirty = false;
                 menuPicture = menuBase;
