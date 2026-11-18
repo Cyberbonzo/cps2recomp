@@ -59,6 +59,18 @@ F12 saves the picture as the window shows it, at the board's size (384 by 224, w
 readouts on it but not the camera's zoom, to `screenshots/` in the game's folder, as `<game> <date> <time>.png`
 (`Port::Screenshot`, issue #31). Where it went is said at the bottom for a few seconds.
 
+**SVG pictures too** (the Game page's `export_svg`, issue #368) writes an SVG beside the PNGs of screenshots, Save scene,
+Save whole stage and the model viewer's picture and animation (each frame and the sheet; not a scene clip's frames).
+Each of the board's pixels is a square of the SVG's grid, so it scales to any size exactly: what a row has of a colour
+side by side is one rectangle, made taller where the rows below have the same, and each colour's rectangles one path
+(an opaque picture's commonest colour one rectangle behind it all); see-through pixels are left out, a hit box's
+partly see-through fill keeps how much (`image_files::WriteSvg`). It is shown three times the board's lines, its pixels
+in the Display page's shape (`port::SvgSize`), and drawn with `shape-rendering="crispEdges"`. A scene's is
+`scene.svg`, the backdrop and then each board layer back to front and what is drawn over them, each a group (an
+Inkscape layer: drawing programs show them as layers); in a fighting game's round `parts.svg`, the same of its parts;
+a whole stage's `stage.svg`, each layer at its place. Drawn, they are the PNG pixel for pixel. A scene's SVG is a few
+hundred kilobytes.
+
 ## Video recording
 
 The in-game menu's **Game > Video** page, every game (`port/video_record.h`, issue #376). **Record video** (Alt+F12)

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **SVG pictures** (issue #368): the Game page's **SVG pictures too** writes an SVG beside the PNGs of screenshots,
+  Save scene, Save whole stage and the model viewer's saves: each pixel a square, so it scales to any size exactly, in
+  the Display page's shape. A scene's (`scene.svg`, `parts.svg`) and a whole stage's (`stage.svg`) has each layer as a
+  layer of its own, for drawing programs. Drawn, each is its PNG pixel for pixel.
 - **Video recording** (issue #376): the in-game menu's **Game > Video** page, every game. **Record video** (Alt+F12)
   records what you play and hear as an MP4 (H.264 and AAC, which plays anywhere) in `videos/` beside your saves, until
   you stop it: the picture as screenshots take it, larger (3 times the board's lines unless **Video size** says 2, 4

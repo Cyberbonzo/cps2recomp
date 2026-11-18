@@ -169,6 +169,9 @@ public:
     void Add(cps2recomp::Machine &machine, int camera);
     // The stage's files in a folder of its own under `under` named `name`; what to say. The stitch is over.
     std::string Write(const std::string &under, const std::string &name, const std::string &stage);
+    // (stage.svg too, its layers each a group: the Game page's SVG pictures too, issue #368; set when it is written)
+    bool svg = false;
+    double svgPixelWidth = 3, svgPixelHeight = 3; // (the size of a pixel of it shown: port::SvgSize)
     void End() {
         m_begun = false;
         m_layers.clear();

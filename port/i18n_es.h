@@ -810,6 +810,8 @@ inline constexpr recomp::i18n::Entry kSpanish[] = {
     {"RECORDING VIDEO", "GRABANDO VÍDEO"},
     {"VIDEO SAVED", "VÍDEO GUARDADO"},
     {"VIDEO NOT SAVED", "VÍDEO NO GUARDADO"},
+    {"SVG pictures too", "También imágenes SVG"},
+    {"Screenshots (F12), Save scene, the stage viewer's Save whole stage and the model viewer's saves also write SVG pictures beside their PNGs: each pixel a square, so they scale to any size exactly. A scene's and a whole stage's has each layer as a layer of its own (scene.svg, parts.svg, stage.svg), for drawing programs. Not for clips.", "Las capturas (F12), Guardar escena, Guardar escenario entero del visor de escenarios y lo que guarda el visor de modelos escriben también imágenes SVG junto a sus PNG: cada píxel un cuadrado, así que se escalan a cualquier tamaño con exactitud. La de una escena y la de un escenario entero tienen cada capa como una capa propia (scene.svg, parts.svg, stage.svg), para programas de dibujo. No para los clips."},
 };
 
 } // namespace port

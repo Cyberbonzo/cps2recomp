@@ -361,6 +361,12 @@ void StartOnAndroid();
 // the window, and how many times the board's lines the window opens
 Scaling DisplayScaling();
 Shape DisplayShape();
+// The size an SVG of the board's pixels is shown at (model/image_files.h, WriteSvg; issue #368): three times its rows
+// tall, its pixels as the Display page shows them (on the board's 4:3 screen narrower than tall; or square)
+inline void SvgSize(int columns, int rows, double &width, double &height) {
+    height = rows * 3.0;
+    width = columns * 3.0 * (DisplayShape() == Shape::SquarePixels ? 1.0 : (4.0 / 3.0) / (384.0 / 224.0));
+}
 int WindowSize();
 // A vertical game's picture shown upright (Game::vertical, the Display page's "Picture turned"): the board's picture,
 // `across` columns by its 224 rows, turned a quarter to the left into `out` (224 columns by `across` rows)
