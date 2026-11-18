@@ -100,7 +100,7 @@ void BoardBeforeFrame(Machine &machine) {
 
 void RegisterBoard() {
     Game &game = TheGame();
-    game.pages.push_back({kPage, "", "The board's own settings, as its test menu has them (設定): each as the board is set unless "
+    game.pages.push_back({kPage, "", "The board's own settings, as its test menu has them (its settings page): each as the board is set unless "
                                      "chosen here. Taken when the game starts or is reset."});
     constexpr const char *kAsSet = "As the board is set";
     game.features.push_back({"board_difficulty", kPage, "Difficulty", "How well the computer fights, 1 (easiest) to 8 (hardest).", 0,
