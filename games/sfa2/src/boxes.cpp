@@ -26,7 +26,7 @@ namespace {
         }
         const int across = static_cast<int16_t>(Ram16(object + kX)) + (Ram8(object + kFacesRight) ? -x : x);
         const int up = static_cast<int16_t>(Ram16(object + kY)) + y;
-        boxes.push_back({kind, across, up, halfWidth, halfHeight, thrown});
+        boxes.push_back({kind, across, up, halfWidth, halfHeight, thrown, fight::Whose(object, Player(0), Player(1))});
     }
 
     void PlayerBoxes(Machine &machine, uint32_t player, std::vector<fight::StageBox> &boxes) {

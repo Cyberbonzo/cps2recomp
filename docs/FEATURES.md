@@ -79,6 +79,16 @@ front of the fighters by where they are among the layers, and on another game's 
 front. Clips have the parts too, a folder each. Not yet right in Street Fighter II, Champion Edition and Hyper
 Fighting, whose fighters' colour sets go by character (issue #394).
 
+What the port draws over the picture is saved too, as layers of its own (issue #398), whenever there is any: training
+mode's aids, a shooting game's hit boxes. `overlay-boxes` has the hit boxes, `overlay-hud` the rest (the text, the frame
+meter), each see-through where it covers nothing and as solid as it is drawn where it does (listed under `overlays` in
+`scene.json`, a folder each in a clip). `scene.json` lists the hit boxes as well (`boxes`, a clip's in each frame of
+`frameList`): each box's player (1 or 2), its kind (`hurt`, `attack`, `push`, `throw`, `throw-range`; a shooting
+game's `body`, `shot`, `ship`), `thrown` for something thrown, its rectangle in the picture, its colour and how solid its
+inside is (`fill`, of 255). A player's own boxes are theirs by the game's records; a thrown thing's go with the thrower
+where the game says (the Marvel games), else with the player whose picture they cover more of, else `null`. They are the
+boxes shown with that picture, as on the screen (run-ahead's too).
+
 Each layer is the frame drawn again from its records (`video/native.h`, `LastFrame`) with only that layer on, so what
 the game changed part way down the screen is in it as it was. **Record clip** (Ctrl+F12) does the same for every frame
 of 3, 5 or 10 seconds (**Clip length**), each layer's frames in a folder of their own (`objects/0001.png`...), with
@@ -92,7 +102,9 @@ larger by as much, so the front view (Game view) is the game's picture at any sp
 hide or solo them, add shadows between them, haze or scanlines, take a photo at up to 4x, or record a video (MP4, or
 WebM where the browser makes no MP4: a clip once through, a scene or stage turning). The board's pixels are shown as on
 its 4:3 screen (or square, when chosen). Every scene opened is kept in the browser's list until its data for the page is
-cleared. A clip steps frame by frame or plays at 1x to 1/16x. A whole stage's layers go back by their parallax pace, so at a spread of 1 moving the
+cleared. A clip steps frame by frame or plays at 1x to 1/16x. A scene saved with hit boxes shows each player's as a layer
+of their own just in front of that player (with the board's layers, in front of the frontmost objects), drawn from
+`scene.json`'s list, and the readout in front of everything; each can be switched off in the list like any layer. A whole stage's layers go back by their parallax pace, so at a spread of 1 moving the
 camera across it gives the game's own parallax. Nothing leaves the browser.
 
 **Rapid fire** is the port's own (`rapid_fire`, Game page, every game): a held button is the game's pressed for two

@@ -94,7 +94,7 @@ namespace {
         if (width == 0 || height == 0) {
             return;
         }
-        boxes.push_back({kind, x, y, width / 2, height / 2, thrown});
+        boxes.push_back({kind, x, y, width / 2, height / 2, thrown, fight::Whose(player, Player(0), Player(1))});
     }
 
     std::vector<fight::StageBox> Boxes(Machine &machine) {

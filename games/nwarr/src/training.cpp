@@ -59,7 +59,7 @@ namespace {
         const int y = static_cast<int16_t>(Ram16(record + kY)) + static_cast<int16_t>(c.Read(at + 4, 1)) - kGround;
         const int halfWidth = static_cast<int16_t>(c.Read(at + 2, 1)), halfHeight = static_cast<int16_t>(c.Read(at + 6, 1));
         if (halfWidth > 0 && halfHeight > 0) {
-            boxes.push_back({kind, x, y, halfWidth, halfHeight, thrown});
+            boxes.push_back({kind, x, y, halfWidth, halfHeight, thrown, fight::Whose(record, Player(0), Player(1))});
         }
     }
 

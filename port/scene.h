@@ -9,6 +9,9 @@
 //
 // A fight on another game's stage (fight/guest_stages.h) has that board's layers too, behind the game's.
 //
+// What the port draws over the picture (training's hit boxes and readout) is in it too, as layers of its own, and the hit
+// boxes are listed in scene.json, each with its player (issue #398).
+//
 // A clip is the same for each frame of a few seconds, in a folder per layer, written by threads beside the game.
 #pragma once
 
@@ -72,6 +75,21 @@ public:
         // A fighting game's picture by what is in it (issue #367: the stage behind the fighters, each player, the stage in
         // front of them, the panel, anything else), back to front; none for a game that does not say (battle::PartOf)
         std::vector<Layer> parts;
+        // The readout the port draws over the picture (issue #398), each a picture of its own with what it does not cover
+        // clear: "overlay-boxes", the hit boxes (training's, a shooting game's); "overlay-hud", the rest (the text, the
+        // frame meter). None when nothing is drawn over the picture.
+        std::vector<Layer> overlays;
+        // The hit boxes in the picture, where it shows them, each with its player and what it is (for the diorama, which
+        // puts each player's beside that player)
+        struct Box {
+            int player = -1; // (0 or 1; -1 not known)
+            uint8_t kind = 0; // (cps2recomp::HudBoxKind)
+            bool thrown = false;
+            int x = 0, y = 0, width = 0, height = 0;
+            uint32_t colour = 0; // (red in the low byte)
+            uint8_t fill = 0;    // (how solid its inside is, of 255)
+        };
+        std::vector<Box> boxes;
     };
     // The last frame's scene (false: no records to draw it from: before the game's first object list, or --video board)
     static bool Take(cps2recomp::Machine &machine, Scene &scene);
@@ -85,6 +103,8 @@ private:
         std::string json;               // (each frame's line of scene.json)
         std::vector<std::string> partNames; // (... and the parts', issue #367)
         std::string partsJson;
+        std::vector<std::string> overlayNames; // (... and the overlays', issue #398)
+        std::string overlaysJson;
     } m_clip;
     // The writers: frames waiting to be written as PNGs
     struct Job {

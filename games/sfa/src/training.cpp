@@ -113,7 +113,7 @@ namespace {
         }
         const int x = static_cast<int16_t>(Ram16(player + kX)) + (Ram8(player + kFacesRight) ? -across : across);
         const int y = static_cast<int16_t>(Ram16(player + kY)) + up;
-        boxes.push_back({kind, x, y, halfWidth, halfHeight, thrown});
+        boxes.push_back({kind, x, y, halfWidth, halfHeight, thrown, fight::Whose(player, Player(0), Player(1))});
     }
 
     std::vector<fight::StageBox> Boxes(Machine &machine) {
