@@ -136,6 +136,9 @@ Linux, the Steam Deck and Windows can play each other.
 - **The picture your way**: sharp or smooth scaling, 4:3 or square pixels (a vertical game stood upright), and RetroArch shaders (CRT, scanlines,
   xBRZ and more, or your own preset). A camera zoom follows either fighter, keeps both in view, or closes in
   and out with the fighters' distance while the health bars stay put ([more](docs/PICTURE.md)).
+- **Arcade monitors**: a CRT (CRT Emudriver or a custom resolution) gets the board's own 384 x 224 in full screen, or a
+  super resolution such as 2560 x 224, on the screen you choose, with a compact menu that suits its 224 lines: set up on
+  the launcher's Features page.
 - **Controls**: keyboard, gamepad or arcade stick, every button changeable per player and per game.
 - **An in-game menu**: save states, speed and pause, frame advance, cheats and every option.
 - **English, Brazilian Portuguese or Spanish** in the launcher and every game's menu: chosen once in the launcher (or

@@ -50,6 +50,7 @@ void Menu::Open(bool withStates) {
     for (const char *under : {"Board", "Cheats", "Sound"}) {
         config.pages.push_back({under, "Game"});
     }
+    config.pages.push_back({"Arcade monitor", "Display", "A CRT at the board's own resolution: set on the launcher."});
     std::vector<recomp::MenuRow> top;
     for (const cps2recomp::Page &page : game.pages) {
         // (such pages are ways of running the game: their rows do not count features that are on)
@@ -159,6 +160,10 @@ void Menu::Open(bool withStates) {
         std::vector<std::vector<bool>> offered;
         for (const recomp::FeatureInfo &info : cps2recomp::FeatureList()) {
             offered.push_back(recomp::MenuChoices(settings, info));
+            if (info.flags & cps2recomp::kFeatureLauncherOnly) {
+                // (none but the one chosen and off, which the menu always offers: the row can only be put back to off)
+                offered.back().assign(std::max<size_t>(info.choices.size(), 2), false);
+            }
         }
         config.offered = [offered](size_t feature, int choice) {
             return feature >= offered.size() || choice < 0 || choice >= static_cast<int>(offered[feature].size()) || offered[feature][static_cast<size_t>(choice)];

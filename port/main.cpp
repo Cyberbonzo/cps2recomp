@@ -687,6 +687,25 @@ void RegisterPortFeatures() {
                                   "How large the window opens, in times the board's 224 lines (it can be made any size by "
                                   "dragging its edges; full screen is on the launcher's first page and F11).",
                                   0, {"3x", "2x", "4x", "5x", "6x"}});
+    // (crt_*: an arcade monitor. Resolution and Screen: frontend_sdl.cpp, set on the launcher (kFeatureLauncherOnly), so
+    // a mode the monitor may not take is never chosen in the menu while playing; Compact menu: recomp-common's
+    // Menu::SetCompact)
+    TheGame().features.push_back({"crt_resolution", "Arcade monitor", "Full screen resolution",
+                                  "For an arcade monitor (CRT Emudriver or a custom resolution). 384 x 224: full screen switches to "
+                                  "the board's own resolution, pixel for pixel. Super resolution: to one of its 224 lines and "
+                                  "1920 or more columns (2560 x 224, say), the picture stretched across. Only such a mode near "
+                                  "59.64 Hz is used; if there is none, full screen stays as it was. Set on the launcher.",
+                                  kFeatureLauncherOnly, {"Off", "384 x 224", "Super resolution"}});
+    TheGame().features.push_back({"crt_screen", "Arcade monitor", "Screen",
+                                  "Which screen the game opens on and goes full screen on, where there are several: the main "
+                                  "one or another, in the order the system lists them. One that isn't connected: the main. "
+                                  "Set on the launcher; the in-game menu can only put it back to the main one.",
+                                  kFeatureLauncherOnly, {"Main", "Second", "Third", "Fourth"}});
+    TheGame().features.push_back({"crt_compact_menu", "Arcade monitor", "Compact menu",
+                                  "The in-game menu in small letters with its rows close together, as suits a screen of few "
+                                  "lines (a small window, an arcade monitor): a page's rows all shown at once, none running "
+                                  "into the next. Off: compact only in full screen at an arcade resolution.",
+                                  0});
     // (sound_filter: port/sound_filter.h, in the frontend; only what is heard, so it is each player's own online)
     TheGame().features.push_back({"sound_filter", "Sound", "Sound filter",
                                   "Softens the board's sound: the sound chip's samples are played without smoothing, which "
@@ -712,7 +731,17 @@ Shape DisplayShape() {
     return static_cast<Shape>(std::clamp(FeatureValue("display_shape"), 0, 2));
 }
 bool Turned() {
-    return TheGame().vertical && FeatureValue("display_turn") == 0;
+    // (not on an arcade monitor: the picture as the board sends it, the monitor turned as a cabinet's is)
+    return TheGame().vertical && FeatureValue("display_turn") == 0 && ArcadeResolution() == ArcadeMode::Off;
+}
+ArcadeMode ArcadeResolution() {
+    return static_cast<ArcadeMode>(std::clamp(FeatureValue("crt_resolution"), 0, 2));
+}
+int DisplayScreen() {
+    return std::clamp(FeatureValue("crt_screen"), 0, 3);
+}
+bool CompactMenuChosen() {
+    return FeatureValue("crt_compact_menu") != 0;
 }
 void TurnPicture(const uint32_t *pixels, int across, std::vector<uint32_t> &out) {
     // (a quarter to the left: the picture's right edge becomes its top)
@@ -2058,16 +2087,19 @@ bool Port::Windowed(std::vector<uint32_t> &pixels, Zoomed &zoomed, bool readouts
     return true;
 }
 
-void Port::MenuPicture(std::vector<uint32_t> &pixels, uint32_t &width, uint32_t &height) const {
+void Port::MenuPicture(std::vector<uint32_t> &pixels, uint32_t &width, uint32_t &height, int wantWidth, int wantHeight) const {
     std::vector<uint32_t> shown;
     Shown(shown);
     const uint32_t across = static_cast<uint32_t>(ShownWidth());
-    height = Video::kHeight * 3;
-    width = height * 4 / 3 * across / Video::kWidth;
+    const bool want = wantWidth > 0 && wantHeight > 0;
+    height = want ? static_cast<uint32_t>(wantHeight) : Video::kHeight * 3;
+    width = want ? static_cast<uint32_t>(wantWidth) : height * 4 / 3 * across / Video::kWidth;
     if (const int columns = FramedColumns()) {
         // (a framed picture, Port::Framed: the menu in the shape of its columns, over all of the picture at the bottom of it,
         // as wide as that shape and as much shorter, black above)
-        width = height * 4 / 3 * static_cast<uint32_t>(columns) / Video::kWidth;
+        if (!want) {
+            width = height * 4 / 3 * static_cast<uint32_t>(columns) / Video::kWidth;
+        }
         pixels.assign(static_cast<size_t>(width) * height, 0xFF000000u);
         const uint32_t tall = height * static_cast<uint32_t>(columns) / across;
         for (uint32_t y = 0; y < tall; y++) {
@@ -2097,7 +2129,7 @@ void Port::MenuPicture(std::vector<uint32_t> &pixels, uint32_t &width, uint32_t 
         return;
     }
     for (uint32_t y = 0; y < height; y++) {
-        const uint32_t *from = &shown[static_cast<size_t>(y / 3) * across];
+        const uint32_t *from = &shown[static_cast<size_t>(y * Video::kHeight / height) * across];
         uint32_t *to = &pixels[static_cast<size_t>(y) * width];
         for (uint32_t x = 0; x < width; x++) {
             to[x] = from[x * across / width];
@@ -3196,7 +3228,13 @@ void Port::RunFrame() {
         if (second != std::string::npos && menu.IsOpen()) {
             std::vector<uint32_t> pixels;
             uint32_t width = 0, height = 0;
-            MenuPicture(pixels, width, height);
+            // (CPS2RECOMP_MENU_SIZE=WxH: at that size, as on a screen of it; the menu compact as the Arcade monitor page says)
+            int wantWidth = 0, wantHeight = 0;
+            if (const char *size = getenv("CPS2RECOMP_MENU_SIZE")) {
+                sscanf(size, "%dx%d", &wantWidth, &wantHeight);
+            }
+            menu.SetCompact(CompactMenuChosen() || (wantHeight > 0 && wantHeight < 2 * Video::kHeight && port::ArcadeResolution() != port::ArcadeMode::Off));
+            MenuPicture(pixels, width, height, wantWidth, wantHeight);
             menu.Draw(pixels.data(), static_cast<int>(width), static_cast<int>(height));
             WritePng(opt.menuTest.substr(second + 1).c_str(), pixels.data(), width, height);
         }

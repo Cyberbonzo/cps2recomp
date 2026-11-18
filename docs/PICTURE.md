@@ -41,6 +41,25 @@ picture as it was.
 | ![No shader](screenshots/shaders/off.png)<br>Off | ![CRT (crt-geom-mini)](screenshots/shaders/crt-geom-mini.png)<br>CRT | ![CRT Royale](screenshots/shaders/crt-royale.png)<br>CRT Royale |
 | ![CRT Lottes](screenshots/shaders/crt-lottes.png)<br>CRT Lottes | ![Scanlines, light](screenshots/shaders/scanline-fract.png)<br>Scanlines, light | ![xBRZ](screenshots/shaders/xbrz.png)<br>xBRZ |
 
+## Arcade monitor
+
+For a CRT driven at arcade rates (CRT Emudriver on Windows, or a custom resolution elsewhere). Set on the launcher's
+Features page, under **Arcade monitor**; the in-game menu (Display > Arcade monitor) can only turn these back off, so a
+mode the monitor can't take is never chosen while playing.
+
+- **Full screen resolution**: *384 x 224* switches the screen, in full screen, to exactly the board's resolution and
+  fills it pixel for pixel. *Super resolution* switches it to a mode of the board's 224 lines and 1920 columns or more
+  (CRT Emudriver's 2560 x 224, say) and stretches the picture across it: the lines one for one, and the columns, many
+  screen columns to each, blended by the monitor itself so that every column comes out the same width, which a
+  graphics card can't do at 384. Either way only a mode of exactly 224 lines at the refresh nearest the board's
+  59.64 Hz (within 5 Hz) is used; if the screen doesn't list one, full screen stays at its own resolution, and the
+  log says so. Turn Widescreen off with it. A vertical game is shown as the board sends it, for a monitor turned on
+  its side.
+- **Screen**: which screen the game opens on and goes full screen on (the main one, or the second, third or fourth in
+  the order the system lists them).
+- **Compact menu**: the in-game menu in small letters with its rows close together, so a page fits in 224 lines. It
+  is on by itself in full screen at an arcade resolution.
+
 ## The camera's zoom
 
 In the fighting games, hold the left stick's click and press the left shoulder to zoom in on player 1's fighter,

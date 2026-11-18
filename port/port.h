@@ -185,7 +185,9 @@ struct Port {
     void MenuAct(Menu::Action action);
     bool quit = false; // the player chose the menu's "Quit game": the frontend stops
     // The game's picture at the size the menu is drawn at (4:3, three times the lines)
-    void MenuPicture(std::vector<uint32_t> &pixels, uint32_t &width, uint32_t &height) const;
+    // (`wantWidth` x `wantHeight` given: that size instead, the screen's own pixels where the picture is shown on a small
+    // screen or an arcade monitor, so that the menu's letters are drawn on them and not shrunk)
+    void MenuPicture(std::vector<uint32_t> &pixels, uint32_t &width, uint32_t &height, int wantWidth = 0, int wantHeight = 0) const;
     // The picture with the readout over it (runtime/game.h, SetHud), as the window and screenshots show it; and
     // where on it the readout's panels went (none: not asked)
     // (`over`: drawn over a picture all of `base` instead of the game's: for the readouts alone, Readouts)
@@ -348,6 +350,13 @@ void StartOnAndroid();
 Scaling DisplayScaling();
 Shape DisplayShape();
 int WindowSize();
+// The Arcade monitor page's full screen resolution (frontend_sdl.cpp: the screen switched to the board's 384 x 224, or
+// to a super resolution of its 224 lines), screen (0: the main one, 1..3: the others in the system's order) and Compact
+// menu switch
+enum class ArcadeMode { Off, Board, Super };
+ArcadeMode ArcadeResolution();
+int DisplayScreen();
+bool CompactMenuChosen();
 // A vertical game's picture shown upright (Game::vertical, the Display page's "Picture turned"): the board's picture,
 // `across` columns by its 224 rows, turned a quarter to the left into `out` (224 columns by `across` rows)
 bool Turned();

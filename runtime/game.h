@@ -54,6 +54,9 @@ enum : unsigned {
     // Online play takes the host's choice for both machines, whatever page it is on (port/netplay.cpp: Shared): a mode
     // that is all in the controls and the game's own memory, so that two machines play it alike (tag team's people)
     kFeatureMatch = 512,
+    // Set on the launcher: the in-game menu shows it and can only put it back to its first choice (off). For a
+    // monitor's resolution, where a mode the monitor cannot take, chosen while playing, could harm it
+    kFeatureLauncherOnly = 1024,
 };
 
 // Something the game's sources can do when the player asks (a row of the in-game menu, and a key if it has
