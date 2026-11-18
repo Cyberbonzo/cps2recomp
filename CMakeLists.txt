@@ -69,12 +69,34 @@ if (NOT GAME_SOURCES)
     set(GAME_SOURCES runtime/no_game.cpp)
 endif ()
 # (recomp-common/: the code the recomp ports share, a copy of recomp-common's; tools/sync-common.sh)
-set(PORT_SOURCES port/main.cpp port/scene.cpp port/gpu_picture.cpp port/frontend_sdl.cpp port/present.cpp port/shading.cpp port/zoom.cpp port/menu.cpp port/hud.cpp port/touch.cpp port/soundtrack.cpp port/netplay.cpp recomp-common/launcher/src/online.cpp recomp-common/launcher/src/run_program.cpp port/decoders.cpp recomp-common/menu.cpp recomp-common/settings.cpp runtime/game.cpp runtime/board.cpp video/lifts.cpp runtime/spare.cpp runtime/guest.cpp fight/frames.cpp fight/training.cpp fight/colours.cpp fight/colour_editor.cpp fight/battle.cpp fight/court.cpp fight/alternative.cpp fight/session.cpp fight/tag.cpp fight/marvel.cpp fight/guest_stages.cpp beat/modes.cpp beat/model.cpp model/model.cpp shmup/modes.cpp ${GAME_SOURCES})
+set(PORT_SOURCES port/main.cpp port/scene.cpp port/video_record.cpp port/gpu_picture.cpp port/frontend_sdl.cpp port/present.cpp port/shading.cpp port/zoom.cpp port/menu.cpp port/hud.cpp port/touch.cpp port/soundtrack.cpp port/netplay.cpp recomp-common/launcher/src/online.cpp recomp-common/launcher/src/run_program.cpp port/decoders.cpp recomp-common/menu.cpp recomp-common/settings.cpp runtime/game.cpp runtime/board.cpp video/lifts.cpp runtime/spare.cpp runtime/guest.cpp fight/frames.cpp fight/training.cpp fight/colours.cpp fight/colour_editor.cpp fight/battle.cpp fight/court.cpp fight/alternative.cpp fight/session.cpp fight/tag.cpp fight/marvel.cpp fight/guest_stages.cpp beat/modes.cpp beat/model.cpp model/model.cpp shmup/modes.cpp ${GAME_SOURCES})
 
 # (the sound files' decoders, third_party/, are other projects' code, compiled as they are)
 set_source_files_properties(port/decoders.cpp PROPERTIES COMPILE_OPTIONS "-w")
 # (ymfm's published YM2151 implementation for the classic CPS-1 sound board)
 set_source_files_properties(third_party/ymfm_opm.cpp PROPERTIES COMPILE_OPTIONS "-w")
+
+# The video recording's encoders (port/video_record.h), other projects' code compiled as it is: minih264 (H.264) and
+# minimp4 (the MP4 file), CC0, in third_party/ and compiled by port/encoders*.c; and FAAC 2.2 (AAC), LGPL-2.1,
+# downloaded (its release's archive, checked against its SHA-256) and compiled with port/faac_config.h: its plain C
+# quantizer only, the SSE2 one left out, so that it is the same everywhere
+include(FetchContent)
+FetchContent_Declare(faac
+    URL https://github.com/knik0/faac/archive/refs/tags/faac-2.2.tar.gz
+    URL_HASH SHA256=a93963573907c83e26e8cfabbf80d3a9c360f06ea4ecf1ea6cb74a202494d8d9
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+FetchContent_MakeAvailable(faac) # (its sources only: it has no CMakeLists.txt, and its own build, meson's, is not used)
+file(GLOB FAAC_SOURCES "${faac_SOURCE_DIR}/libfaac/*.c")
+list(REMOVE_ITEM FAAC_SOURCES "${faac_SOURCE_DIR}/libfaac/quantize_sse.c")
+add_library(video_encoders STATIC port/encoders.c port/encoders_mp4.c ${FAAC_SOURCES})
+target_include_directories(video_encoders PUBLIC third_party "${faac_SOURCE_DIR}/include" PRIVATE "${faac_SOURCE_DIR}/libfaac")
+# (minih264's colour description on, and its scalable video off: minih264e.h)
+target_compile_definitions(video_encoders PRIVATE H264E_VUI_BT709=1 H264E_SVC_API=0 NDEBUG)
+target_compile_options(video_encoders PRIVATE -w -include "${CMAKE_CURRENT_SOURCE_DIR}/port/faac_config.h")
+set_target_properties(video_encoders PROPERTIES POSITION_INDEPENDENT_CODE ON)
+if (UNIX AND NOT APPLE)
+    target_link_libraries(video_encoders PRIVATE m)
+endif ()
 
 # (macOS: handing the front to the launcher, port/front_macos.mm)
 if (APPLE)
@@ -101,7 +123,7 @@ if (WIN32)
 endif ()
 foreach (target ${GAME} ${GAME}-check)
     target_include_directories(${target} PRIVATE runtime port machine fight beat model shmup "${WORK_DIR}/gen" "${GAME_DIR}" ${GAME_INCLUDES})
-    target_link_libraries(${target} PRIVATE SDL3::SDL3 ZLIB::ZLIB)
+    target_link_libraries(${target} PRIVATE SDL3::SDL3 ZLIB::ZLIB video_encoders)
     if (APPLE)
         target_link_libraries(${target} PRIVATE "-framework AppKit")
     endif ()

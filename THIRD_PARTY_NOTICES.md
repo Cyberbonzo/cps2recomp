@@ -85,6 +85,19 @@ archives carry them in `licenses/sound-decoders.txt`.
 | `third_party/dr_mp3.h` | dr_libs `dr_mp3` 0.7.4 (the same commit), by David Reid, after minimp3 by lieff | Public domain, or MIT No Attribution |
 | `third_party/dr_wav.h` | dr_libs `dr_wav` 0.14.6 (the same commit), by David Reid | Public domain, or MIT No Attribution |
 
+### Video encoders (CC0)
+
+The video recording (`port/video_record.cpp`, the Video page's Record video) makes H.264 with minih264 and writes the
+MP4 file with minimp4, both single files by Lieff in `third_party/`, compiled by `port/encoders.c` and
+`port/encoders_mp4.c`. Both are dedicated to the public domain (CC0 1.0); the statements are at the top of each
+file, and the release archives carry them in `licenses/video-encoders.txt`. The sound is AAC from FAAC, downloaded
+at build time (below).
+
+| File | Project | Licence |
+| --- | --- | --- |
+| `third_party/minih264e.h` | [minih264](https://github.com/lieff/minih264) (commit 207dee3), with three changes marked in it: on macOS its byte order from `<machine/endian.h>` (`<libkern/OSByteOrder.h>` does not say it, and the bitstream came out byte-swapped), ARM64's `vqtbl2_u8` for the `vtbl2q_u8` that does not exist, and a colour description in its sequence header (`H264E_VUI_BT709`: BT.709, limited range) | CC0 1.0 |
+| `third_party/minimp4.h` | [minimp4](https://github.com/lieff/minimp4) (commit 65fab0a), unchanged | CC0 1.0 |
+
 ### Country flags (MIT)
 
 `recomp-common/launcher/flags.png` (compiled into the launcher) holds every ISO country's flag from
@@ -101,12 +114,13 @@ None of these is stored in this repository.
 | [SDL 3](https://libsdl.org) | zlib. Copyright (C) 1997-2026 Sam Lantinga | Window, input, audio, GPU (game and launcher); the system's where there is one. In the Android app also its Java half (`android-project/`), compiled into the app unchanged |
 | [Dear ImGui](https://github.com/ocornut/imgui) 1.92.9b | MIT. Copyright (c) 2014-2026 Omar Cornut | The launcher's interface, compiled into the launcher |
 | [Inter](https://rsms.me/inter/) 4.1 | SIL Open Font License 1.1. Copyright (c) 2016 The Inter Project Authors | The launcher's font, compiled into the launcher |
+| [FAAC](https://github.com/knik0/faac) 2.2 | LGPL-2.1-or-later. Copyright (C) 2001 Menno Bakker, (C) 2002-2017 Krzysztof Nikiel, (C) 2026 Nils Schimmelmann, and its other authors (its `AUTHORS`) | The video recording's sound (AAC), compiled into every game's program from its release's sources (its `libfaac/`, but for the SSE2 quantizer) with `port/faac_config.h` |
 | [zlib](https://zlib.net) | zlib. Copyright (C) 1995-2024 Jean-loup Gailly and Mark Adler | Reading a ROM set's archive, screenshots (PNG); the system's |
 | [librashader](https://github.com/SnowflakePowered/librashader) 0.12.1 | MPL-2.0 or GPL-3.0 (used here under GPL-3.0). Copyright (c) chyyran and its contributors. Its C header, `third_party/librashader.h`, is in this repository: MIT | The Display page's shaders (`port/shading.h`): `librashader.dylib` in the macOS app, `librashader.so` and `librashader.dll` beside the Linux and Windows games and in the Android app (with the NDK's LLVM libc++ linked in), built from source (`tools/librashader.sh`) with the Rust crates its `Cargo.lock` names |
 | [slang-shaders](https://github.com/libretro/slang-shaders) (commit `2b0530b`) | Each file its own, stated at its top: crt-geom-mini (after cgwg's crt-geom), CRT Royale (TroggleMonkey), CRT Guest (guest(r), Dr. Venom) and zfast-crt, CRT Light (Greg Hogan) GPL-2.0-or-later; CRT Lottes (Timothy Lottes), scanline-fract (hunterk) and sharp-bilinear-scanlines (rsn8887) public domain; xBRZ (Hyllian, Zenju) and ScaleFX (Sp00kyFox) and the blur and gamma includes MIT; the stock pass (libretro), ossc (DariusG) and integer-scaling-scanlines with no notice, and crt-geom-mini's linearize pass none either | The presets the Display page's Shader names, with the files they use, in the app's `Resources/shaders` and the Linux and Windows games' `shaders` (`tools/shaders.py`) |
 
 Each download is checked against its published SHA-256. The release archives (`tools/release/`) carry the
-license texts of SDL 3, Dear ImGui, Inter (the font is inside the launcher) and flag-icons (the country flags), MAME's notice above, and the
+license texts of SDL 3, Dear ImGui, Inter (the font is inside the launcher), flag-icons (the country flags) and FAAC, MAME's notice above, and the
 GPL-3.0 with the offer of source that goes with it (`SOURCE.txt`: the tag's source on GitHub). In release builds
 SDL 3 (3.4.16) is linked into every program; `zlib1.dll` is in the Windows archive, and there the MinGW-w64
 runtime (libstdc++, libgcc, winpthreads) is linked in: GPL-3.0 with the GCC Runtime Library Exception, and the
