@@ -178,8 +178,8 @@ label.check input { accent-color: var(--marquee); }
   <section>
     <h2>Layers <span class="meta">back to front</span></h2>
     <select id="split" hidden aria-label="How the picture is split">
-      <option value="parts">What's in it: stage, each player, panel</option>
       <option value="layers">The board's layers</option>
+      <option value="parts">What's in it: stage, each player, panel</option>
     </select>
     <ul id="layers"></ul>
   </section>
@@ -472,7 +472,7 @@ async function open(source) {
   W = doc.width; H = doc.height; D = gameDistance();
   clear();
   playing = false; frameAt = 0;
-  // (a fighting game's scene has its parts too, issue #367: those by default, the board's layers when chosen)
+  // (a fighting game's scene has its parts too, issue #367: the board's layers by default, its parts when chosen)
   $('split').hidden = !doc.parts;
   const byParts = doc.parts && $('split').value === 'parts';
   const list = ((byParts ? doc.parts : doc.layers) || []).map((l) => (byParts ? { ...l, kind: 'part' } : l))
@@ -964,14 +964,21 @@ function showPicture(url) {
 }
 
 // A video: the window's picture as it is drawn (the controls hidden meanwhile), as MP4 where the browser makes it, else WebM.
+// (H.264 at a level for a window's size, up to 4K: Baseline's 3.0, 720 x 576 at most, made a Retina window's MP4 nothing in
+// Chrome on a Mac, its encoder giving up)
 // A clip once through from its first frame at the speed chosen; a scene or a stage for eight seconds, turning slowly.
 $('record').onclick = () => {
   if (!layers.length || !window.MediaRecorder) return;
-  const types = ['video/mp4;codecs=avc1.42E01E', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
+  const types = ['video/mp4;codecs=avc1.640034', 'video/mp4;codecs=avc1.4D0034', 'video/mp4;codecs=avc1.42E034', 'video/webm;codecs=vp9', 'video/webm', 'video/mp4'];
   const type = types.find((t) => MediaRecorder.isTypeSupported(t)) || '';
   const hadUi = !document.body.classList.contains('no-ui');
   const hadSpin = $('spin').checked;
-  document.body.classList.add('no-ui'); resize();
+  document.body.classList.add('no-ui');
+  // (made at most 1080 lines while it records: a Retina window's whole size, 3000 pixels across, is more than the browser's
+  // encoder keeps up with, and the video came out short)
+  const ratioBefore = renderer.getPixelRatio();
+  renderer.setPixelRatio(Math.max(1, Math.min(ratioBefore, 1080 / window.innerHeight, 1920 / window.innerWidth)));
+  resize();
   const stream = renderer.domElement.captureStream(60);
   const recorder = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: 16e6 } : { videoBitsPerSecond: 16e6 });
   const chunks = [];
@@ -981,6 +988,7 @@ $('record').onclick = () => {
     $('recording').hidden = true;
     $('spin').checked = hadSpin;
     if (hadUi) document.body.classList.remove('no-ui');
+    renderer.setPixelRatio(ratioBefore);
     resize();
     const blob = new Blob(chunks, { type: recorder.mimeType || 'video/webm' });
     const url = URL.createObjectURL(blob);
