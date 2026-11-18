@@ -79,6 +79,15 @@ front of the fighters by where they are among the layers, and on another game's 
 front. Clips have the parts too, a folder each. Not yet right in Street Fighter II, Champion Edition and Hyper
 Fighting, whose fighters' colour sets go by character (issue #394).
 
+Each object entry of the board's list is saved by itself too (issue #397): `entries.png` holds every entry drawn alone
+and whole (the frame drawn again with only its tiles), side by side, and `entry-map.png` says which entry each object
+pixel of the picture is of (1 + its place in the list, red the low byte, green the high). `scene.json`'s `entries`
+lists them front to back: the board (`game`, or `stage` for another game's), the entry's number, its first tile, colour
+set, level and attributes, the box of the picture it covers, where it is in `entries.png`, its objects layer, its part
+and what the game says it is (`player1`, `stage`, `panel`...). A clip's frames have the map and the list only
+(`entry-map/0001.png`, `entries/0001.json`, each box what of the entry is in front), from one more drawing of the
+objects (`PictureOptions::objectEntries`).
+
 What the port draws over the picture is saved too, as layers of its own (issue #398), whenever there is any: training
 mode's aids, a shooting game's hit boxes. `overlay-boxes` has the hit boxes, `overlay-hud` the rest (the text, the frame
 meter), each see-through where it covers nothing and as solid as it is drawn where it does (listed under `overlays` in
@@ -102,6 +111,10 @@ larger by as much, so the front view (Game view) is the game's picture at any sp
 hide or solo them, add shadows between them, haze or scanlines, take a photo at up to 4x, or record a video (MP4, or
 WebM where the browser makes no MP4: a clip once through, a scene or stage turning). The board's pixels are shown as on
 its 4:3 screen (or square, when chosen). Every scene opened is kept in the browser's list until its data for the page is
+cleared. In a saved scene, click an object to pick it out of its layer (a frame is drawn round it): hide it, show it
+alone, or bring it forward or back a step at a time (Delete, [ and ]); its layer is drawn again without it, the objects
+it covered there in its place. A clip steps frame by frame or plays at 1x to 1/16x. A whole stage's layers go back by their parallax pace, so at a spread of 1 moving the
+
 cleared. A clip steps frame by frame or plays at 1x to 1/16x. A scene saved with hit boxes shows each player's as a layer
 of their own just in front of that player (with the board's layers, in front of the frontmost objects), drawn from
 `scene.json`'s list, and the readout in front of everything; each can be switched off in the list like any layer. A whole stage's layers go back by their parallax pace, so at a spread of 1 moving the

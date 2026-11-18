@@ -145,8 +145,9 @@ namespace {
 
     // One board's layers, each the frame drawn again from its records with that layer alone on, its pixels marked; moved
     // down `shift` lines (another game's stage under the game's: Machine::guestShift)
+    // (`levelLayer`, if given: the objects layer each level's objects are in)
     void BoardLayers(const NativeVideo::FrameData &frame, int width, const std::string &prefix, const std::string &board, int shift,
-                     std::vector<SceneExport::Layer> &out) {
+                     std::vector<SceneExport::Layer> &out, std::string *levelLayer = nullptr) {
         std::vector<uint32_t> drawn(static_cast<size_t>(width) * Video::kHeight);
         const std::vector<Place> places = Order(frame);
         const int objectPlaces = static_cast<int>(std::count_if(places.begin(), places.end(), [](const Place &p) { return p.which == 0; }));
@@ -176,6 +177,13 @@ namespace {
             one.name = prefix + kLayerNames[layer];
             if (layer == 0 && objectPlaces > 1) {
                 one.name += "-" + std::to_string(screensBehind);
+            }
+            if (layer == 0 && levelLayer) {
+                for (int level = 0; level < 8; level++) {
+                    if ((place.levels >> level) & 1) {
+                        levelLayer[level] = one.name;
+                    }
+                }
             }
             one.board = board;
             one.pixels.assign(drawn.size(), 0);
@@ -209,8 +217,9 @@ namespace {
     // fighters' own level by their entry (later entries in front). On another game's stage (`stage`, moved down `shift`
     // lines) the stage's parts are that board's picture, split by its marks of what is in front of the fighters.
     enum PartIndex { kStageBehind, kOther, kPlayerBack, kPlayerFront, kStageFront, kPanel, kParts };
+    // (`tileParts`, if given: the part each of the frame's tiles is in, by name)
     void BoardParts(const NativeVideo::FrameData &frame, int width, const NativeVideo::FrameData *stage, int shift,
-                    std::vector<SceneExport::Layer> &out) {
+                    std::vector<SceneExport::Layer> &out, std::vector<std::string> *tileParts = nullptr) {
         using battle::Part;
         if (!cps2recomp::modes::RoundFought()) {
             return; // (only in a round: the menus and the character choice have no players or stage to tell apart)
@@ -277,13 +286,23 @@ namespace {
             }
         }
         static const char *const kNames[kParts] = {"stage-behind", "other", "player", "player", "stage-front", "panel"};
+        std::string names[kParts];
+        for (int p = 0; p < kParts; p++) {
+            names[p] = std::string("part-") + kNames[p];
+            if (p == kPlayerBack || p == kPlayerFront) {
+                names[p] += (p == kPlayerFront) == (front == 0) ? "1" : "2";
+            }
+        }
+        if (tileParts) {
+            tileParts->resize(tiles.size());
+            for (size_t n = 0; n < tiles.size(); n++) {
+                (*tileParts)[n] = names[index[n]];
+            }
+        }
         std::vector<uint32_t> drawn(static_cast<size_t>(width) * Video::kHeight);
         for (int p = 0; p < kParts; p++) {
             SceneExport::Layer one;
-            one.name = std::string("part-") + kNames[p];
-            if (p == kPlayerBack || p == kPlayerFront) {
-                one.name += (p == kPlayerFront) == (front == 0) ? "1" : "2";
-            }
+            one.name = names[p];
             one.board = "part";
             one.pixels.assign(drawn.size(), 0);
             auto keep = [&](const uint32_t *picture, int from, int line, uint32_t want, uint32_t mask) {
@@ -334,6 +353,158 @@ namespace {
                 }
             }
             out.push_back(std::move(one));
+        }
+    }
+
+    // Each object entry of a board by itself (issue #397), front to back (the list's order, the first entry in front),
+    // each with its objects layer (`levelLayer`, by its level) and its part (`tileParts`, by its first tile; or
+    // `stageParts`: another game's stage, by its marks of what is in front of the fighters); moved down `shift` lines
+    // (another game's stage). `pictures` (a still's): each the frame drawn again with only that entry's tiles, so that it
+    // is whole where another covers it and as the game's changes part way down the screen moved it, its box all of it.
+    // Else (a clip's frame, which cannot take a drawing for each): the objects drawn once, each pixel's front entry kept
+    // (PictureOptions::objectEntries), each entry's box what of it is in front. `map` (the picture's size): 1 + the front
+    // entry's place in `out` where it has nothing yet.
+    void BoardEntries(const NativeVideo::FrameData &frame, int width, const std::string &board, int shift, const std::string *levelLayer,
+                      const std::vector<std::string> &tileParts, bool stageParts, bool pictures,
+                      std::vector<SceneExport::Scene::Entry> &out, std::vector<uint32_t> &map) {
+        if (!(frame.options.layerMask & 1)) {
+            return; // (the game's sources have its objects off)
+        }
+        using cps2recomp::native_video::ObjectTile;
+        const std::vector<ObjectTile> &tiles = frame.raster->Tiles();
+        std::vector<size_t> firsts; // (each entry's first tile, in the list's order)
+        std::vector<int> slot(65536, -1); // (an entry's place in `firsts`)
+        for (size_t n = 0; n < tiles.size(); n++) {
+            if (!tiles[n].hidden && slot[tiles[n].entry] < 0) {
+                slot[tiles[n].entry] = static_cast<int>(firsts.size());
+                firsts.push_back(n);
+            }
+        }
+        if (firsts.empty()) {
+            return;
+        }
+        NativeVideo::FrameData alone = frame;
+        alone.options.layerMask = 1;
+        alone.options.markObjects = true;
+        alone.options.markLayers = 0;
+        alone.options.markFront = false;
+        alone.options.panelObject = nullptr;
+        const size_t size = static_cast<size_t>(width) * Video::kHeight;
+        std::vector<uint32_t> drawn(size);
+        std::vector<uint16_t> ids;
+        if (!pictures) {
+            ids.assign(size, 0);
+            alone.options.objectEntries = ids.data();
+            NativeVideo::DrawFrame(alone, drawn.data(), width);
+        }
+        // (each entry's box, from its own drawing or its pixels in front)
+        struct Box {
+            int left = 1 << 20, right = -1, top = 1 << 20, bottom = -1;
+            void Add(int x, int y) {
+                left = std::min(left, x);
+                right = std::max(right, x);
+                top = std::min(top, y);
+                bottom = std::max(bottom, y);
+            }
+        };
+        std::vector<Box> boxes(firsts.size());
+        if (!pictures) {
+            for (int line = 0; line < Video::kHeight; line++) {
+                const int to = line + shift;
+                if (to < 0 || to >= Video::kHeight) {
+                    continue;
+                }
+                for (int x = 0; x < width; x++) {
+                    const uint16_t id = ids[static_cast<size_t>(line) * width + x];
+                    if (id && slot[id - 1] >= 0) {
+                        boxes[slot[id - 1]].Add(x, to);
+                    }
+                }
+            }
+        }
+        std::vector<int> placeOf(firsts.size(), -1); // (where each went in `out`)
+        for (size_t k = 0; k < firsts.size(); k++) {
+            const ObjectTile &t = tiles[firsts[k]];
+            cps2recomp::native_video::Raster only;
+            if (pictures) {
+                only = *frame.raster;
+                only.KeepTiles([&](const ObjectTile &o) { return o.entry == t.entry && !o.hidden; });
+                alone.raster = &only;
+                NativeVideo::DrawFrame(alone, drawn.data(), width);
+                for (int line = 0; line < Video::kHeight; line++) {
+                    const int to = line + shift;
+                    if (to < 0 || to >= Video::kHeight) {
+                        continue;
+                    }
+                    const uint32_t *row = &drawn[static_cast<size_t>(line) * width];
+                    for (int x = 0; x < width; x++) {
+                        if (row[x] & 0x80000000u) {
+                            boxes[k].Add(x, to);
+                        }
+                    }
+                }
+            }
+            const Box &box = boxes[k];
+            if (box.right < 0) {
+                continue; // (nothing of it in the picture)
+            }
+            SceneExport::Scene::Entry one;
+            one.board = board;
+            one.entry = t.entry;
+            one.tile = t.entryTile;
+            one.colour = t.colour / 16;
+            one.level = t.level & 7;
+            one.attributes = t.attributes;
+            one.x = box.left;
+            one.y = box.top;
+            one.w = box.right - box.left + 1;
+            one.h = box.bottom - box.top + 1;
+            one.layer = levelLayer[one.level];
+            if (stageParts) {
+                one.part = (t.marks & Video::kFrontPixel) ? "part-stage-front" : "part-stage-behind";
+                one.what = "stage";
+            } else if (firsts[k] < tileParts.size()) {
+                one.part = tileParts[firsts[k]];
+                static const char *const kWhat[] = {"other", "stage", "player1", "player2", "panel"};
+                const battle::Part part = battle::PartOf(t.entryTile, t.attributes);
+                one.what = part >= 0 && part <= battle::kPanel ? kWhat[part] : "";
+            }
+            if (pictures) {
+                one.pixels.assign(static_cast<size_t>(one.w) * one.h, 0);
+                for (int y = 0; y < one.h; y++) {
+                    const uint32_t *row = &drawn[static_cast<size_t>(one.y + y - shift) * width + one.x];
+                    for (int x = 0; x < one.w; x++) {
+                        if (row[x] & 0x80000000u) {
+                            one.pixels[static_cast<size_t>(y) * one.w + x] = (row[x] & 0xFFFFFFu) | 0xFF000000u;
+                        }
+                    }
+                }
+                for (int y = 0; y < one.h; y++) {
+                    for (int x = 0; x < one.w; x++) {
+                        uint32_t &to = map[static_cast<size_t>(one.y + y) * width + one.x + x];
+                        if (!to && one.pixels[static_cast<size_t>(y) * one.w + x]) {
+                            to = static_cast<uint32_t>(out.size() + 1);
+                        }
+                    }
+                }
+            }
+            placeOf[k] = static_cast<int>(out.size());
+            out.push_back(std::move(one));
+        }
+        if (!pictures) {
+            for (int line = 0; line < Video::kHeight; line++) {
+                const int to = line + shift;
+                if (to < 0 || to >= Video::kHeight) {
+                    continue;
+                }
+                for (int x = 0; x < width; x++) {
+                    const uint16_t id = ids[static_cast<size_t>(line) * width + x];
+                    uint32_t &at = map[static_cast<size_t>(to) * width + x];
+                    if (id && !at && slot[id - 1] >= 0 && placeOf[slot[id - 1]] >= 0) {
+                        at = static_cast<uint32_t>(placeOf[slot[id - 1]] + 1);
+                    }
+                }
+            }
         }
     }
 
@@ -450,8 +621,81 @@ namespace {
         return picture;
     }
 
+    // The entries' list for scene.json (issue #397), each with where it is in entries.png (`atX`; none: a clip's frame)
+    std::string EntriesJson(const std::vector<SceneExport::Scene::Entry> &entries, const std::vector<int> &atX, const std::vector<int> &atY,
+                            const std::string &indent) {
+        std::string json;
+        for (size_t n = 0; n < entries.size(); n++) {
+            const auto &e = entries[n];
+            char tile[16], attributes[8];
+            snprintf(tile, sizeof(tile), "0x%05X", e.tile);
+            snprintf(attributes, sizeof(attributes), "0x%04X", e.attributes);
+            json += indent + "{\"board\": " + Quoted(e.board) + ", \"entry\": " + std::to_string(e.entry) + ", \"tile\": " + Quoted(tile) +
+                    ", \"colour\": " + std::to_string(e.colour) + ", \"level\": " + std::to_string(e.level) +
+                    ", \"attributes\": " + Quoted(attributes) + ", \"box\": [" + std::to_string(e.x) + ", " + std::to_string(e.y) +
+                    ", " + std::to_string(e.w) + ", " + std::to_string(e.h) + "]" +
+                    (n < atX.size() ? ", \"atlas\": [" + std::to_string(atX[n]) + ", " + std::to_string(atY[n]) + "]" : "") +
+                    ", \"layer\": " + Quoted(e.layer) + ", \"part\": " + (e.part.empty() ? std::string("null") : Quoted(e.part)) +
+                    ", \"what\": " + (e.what.empty() ? std::string("null") : Quoted(e.what)) + "}" +
+                    (n + 1 < entries.size() ? ",\n" : "\n");
+        }
+        return json;
+    }
+    // The map of the entry each object pixel is of, as a picture: 1 + its place in the list, red the low byte, green the
+    // high; nothing where no object is
+    image_files::Picture EntryMapPicture(const SceneExport::Scene &scene) {
+        image_files::Picture map = AsPicture({}, scene.width, scene.height);
+        map.pixels.resize(scene.entryMap.size());
+        for (size_t n = 0; n < map.pixels.size(); n++) {
+            map.pixels[n] = scene.entryMap[n] ? (scene.entryMap[n] & 0xFFFFu) | 0xFF000000u : 0;
+        }
+        return map;
+    }
+    // A still's objects each by itself (issue #397): entries.png, every entry's picture side by side (a shelf at a time,
+    // a pixel between them), and entry-map.png; and their list for scene.json
+    bool WriteEntries(const SceneExport::Scene &scene, const std::string &folder, std::string &json) {
+        const auto &entries = scene.entries;
+        int atlasWidth = 1024;
+        for (const auto &e : entries) {
+            atlasWidth = std::max(atlasWidth, e.w);
+        }
+        // (the tallest first, so that the shelves waste little)
+        std::vector<size_t> byHeight(entries.size());
+        for (size_t n = 0; n < entries.size(); n++) {
+            byHeight[n] = n;
+        }
+        std::stable_sort(byHeight.begin(), byHeight.end(), [&](size_t a, size_t b) { return entries[a].h > entries[b].h; });
+        std::vector<int> atX(entries.size()), atY(entries.size());
+        int x = 0, y = 0, shelf = 0;
+        for (const size_t n : byHeight) {
+            if (x + entries[n].w > atlasWidth) {
+                x = 0;
+                y += shelf + 1;
+                shelf = 0;
+            }
+            atX[n] = x;
+            atY[n] = y;
+            x += entries[n].w + 1;
+            shelf = std::max(shelf, entries[n].h);
+        }
+        image_files::Picture atlas = AsPicture({}, atlasWidth, y + shelf);
+        atlas.pixels.assign(static_cast<size_t>(atlas.width) * atlas.height, 0);
+        for (size_t n = 0; n < entries.size(); n++) {
+            const auto &e = entries[n];
+            for (int row = 0; row < e.h; row++) {
+                std::copy_n(&e.pixels[static_cast<size_t>(row) * e.w], e.w, &atlas.pixels[static_cast<size_t>(atY[n] + row) * atlas.width + atX[n]]);
+            }
+        }
+        if (!image_files::WritePng(folder + "entries.png", atlas) || !image_files::WritePng(folder + "entry-map.png", EntryMapPicture(scene))) {
+            return false;
+        }
+        json = ",\n  \"entryAtlas\": \"entries.png\",\n  \"entryMap\": \"entry-map.png\",\n  \"entries\": [\n" +
+               EntriesJson(entries, atX, atY, "    ") + "  ]";
+        return true;
+    }
+
     // A scene's files: `picture` and its layers' (the empty ones not written), named `file` (a still's: "<layer>.png";
-    // a clip's "<layer>/0001.png")
+    // a clip's "<layer>/0001.png"; a clip's frame's objects each by itself too: entry-map/0001.png, entries/0001.json)
     bool WriteScene(const SceneExport::Scene &scene, const std::string &folder, int number) {
         auto path = [&](const std::string &name) {
             if (number <= 0) {
@@ -470,6 +714,13 @@ namespace {
                     written = image_files::WritePng(path(layer.name), AsPicture(layer.pixels, scene.width, scene.height)) && written;
                 }
             }
+        }
+        if (number > 0 && !scene.entries.empty()) {
+            written = image_files::WritePng(path("entry-map"), EntryMapPicture(scene)) && written;
+            const std::string json = "{\"entries\": [\n" + EntriesJson(scene.entries, {}, {}, "  ") + "]}\n";
+            std::string file = path("entries");
+            file.replace(file.size() - 4, 4, ".json");
+            written = image_files::WriteAll(file, std::vector<uint8_t>(json.begin(), json.end())) && written;
         }
         return written;
     }
@@ -499,9 +750,10 @@ namespace {
         }
         return json + "}";
     }
+
 } // namespace
 
-bool SceneExport::Take(Machine &machine, Scene &scene) {
+bool SceneExport::Take(Machine &machine, Scene &scene, int entries) {
     NativeVideo::FrameData frame;
     if (!machine.nativeVideo.ShownFrame(frame)) {
         return false;
@@ -520,6 +772,9 @@ bool SceneExport::Take(Machine &machine, Scene &scene) {
     }
     scene.layers.clear();
     scene.parts.clear();
+    scene.entries.clear();
+    scene.entryMap.clear();
+    std::string gameLevels[8], stageLevels[8];
     // (another game's stage under the game's: its layers first, behind the game's)
     NativeVideo::FrameData stage;
     bool guest = false;
@@ -527,7 +782,7 @@ bool SceneExport::Take(Machine &machine, Scene &scene) {
         if (Machine *board = cps2recomp::guest_stages::ShownBoard()) {
             if (board->nativeVideo.LastFrame(stage) && Video::kWidth + 2 * stage.options.side == width) {
                 scene.backdrop = stage.raster->Colours()[0xBFF] & 0xFFFFFF;
-                BoardLayers(stage, width, "stage-", "stage", machine.guestShift, scene.layers);
+                BoardLayers(stage, width, "stage-", "stage", machine.guestShift, scene.layers, stageLevels);
                 guest = true;
             }
         }
@@ -535,14 +790,25 @@ bool SceneExport::Take(Machine &machine, Scene &scene) {
     // (the endless battle's stage, which a machine of its own draws under the fighters: as another game's stage is)
     if (!guest && battle::StageBehind(stage) && Video::kWidth + 2 * stage.options.side == width) {
         scene.backdrop = stage.raster->Colours()[0xBFF] & 0xFFFFFF;
-        BoardLayers(stage, width, "stage-", "stage", 0, scene.layers);
+        BoardLayers(stage, width, "stage-", "stage", 0, scene.layers, stageLevels);
         guest = true;
     }
-    BoardLayers(frame, width, "", "game", 0, scene.layers);
-    BoardParts(frame, width, guest ? &stage : nullptr, guest && machine.guestBehind ? machine.guestShift : 0, scene.parts);
+    const int stageShift = guest && machine.guestBehind ? machine.guestShift : 0;
+    BoardLayers(frame, width, "", "game", 0, scene.layers, gameLevels);
+    std::vector<std::string> tileParts;
+    BoardParts(frame, width, guest ? &stage : nullptr, stageShift, scene.parts, &tileParts);
     scene.overlays.clear();
     scene.boxes.clear();
     Overlays(scene);
+    if (entries) {
+        // (the game's in front of the other stage's)
+        scene.entryMap.assign(static_cast<size_t>(width) * Video::kHeight, 0);
+        BoardEntries(frame, width, "game", 0, gameLevels, tileParts, false, entries == kEntryPictures, scene.entries, scene.entryMap);
+        if (guest) {
+            BoardEntries(stage, width, "stage", stageShift, stageLevels, {}, !scene.parts.empty(), entries == kEntryPictures,
+                         scene.entries, scene.entryMap);
+        }
+    }
     return true;
 }
 
@@ -562,11 +828,15 @@ SceneExport::~SceneExport() {
 
 std::string SceneExport::Save(Machine &machine, const std::string &under, const std::string &name) {
     Scene scene;
-    if (!Take(machine, scene)) {
+    if (!Take(machine, scene, kEntryPictures)) {
         return "NO SCENE TO SAVE YET";
     }
     const std::string folder = NewFolder(under, name);
     if (folder.empty() || !WriteScene(scene, folder, 0)) {
+        return "SCENE NOT SAVED";
+    }
+    std::string entriesJson;
+    if (!scene.entries.empty() && !WriteEntries(scene, folder, entriesJson)) {
         return "SCENE NOT SAVED";
     }
     std::string json = "{\n  \"kind\": \"scene\",\n  \"frame\": " + std::to_string(scene.frame) + ",\n  \"width\": " +
@@ -583,6 +853,7 @@ std::string SceneExport::Save(Machine &machine, const std::string &under, const 
         }
         json += "  ]";
     }
+    json += entriesJson;
     if (!scene.overlays.empty()) {
         json += ",\n  \"overlays\": [\n";
         for (size_t n = 0; n < scene.overlays.size(); n++) {
@@ -618,6 +889,7 @@ std::string SceneExport::StartClip(const std::string &under, const std::string &
     m_clip.json.clear();
     m_clip.partNames.clear();
     m_clip.partsJson.clear();
+    m_clip.entries = false;
     m_clip.overlayNames.clear();
     m_clip.overlaysJson.clear();
     m_clip.on = true;
@@ -635,7 +907,7 @@ void SceneExport::Frame(Machine &machine) {
         return;
     }
     Job job;
-    if (!Take(machine, job.scene)) {
+    if (!Take(machine, job.scene, kEntryMap)) {
         // (no records this frame: a frame of the clip fewer; none for as long as the clip was to be, and it ends)
         if (++m_clip.missed >= m_clip.wanted) {
             StopClip();
@@ -677,7 +949,9 @@ void SceneExport::Frame(Machine &machine) {
     m_frameJson += std::string(m_frameJson.empty() ? "" : ",\n") + "    {\"number\": " + std::to_string(job.number) +
                    ", \"frame\": " + std::to_string(scene.frame) + ", \"backdrop\": " + Quoted(Hex(scene.backdrop)) +
                    ", \"layers\": [" + order + "]" + (m_clip.partNames.empty() ? "" : ", \"parts\": [" + parts + "]") +
-                   (scene.overlays.empty() ? "" : ", \"overlays\": [" + overlays + "], \"boxes\": " + BoxesJson(scene)) + "}";
+                   (scene.overlays.empty() ? "" : ", \"overlays\": [" + overlays + "], \"boxes\": " + BoxesJson(scene)) +
+                   ", \"entries\": " + std::to_string(scene.entries.size()) + "}";
+    m_clip.entries = m_clip.entries || !scene.entries.empty();
     m_width = scene.width;
     m_height = scene.height;
     bool full;
@@ -713,7 +987,8 @@ void SceneExport::StopClip(bool cutShort) {
     std::string json = "{\n  \"kind\": \"clip\",\n  \"width\": " + std::to_string(m_width) + ",\n  \"height\": " +
                        std::to_string(m_height) + ",\n  \"fps\": 59.637405,\n  \"frames\": " + std::to_string(m_clip.taken) +
                        ",\n  \"picture\": \"picture\",\n  \"layers\": [\n" + (m_clip.taken ? layers : "") +
-                       "  ]" + parts + ",\n  \"frameList\": [\n" + m_frameJson + "\n  ]\n}\n";
+                       "  ]" + parts + (m_clip.entries ? ",\n  \"entryMap\": \"entry-map\",\n  \"entries\": \"entries\"" : "") +
+                       ",\n  \"frameList\": [\n" + m_frameJson + "\n  ]\n}\n";
     m_frameJson.clear();
     std::lock_guard<std::mutex> lock(m_lock);
     m_finalJson = std::move(json);

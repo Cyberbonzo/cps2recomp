@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Each object by itself** (issue #397): Save scene also saves every object entry of the board's list drawn alone and
+  whole, side by side in `entries.png`, with `entry-map.png` (which entry each object pixel is of) and an `entries`
+  list in `scene.json`: entry number, tile, colour set, level, the box it covers, its layer, its part and what the game
+  says it is. A clip's frames have the map and the list (`entry-map/`, `entries/`). In the scene diorama, click an
+  object to pick it out of its layer: hide it, show it alone, or bring it forward or back; its layer is drawn again
+  without it. The CPU picture can now say which entry is in front at each pixel (`PictureOptions::objectEntries`).
 - **Training mode's aids in the scene export** (issue #398): Save scene and Record clip also save what is drawn over the
   picture, as layers of their own: `overlay-boxes` (the hit boxes) and `overlay-hud` (the input display, the combo
   readout, frame data and the frame meter); and `scene.json` lists each frame's hit boxes with their player, kind and

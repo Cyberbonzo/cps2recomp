@@ -75,6 +75,23 @@ public:
         // A fighting game's picture by what is in it (issue #367: the stage behind the fighters, each player, the stage in
         // front of them, the panel, anything else), back to front; none for a game that does not say (battle::PartOf)
         std::vector<Layer> parts;
+        // Each object entry by itself (issue #397), front to back: the entry drawn alone, in the box it covers (a still's:
+        // all of them in one picture, entries.png), and a map of the entry each object pixel is of (entry-map.png), so that
+        // one object can be picked out of its layer. A clip's frames have the map and the entries' boxes of it in front.
+        struct Entry {
+            std::string board;      // ("game", or "stage": another game's)
+            int entry = 0;          // (its number in its board's list)
+            uint32_t tile = 0;      // (its first tile)
+            int colour = 0, level = 0; // (its colour set, and its level: 0-7, against the scroll screens)
+            uint16_t attributes = 0;
+            int x = 0, y = 0, w = 0, h = 0; // (the box in the picture it covers)
+            std::string layer;      // (the objects layer it is in: "objects", "objects-2", "stage-objects"...)
+            std::string part;       // (the part it is in, "part-player1"...; "" if the scene has none)
+            std::string what;       // (what the game says it is: "stage", "player1", "player2", "panel", "other"; "")
+            std::vector<uint32_t> pixels; // (w x h, as a layer's; a still's only)
+        };
+        std::vector<Entry> entries;
+        std::vector<uint32_t> entryMap; // (each pixel: 1 + the front entry's place in `entries`; 0 none)
         // The readout the port draws over the picture (issue #398), each a picture of its own with what it does not cover
         // clear: "overlay-boxes", the hit boxes (training's, a shooting game's); "overlay-hud", the rest (the text, the
         // frame meter). None when nothing is drawn over the picture.
@@ -91,8 +108,11 @@ public:
         };
         std::vector<Box> boxes;
     };
-    // The last frame's scene (false: no records to draw it from: before the game's first object list, or --video board)
-    static bool Take(cps2recomp::Machine &machine, Scene &scene);
+    // The last frame's scene (false: no records to draw it from: before the game's first object list, or --video board);
+    // `entries`: its objects each by itself too (Scene::entries): kEntryPictures each drawn alone (a still's), kEntryMap
+    // only the map of which is in front where and their boxes there (a clip's frame: the objects drawn once more)
+    static constexpr int kNoEntries = 0, kEntryMap = 1, kEntryPictures = 2;
+    static bool Take(cps2recomp::Machine &machine, Scene &scene, int entries = kNoEntries);
 
 private:
     struct Clip {
@@ -103,6 +123,7 @@ private:
         std::string json;               // (each frame's line of scene.json)
         std::vector<std::string> partNames; // (... and the parts', issue #367)
         std::string partsJson;
+        bool entries = false; // (a frame had objects: entry-map/ and entries/, issue #397)
         std::vector<std::string> overlayNames; // (... and the overlays', issue #398)
         std::string overlaysJson;
     } m_clip;
