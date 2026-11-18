@@ -24,6 +24,7 @@ struct PlacedBox {
     BoxKind kind;
     int x, y, halfWidth, halfHeight;
     bool thrown; // it belongs to something thrown, not to a player
+    int8_t player; // whose: 0 or 1 (a player's own), -1 not known
 };
 // The boxes of the object whose record is at `object`, as they are now
 void ObjectBoxes(cps2recomp::Machine &machine, uint32_t object, bool thrown, std::vector<PlacedBox> &boxes);

@@ -13,6 +13,29 @@
   monitor while playing. **Compact menu**: the in-game menu in small letters with its rows close together (on by
   itself at an arcade resolution). The menu is also drawn on the screen's own pixels wherever the picture is under 672
   lines, so its letters are no longer shrunk.
+- **SVG pictures** (issue #368): the Game page's **SVG pictures too** writes an SVG beside the PNGs of screenshots,
+  Save scene, Save whole stage and the model viewer's saves: each pixel a square, so it scales to any size exactly, in
+  the Display page's shape. A scene's (`scene.svg`, `parts.svg`) and a whole stage's (`stage.svg`) has each layer as a
+  layer of its own, for drawing programs. Drawn, each is its PNG pixel for pixel.
+- **Video recording** (issue #376): the in-game menu's **Game > Video** page, every game. **Record video** (Alt+F12)
+  records what you play and hear as an MP4 (H.264 and AAC, which plays anywhere) in `videos/` beside your saves, until
+  you stop it: the picture as screenshots take it, larger (3 times the board's lines unless **Video size** says 2, 4
+  or 1080 lines) with each pixel a sharp block, in the Display page's shape; the game's sound and the custom
+  soundtrack's. Stopped or in the menu nothing is recorded; slowed or sped up it plays at the board's speed.
+  `--record-video FILE.mp4` records a whole run, and with `--movie` and `--headless` makes a movie into a video.
+- **Each object by itself** (issue #397): Save scene also saves every object entry of the board's list drawn alone and
+  whole, side by side in `entries.png`, with `entry-map.png` (which entry each object pixel is of) and an `entries`
+  list in `scene.json`: entry number, tile, colour set, level, the box it covers, its layer, its part and what the game
+  says it is. A clip's frames have the map and the list (`entry-map/`, `entries/`). In the scene diorama, click an
+  object to pick it out of its layer: hide it, show it alone, or bring it forward or back; its layer is drawn again
+  without it. The CPU picture can now say which entry is in front at each pixel (`PictureOptions::objectEntries`).
+- **Training mode's aids in the scene export** (issue #398): Save scene and Record clip also save what is drawn over the
+  picture, as layers of their own: `overlay-boxes` (the hit boxes) and `overlay-hud` (the input display, the combo
+  readout, frame data and the frame meter); and `scene.json` lists each frame's hit boxes with their player, kind and
+  rectangle. The scene diorama shows each player's boxes beside that player, and the readout in front, each with a switch.
+- **Scene export by what is in it** (issue #367): in a round of a fighting game, Save scene and Record clip also save the
+  picture as its parts: the stage behind the fighters, each player, the stage in front of them and the panel, each
+  whole (`part-*.png`, `parts` in `scene.json`). The scene diorama shows them by default, the board's layers when chosen.
 - **Each game's files on its page**: every game's page in the launcher has a **This game's files** card with that
   game's folder (its settings, saves, save states and logs) and a **Show** button that opens it.
 - **Input delay for hosting**: the launcher's Online page has an **Input delay** choice (0 to 8 frames, 2 unless chosen)

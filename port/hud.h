@@ -21,9 +21,10 @@ struct HudPanel {
 std::vector<HudPanel> HudPanels(int width, int height);
 // Straight onto a picture (32-bit pixels, red in the low byte); and where the panels went (the boxes are not
 // kept: they are drawn over the game's picture, and zoomed with it)
-// `parts`: the boxes (1), the panels of text (2), or both (a vertical game's picture turned upright has its boxes drawn
-// on the board's picture and its text on the turned one: Port::Shown)
-enum : unsigned { kHudBoxes = 1, kHudText = 2 };
+// `parts`: the boxes (kHudBoxes: the hit boxes and the rest drawn, a frame meter's cells and the like), the panels of text
+// (kHudText), or both (a vertical game's picture turned upright has its boxes drawn on the board's picture and its text on
+// the turned one: Port::Shown). The scene export draws the hit boxes apart from the rest (port/scene.h).
+enum : unsigned { kHudHitBoxes = 1, kHudText = 2, kHudDrawnBoxes = 4, kHudBoxes = kHudHitBoxes | kHudDrawnBoxes };
 void DrawHud(uint32_t *pixels, int width, int height, std::vector<SDL_Rect> *panels = nullptr, unsigned parts = kHudBoxes | kHudText);
 
 } // namespace port

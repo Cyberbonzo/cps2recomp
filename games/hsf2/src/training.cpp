@@ -117,7 +117,7 @@ namespace {
         }
         const int x = static_cast<int16_t>(Ram16(record + kX)) + (Ram8(record + kFacesRight) ? -across : across);
         const int y = static_cast<int16_t>(Ram16(record + kY)) + up;
-        boxes.push_back({kind, x, y, halfWidth, halfHeight, thrown});
+        boxes.push_back({kind, x, y, halfWidth, halfHeight, thrown, fight::Whose(record, Player(0), Player(1))});
     }
 
     // The box of a kind named in a record's frame (0: none): its table, from the record's box tables

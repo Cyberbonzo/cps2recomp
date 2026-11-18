@@ -27,7 +27,7 @@ namespace {
         }
         const int x = static_cast<int16_t>(Ram16(object + kX)) + (Ram8(object + kFacesRight) ? -box.x : box.x);
         const int y = static_cast<int16_t>(Ram16(object + kY)) + box.y;
-        boxes.push_back({kind, x, y, box.halfWidth, box.halfHeight, thrown});
+        boxes.push_back({kind, x, y, box.halfWidth, box.halfHeight, thrown, static_cast<int8_t>(object == Player(0) ? 0 : object == Player(1) ? 1 : -1)});
     }
 } // namespace
 

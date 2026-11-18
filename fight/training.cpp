@@ -434,6 +434,10 @@ HudBox ToPicture(const StageBox &box, int cameraX, int cameraY, int floorLine) {
     shown.y = floorLine - (box.y - cameraY) - box.halfHeight;
     shown.width = box.halfWidth * 2;
     shown.height = box.halfHeight * 2;
+    shown.thrown = box.thrown;
+    shown.player = box.player;
+    static constexpr uint8_t kKinds[] = {kHudHurt, kHudAttack, kHudPush, kHudThrow, kHudThrowRange};
+    shown.kind = kKinds[static_cast<int>(box.kind)];
     switch (box.kind) {
     case BoxKind::Attack: shown.r = 255, shown.g = box.thrown ? 140 : 40, shown.b = 40; break;
     case BoxKind::Push: shown.r = 60, shown.g = 220, shown.b = 90; break;

@@ -12,6 +12,7 @@
 #pragma once
 
 #include "../recomp-common/menu.h"
+#include "../recomp-common/menu_sdl.h"
 
 #include <cstdint>
 #include <functional>
@@ -41,9 +42,15 @@ public:
     // gamepad buttons that are the same whatever the game's are set to: the arrows, the d-pad and the left
     // stick; Space, Enter and A choose; Backspace and B go back.
     Action Press(unsigned buttons);
+    // The mouse, while the menu is open (recomp-common/menu_sdl.h): over a row chooses it, a click does what Confirm
+    // does, the right button goes back, the wheel goes up and down. `place`: where the menu's picture is in the
+    // window's pixels, and the size Draw was given. True when the event was the mouse's (the picture is to be drawn
+    // again), with what the frontend is to do in `action`, as from Press. A touch is left to the touch controls.
+    bool Mouse(const SDL_Event &event, SDL_Window *window, const recomp::sdl::MenuPlace &place, Action &action);
     // The "Sound" row: the frontend plays nothing while this is set (--mute starts with it set)
     bool muted = false;
     bool hosting = false; // (a match hosted from the Online page, waited for: its row is Stop hosting)
+    bool recordingVideo = false; // (a video being recorded: the Video page's Record video row is Stop recording)
     bool recordingClip = false; // (a scene clip being recorded: the Scene export page's Record clip row is Stop recording)
     // During an online match: whether the match decides this feature (TheGame().features' place) for both players. The
     // menu then shows it as the match has it and doesn't change it (a change on one side alone would leave the games apart).
@@ -88,6 +95,7 @@ public:
 
 private:
     static void Speeds(recomp::MenuConfig &config);
+    Action Act(const recomp::Menu::Chosen &chosen);
 
     recomp::Menu m_menu;
     size_t m_command = 0;

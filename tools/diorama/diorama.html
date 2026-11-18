@@ -16,6 +16,10 @@
   Depth: each layer is put further back and made larger by as much, so that from the front (Game view) the picture is
   the game's exactly, at any spread. A whole stage's layers go back by their parallax pace (stage.json): a layer that
   moves at p of the camera's pace sits where a real one would, 1/p - 1 of the camera's distance behind the front.
+
+  Objects (issue #397): a saved scene lists each object entry by itself (scene.json "entries", their pictures in
+  entries.png). Clicking one picks it out of its layer, to hide, show alone or bring forward or back; its layer is drawn
+  again without it, the objects it covered there in its place.
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -72,7 +76,7 @@ button.primary, .file { background: var(--marquee); color: var(--marquee-ink); b
 select { width: 100%; }
 
 label.slider { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: 13px; }
-label.slider input { grid-column: 1 / -1; width: 100%; accent-color: var(--marquee); }
+label.slider input, label.slider select { grid-column: 1 / -1; width: 100%; accent-color: var(--marquee); }
 label.slider output { font: 12px var(--mono); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 label.check { display: flex; gap: 8px; align-items: center; font-size: 13px; cursor: pointer; }
 label.check input { accent-color: var(--marquee); }
@@ -85,7 +89,12 @@ label.check input { accent-color: var(--marquee); }
 #layers .tag { font: 11px var(--mono); padding: 1px 6px; border-radius: 3px; color: var(--ground); }
 #layers .tag.scroll { background: var(--cool); }
 #layers .tag.objects { background: var(--warm); }
+#layers .tag.part { background: var(--marquee); }
+#layers .tag.boxes, #layers .tag.hud { background: var(--ink, #e8e4da); }
 #layers .solo { padding: 2px 6px; font-size: 11px; }
+#object .what { font: 13px var(--mono); overflow-wrap: anywhere; }
+#object .row button { padding: 6px 8px; }
+#object button[aria-pressed="true"] { border-color: var(--marquee); color: var(--marquee); }
 .meta { font: 12px var(--mono); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 
 #timeline {
@@ -115,6 +124,9 @@ label.check input { accent-color: var(--marquee); }
 
 #shot { position: fixed; inset: 0; z-index: 30; background: rgba(8,9,14,0.92); display: grid; place-items: center; padding: 24px; }
 #shot figure { margin: 0; display: flex; flex-direction: column; gap: 10px; align-items: center; max-width: 100%; max-height: 100%; }
+#recording { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 25;
+  font: 600 13px var(--mono); color: #ffb4a8; background: rgba(15,17,25,0.85); padding: 6px 12px; border-radius: 6px; }
+#shot video { max-width: 100%; max-height: calc(100vh - 140px); border: 1px solid var(--line); }
 #shot img { max-width: 100%; max-height: calc(100vh - 140px); image-rendering: pixelated; border: 1px solid var(--line); }
 #shot figcaption { color: var(--ink-soft); font-size: 13px; text-align: center; }
 
@@ -144,7 +156,11 @@ label.check input { accent-color: var(--marquee); }
 
   <section>
     <label class="file" for="pick">Open a saved folder…<input id="pick" type="file" webkitdirectory directory multiple></label>
-    <select id="which" hidden aria-label="Saved scene to show"></select>
+    <select id="which" hidden aria-label="Scene to show"></select>
+    <div class="row" id="libraryRow" hidden>
+      <button id="forget" title="Takes the scene shown off this list">Remove from list</button>
+      <button id="forgetAll" title="Empties the list of scenes kept in this browser">Clear list</button>
+    </div>
     <div id="progress" role="status"></div>
     <div class="meta" id="about"></div>
   </section>
@@ -161,7 +177,30 @@ label.check input { accent-color: var(--marquee); }
 
   <section>
     <h2>Layers <span class="meta">back to front</span></h2>
+    <select id="split" hidden aria-label="How the picture is split">
+      <option value="parts">What's in it: stage, each player, panel</option>
+      <option value="layers">The board's layers</option>
+    </select>
     <ul id="layers"></ul>
+  </section>
+
+  <section id="object" hidden>
+    <h2>Object <span class="meta" id="objectCount"></span></h2>
+    <p class="meta" id="objectNone">Click an object in the picture to pick it out of its layer.</p>
+    <div id="objectPicked" hidden>
+      <div class="what" id="objectWhat"></div>
+      <div class="meta" id="objectAbout"></div>
+      <div class="row" style="margin-top: 8px">
+        <button id="objHide" title="Key: Delete">Hide</button>
+        <button id="objSolo" title="Shows it alone (again: everything)">Alone</button>
+      </div>
+      <div class="row">
+        <button id="objBack" title="Key: [">Back</button>
+        <button id="objForward" title="Key: ]">Forward</button>
+        <button id="objReset">Put back</button>
+      </div>
+    </div>
+    <button id="objAll" hidden>All objects back</button>
   </section>
 
   <section>
@@ -172,6 +211,11 @@ label.check input { accent-color: var(--marquee); }
       <input id="haze" type="range" min="0" max="1" step="0.01" value="0"></label>
     <label class="check"><input id="backdrop" type="checkbox" checked> The board's backdrop colour behind</label>
     <label class="check"><input id="crt" type="checkbox"> Scanlines</label>
+    <label class="slider">Pixel shape
+      <select id="pixels" aria-label="Pixel shape">
+        <option value="arcade">The arcade's (4:3 screen)</option>
+        <option value="square">Square</option>
+      </select></label>
   </section>
 
   <section>
@@ -190,11 +234,13 @@ label.check input { accent-color: var(--marquee); }
       <select id="shotSize" aria-label="Photo size"><option value="1">1x window</option><option value="2" selected>2x</option><option value="4">4x</option></select>
       <button class="primary" id="takeShot">Take photo</button>
     </div>
+    <button id="record" title="A clip: once through, at the speed chosen. A scene or stage: eight seconds, turning slowly">Record video</button>
     <button id="hideUi" title="H">Hide controls (H)</button>
+    <button id="reset">Reset options</button>
   </section>
 
   <p class="meta">Drag to turn, right-drag or two fingers to move, wheel or pinch to zoom.
-    Space plays a clip; ← → step a frame.</p>
+    Space plays a clip; ← → step a frame. Click an object to pick it.</p>
 </aside>
 
 <div id="timeline" hidden>
@@ -214,7 +260,8 @@ label.check input { accent-color: var(--marquee); }
 <div id="scan" hidden></div>
 <div id="hint" hidden></div>
 <div id="drop" hidden>Drop the saved folder</div>
-<div id="shot" hidden><figure><img id="shotImg" alt="Photo of the diorama"><figcaption>Right-click or long-press the picture to save it. <button id="shotClose">Close</button></figcaption></figure></div>
+<div id="shot" hidden><figure><img id="shotImg" alt="Photo of the diorama"><video id="shotVideo" controls loop hidden></video><figcaption id="shotWords">Right-click or long-press the picture to save it. <button id="shotClose">Close</button></figcaption></figure></div>
+<div id="recording" hidden>● Recording…</div>
 
 <script>window.addEventListener('error', (e) => { const p = document.getElementById('progress'); if (p) p.textContent = 'Error: ' + e.message; });
 window.addEventListener('unhandledrejection', (e) => { const p = document.getElementById('progress'); if (p) p.textContent = 'Error: ' + (e.reason && e.reason.message || e.reason); });</script>
@@ -246,8 +293,17 @@ let kind = 'scene';    // scene | clip | stage
 let layers = [];       // { info, mesh, shadow, textures[] (a clip's, per frame), on }
 let frames = 1, frameAt = 0, playing = false, playClock = 0;
 let backdropMesh = null;
+// The scene's objects each by itself (issue #397): scene.json's entries, front to back, each { info, layer (the layer it
+// is in, by the split shown), hidden, lift (steps forward), mesh, shadow }; the one picked; the one shown alone
+let objects = [], picked = -1, soloObject = -1;
+let atlas = null;      // entries.png's pixels (ImageData)
+let outline = null;    // the picked one's frame
 let panAt = 0; // (the camera moved across the stage, Camera across the stage)
 let W = 384, H = 224, D = 1;  // the picture's size, and the camera's distance in Game view
+// The board's pixels are not square: its 384 x 224 picture fills a 4:3 screen (and the wide picture's 512 a 16:9 one), so
+// each is 0.78 as wide as it is high. Shown so unless square pixels are chosen.
+const ARCADE_PIXEL = (4 / 3) / (384 / 224);
+function pixelWidth() { return $('pixels').value === 'square' ? 1 : ARCADE_PIXEL; }
 
 // The camera's distance in Game view: as far as shows all of the picture in the window. Every layer is placed for an
 // eye there (layout), so the window's shape changing places them again.
@@ -262,7 +318,7 @@ function free() {
 function gameDistance() {
   const t = Math.tan(THREE.MathUtils.degToRad(FOV / 2));
   const f = free(), w = window.innerWidth, h = window.innerHeight;
-  return Math.max((H / 2) / t * (h / f.h), (W / 2) / (t * (w / h)) * (w / f.w)) * 1.04;
+  return Math.max((H / 2) / t * (h / f.h), (W * pixelWidth() / 2) / (t * (w / h)) * (w / f.w)) * 1.04;
 }
 
 // Where layer n goes back, before the spread: by its pace (a whole stage's), else evenly
@@ -273,11 +329,17 @@ function baseDepth(n) {
     return D * (1 / pace - 1);
   }
   const step = Math.max(W, H) * 0.12;
-  return (layers.length - 1 - n) * step;
+  // (what the port drew over the picture, issue #398: the hit boxes a little in front of the layer they go with, the
+  // readout in front of everything)
+  if (info.attach !== undefined) return baseDepth(info.attach) - step * 0.3;
+  if (info.kind === 'hud') return -step * 0.6;
+  const main = layers.filter((l) => !l.info.overlay).length;
+  return (main - 1 - n) * step;
 }
 
 function layout() {
   const spread = Number($('spread').value);
+  root.scale.x = pixelWidth();
   D = gameDistance();
   let farthest = 0;
   layers.forEach((l, n) => {
@@ -291,8 +353,10 @@ function layout() {
     l.mesh.scale.set(grow, grow, 1);
     l.shadow.position.set(x * grow + 3 * grow, y * grow - 3 * grow, -depth - 0.5 - spread * 2);
     l.shadow.scale.set(grow, grow, 1);
+    l.depth = depth;
     farthest = Math.max(farthest, depth);
   });
+  layoutObjects(spread);
   if (backdropMesh) {
     const depth = farthest + Math.max(W, H) * 0.08 * Math.max(spread, 0.02) + 2;
     const grow = (D + depth) / D;
@@ -308,11 +372,20 @@ function layout() {
 
 function applyLook() {
   const shadow = Number($('shadow').value);
+  const alone = soloObject >= 0; // (an object shown alone: no layer)
   layers.forEach((l, n) => {
     l.shadow.material.opacity = shadow;
-    l.shadow.visible = l.on && shadow > 0 && n > 0;
-    l.mesh.visible = l.on;
+    l.shadow.visible = !alone && l.on && shadow > 0 && n > 0 && !l.info.overlay;
+    l.mesh.visible = !alone && l.on;
   });
+  for (const [n, o] of objects.entries()) {
+    if (!o.mesh) continue;
+    const on = alone ? n === soloObject : !o.hidden && (!o.layer || o.layer.on);
+    o.mesh.visible = on;
+    o.shadow.material.opacity = shadow;
+    o.shadow.visible = on && shadow > 0;
+  }
+  if (outline) outline.visible = picked >= 0 && (!alone || picked === soloObject);
   $('scan').hidden = !$('crt').checked;
   $('shadowOut').value = shadow.toFixed(2);
 }
@@ -333,22 +406,27 @@ function clear() {
     l.mesh.geometry.dispose(); l.mesh.material.dispose(); l.shadow.material.dispose();
     for (const t of l.textures) if (t !== blank) t.dispose();
   }
+  for (const o of objects) dropObjectMesh(o);
+  for (const l of layers) if (l.composed) l.composed.texture.dispose();
   root.clear();
   layers = [];
   backdropMesh = null;
+  objects = []; picked = -1; soloObject = -1; atlas = null; outline = null;
 }
 
 // ---------- reading a saved folder ----------
 // A source gives a file of the folder by its path in it: a picked or dropped folder's files, or a URL's
+// (`files`: each {file, path}, its path in what was opened)
 function filesSource(files) {
   const byPath = new Map();
-  for (const f of files) byPath.set((f.webkitRelativePath || f.relPath || f.name).replace(/\\/g, '/'), f);
+  for (const { file, path } of files) byPath.set(path.replace(/\\/g, '/'), file);
   // the saved scenes in it: each scene.json / stage.json, by its folder
   const found = [...byPath.keys()].filter((p) => /(^|\/)(scene|stage)\.json$/.test(p)).sort();
   return found.map((jsonPath) => {
     const dir = jsonPath.slice(0, jsonPath.lastIndexOf('/') + 1);
     return {
       name: dir.replace(/\/$/, '').split('/').pop() || jsonPath,
+      dir,
       json: jsonPath.split('/').pop(),
       get: async (rel) => { const f = byPath.get(dir + rel); return f ? f : null; },
     };
@@ -375,7 +453,9 @@ async function bitmap(blob) { return blob ? createImageBitmap(blob, { imageOrien
 
 let sources = [];
 let loading = false; // (nothing drawn meanwhile: the pictures load sooner)
+let shown = null; // (the source shown: opened again when the split is changed)
 async function show(source) {
+  shown = source;
   loading = true;
   try { await open(source); } finally { loading = false; }
 }
@@ -392,10 +472,19 @@ async function open(source) {
   W = doc.width; H = doc.height; D = gameDistance();
   clear();
   playing = false; frameAt = 0;
-  const list = (doc.layers || []).filter((l) => kind === 'clip' ? l.folder : l.file);
+  // (a fighting game's scene has its parts too, issue #367: those by default, the board's layers when chosen)
+  $('split').hidden = !doc.parts;
+  const byParts = doc.parts && $('split').value === 'parts';
+  const list = ((byParts ? doc.parts : doc.layers) || []).map((l) => (byParts ? { ...l, kind: 'part' } : l))
+    .filter((l) => kind === 'clip' ? l.folder : l.file);
+  // (the readout training mode drew over the picture, issue #398: a layer in front of everything; the hit boxes are drawn
+  // here from the list in scene.json instead, each player's beside that player)
+  for (const o of doc.overlays || []) {
+    if (o.name === 'overlay-hud' && (kind === 'clip' ? o.folder : o.file)) list.push({ ...o, label: 'readout', kind: 'hud', overlay: true });
+  }
   frames = kind === 'clip' ? doc.frames : 1;
   // a clip's frames: which layers each has
-  const has = kind === 'clip' ? (doc.frameList || []).map((f) => new Set(f.layers)) : null;
+  const has = kind === 'clip' ? (doc.frameList || []).map((f) => new Set([...(byParts ? f.parts || [] : f.layers), ...(f.overlays || [])])) : null;
   // every layer's pictures (a clip's, every frame's), eight at a time
   let loaded = 0; const total = list.length * frames;
   const all = list.map(() => new Array(frames).fill(blank));
@@ -418,17 +507,20 @@ async function open(source) {
     const textures = all[k];
     const w = info.width ?? W, h = info.height ?? H;
     const geo = new THREE.PlaneGeometry(w, h);
-    const mat = new THREE.MeshBasicMaterial({ map: textures[0], alphaTest: 0.5, side: THREE.DoubleSide });
+    const mat = info.overlay ? overlayMaterial(textures[0]) : new THREE.MeshBasicMaterial({ map: textures[0], alphaTest: 0.5, side: THREE.DoubleSide });
     const mesh = new THREE.Mesh(geo, mat);
+    if (info.overlay) mesh.renderOrder = 2;
     const shadowMat = new THREE.MeshBasicMaterial({ map: textures[0], color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide });
     const shadow = new THREE.Mesh(geo, shadowMat);
     root.add(shadow); root.add(mesh);
     layers.push({ info, mesh, shadow, textures, on: true });
   }
+  addBoxLayers(byParts);
   // the board's backdrop
   const backdrop = new THREE.Color(doc.backdrop || '#000000');
   backdropMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: backdrop }));
   root.add(backdropMesh);
+  await openObjects(source, byParts);
 
   $('progress').textContent = '';
   $('empty').hidden = true;
@@ -440,10 +532,66 @@ async function open(source) {
   $('spread').value = kind === 'stage' ? 0.3 : 1;
   $('backdrop').checked = kind !== 'stage';
   const what = kind === 'stage' ? `Whole stage${doc.stage ? ': ' + doc.stage : ''}` : kind === 'clip' ? `Clip, ${frames} frames` : `Scene, frame ${doc.frame ?? ''}`;
-  $('about').textContent = `${what} · ${W}×${H} · ${layers.length} layers`;
+  const overlays = layers.filter((l) => l.info.overlay).length;
+  $('about').textContent = `${what} · ${W}×${H} · ${layers.length - overlays} layers${overlays ? ' · training overlays' : ''}`;
   listLayers();
   layout(); applyLook(); setFrame(0);
   view('angle');
+}
+
+// ---------- the hit boxes (issue #398) ----------
+// A clip's or a scene's boxes, each frame's (scene.json "boxes": each with its player, 1 or 2, or null where the game does
+// not say; its kind; its rectangle in the picture; its colour and how solid its inside is), drawn as the game draws them:
+// an outline and a faint inside. Each player's are a layer of their own, just in front of that player (the parts' player
+// layer; with the board's layers, the frontmost objects layer), so that they turn with the fighter.
+function overlayMaterial(map) {
+  return new THREE.MeshBasicMaterial({ map, transparent: true, alphaTest: 0.01, depthWrite: false, side: THREE.DoubleSide });
+}
+function boxesOf(frame) {
+  if (kind === 'clip') { const f = doc.frameList && doc.frameList[frame]; return (f && f.boxes) || []; }
+  return doc.boxes || [];
+}
+function addBoxLayers(byParts) {
+  if (kind === 'stage') return;
+  const players = new Set();
+  for (let n = 0; n < frames; n++) for (const b of boxesOf(n)) players.add(b.player ?? 0);
+  if (!players.size) return;
+  const main = layers.filter((l) => !l.info.overlay);
+  let lastObjects = -1;
+  main.forEach((l, n) => { if (l.info.kind === 'objects') lastObjects = n; });
+  // (the player in front: the later of the two in the parts, back to front)
+  const playerAt = (p) => main.findIndex((l) => l.info.name === `part-player${p}`);
+  const front = Math.max(playerAt(1), playerAt(2));
+  for (const p of [...players].sort()) {
+    let attach = byParts ? (p ? playerAt(p) : front) : lastObjects;
+    if (attach < 0) attach = byParts ? front : main.length - 1;
+    if (attach < 0) attach = main.length - 1;
+    const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
+    const g = canvas.getContext('2d');
+    const map = texture(canvas); // (a canvas is turned the right way up by WebGL, as the pictures' bitmaps are when decoded)
+    const draw = (frame) => {
+      g.clearRect(0, 0, W, H);
+      for (const b of boxesOf(frame)) {
+        if ((b.player ?? 0) !== p) continue;
+        const hex = /^#[0-9a-f]{6}$/i.test(b.colour || '') ? b.colour : '#ffffff';
+        const srgb = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ');
+        g.fillStyle = `rgba(${srgb}, ${(b.fill ?? 56) / 255})`;
+        g.fillRect(b.x, b.y, b.width, b.height);
+        if ((b.fill ?? 56) < 255) {
+          g.strokeStyle = `rgb(${srgb})`; g.lineWidth = 1;
+          g.strokeRect(b.x + 0.5, b.y + 0.5, b.width - 1, b.height - 1);
+        }
+      }
+      map.needsUpdate = true;
+    };
+    const geo = new THREE.PlaneGeometry(W, H);
+    const mesh = new THREE.Mesh(geo, overlayMaterial(map));
+    mesh.renderOrder = 1;
+    const shadow = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ visible: false }));
+    root.add(mesh);
+    const name = p ? `hit boxes, player ${p}` : 'hit boxes, whose not known';
+    layers.push({ info: { name, kind: 'boxes', overlay: true, attach }, mesh, shadow, textures: new Array(frames).fill(map), on: true, draw });
+  }
 }
 
 function listLayers() {
@@ -454,11 +602,11 @@ function listLayers() {
     box.setAttribute('aria-label', `Show ${l.info.name}`);
     box.onchange = () => { l.on = box.checked; li.classList.toggle('off', !l.on); applyLook(); };
     const name = document.createElement('label'); name.className = 'name'; name.htmlFor = box.id;
-    name.textContent = l.info.name;
+    name.textContent = l.info.label || (l.info.kind === 'part' ? l.info.name.replace(/^part-/, '') : l.info.name);
     if (typeof l.info.pace === 'number') name.title = `pace ${l.info.pace}`;
     const right = document.createElement('span'); right.className = 'row'; right.style.flex = '0 0 auto';
     const tag = document.createElement('span'); tag.className = `tag ${l.info.kind}`;
-    tag.textContent = l.info.kind === 'scroll' ? `${l.info.tile}px` : 'obj';
+    tag.textContent = l.info.kind === 'scroll' ? `${l.info.tile}px` : l.info.kind === 'part' ? 'part' : l.info.kind === 'boxes' ? 'boxes' : l.info.kind === 'hud' ? 'readout' : 'obj';
     const solo = document.createElement('button'); solo.className = 'solo'; solo.textContent = 'Solo';
     solo.title = 'Show this layer alone (again: all)';
     solo.onclick = () => {
@@ -476,6 +624,7 @@ function listLayers() {
 function setFrame(n) {
   frameAt = (n + frames) % frames;
   for (const l of layers) {
+    if (l.draw) l.draw(frameAt);
     const t = l.textures[frameAt] || blank;
     l.mesh.material.map = t; l.shadow.material.map = t;
     l.mesh.material.needsUpdate = l.shadow.material.needsUpdate = true;
@@ -485,6 +634,225 @@ function setFrame(n) {
   const f = doc && doc.frameList && doc.frameList[frameAt];
   if (f && f.backdrop && backdropMesh) backdropMesh.material.color.set(f.backdrop);
 }
+
+// ---------- the objects, each by itself (issue #397) ----------
+// A saved scene's entries: each object entry of the board's list drawn alone (entries.png, at `atlas` [x, y]), in the
+// box of the picture it covers (`box` [x, y, w, h]), and the layer it is in (`layer`; by what is in it, `part`). Picked
+// out (hidden, shown alone or moved), it is a cut-out of its own and its layer is drawn again without it: where it was
+// the front object of that layer, the next object there that is not picked out (else nothing: a part's scroll screen
+// under it is not in the files).
+async function pixelsOf(blob) {
+  if (!blob) return null;
+  const bm = await createImageBitmap(blob, { premultiplyAlpha: 'none' });
+  const c = document.createElement('canvas'); c.width = bm.width; c.height = bm.height;
+  const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(bm, 0, 0);
+  return g.getImageData(0, 0, c.width, c.height);
+}
+async function openObjects(source, byParts) {
+  $('object').hidden = true;
+  if (kind !== 'scene' || !Array.isArray(doc.entries) || !doc.entryAtlas) return;
+  atlas = await pixelsOf(await source.get(doc.entryAtlas));
+  if (!atlas) return;
+  const byName = new Map(layers.map((l) => [l.info.name, l]));
+  objects = doc.entries.map((info) => ({ info, layer: byName.get(byParts ? info.part : info.layer) || null, hidden: false, lift: 0, mesh: null, shadow: null }));
+  // (each layer's own pixels: to draw it again without some objects, and to see what a click is on)
+  // (not the training overlays, issue #398: clicks go through them)
+  await Promise.all(layers.filter((l) => !l.info.overlay).map(async (l) => {
+    l.original = await pixelsOf(await source.get(l.info.file));
+    l.objects = objects.filter((o) => o.layer === l); // (front to back)
+  }));
+  $('object').hidden = false;
+  showPicked();
+}
+
+// Whether object o has a pixel at (x, y) of the picture; its colour there as 0xRRGGBB
+function objectPixel(o, x, y) {
+  const [bx, by, bw, bh] = o.info.box;
+  if (x < bx || y < by || x >= bx + bw || y >= by + bh) return -1;
+  const at = ((o.info.atlas[1] + y - by) * atlas.width + o.info.atlas[0] + x - bx) * 4, d = atlas.data;
+  return d[at + 3] ? (d[at] << 16) | (d[at + 1] << 8) | d[at + 2] : -1;
+}
+const pickedOut = (o) => o.hidden || o.lift !== 0 || objects.indexOf(o) === soloObject;
+
+// A layer drawn again without its objects picked out
+function compose(l) {
+  if (!l.original || !l.objects.length) return;
+  const out = l.composed ? l.composed.data : new ImageData(new Uint8ClampedArray(l.original.data), l.original.width, l.original.height);
+  out.data.set(l.original.data);
+  const w = l.original.width, h = l.original.height, src = l.original.data, dst = out.data;
+  for (const o of l.objects) {
+    if (!pickedOut(o)) continue;
+    const [bx, by, bw, bh] = o.info.box;
+    for (let y = Math.max(0, by); y < Math.min(h, by + bh); y++) {
+      for (let x = Math.max(0, bx); x < Math.min(w, bx + bw); x++) {
+        const at = (y * w + x) * 4;
+        if (!src[at + 3]) continue;
+        // (the layer's front object here: if it is one picked out and the layer's pixel is its, the next one not)
+        const shown = (src[at] << 16) | (src[at + 1] << 8) | src[at + 2];
+        let front = null;
+        for (const f of l.objects) { if (objectPixel(f, x, y) >= 0) { front = f; break; } }
+        if (!front || !pickedOut(front) || objectPixel(front, x, y) !== shown) continue;
+        let colour = -1;
+        for (const f of l.objects) { if (!pickedOut(f)) { colour = objectPixel(f, x, y); if (colour >= 0) break; } }
+        if (colour >= 0) { dst[at] = colour >> 16; dst[at + 1] = (colour >> 8) & 255; dst[at + 2] = colour & 255; dst[at + 3] = 255; }
+        else dst[at + 3] = 0;
+      }
+    }
+  }
+  if (!l.composed) {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const t = new THREE.CanvasTexture(c);
+    t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace;
+    l.composed = { canvas: c, data: out, texture: t };
+  }
+  l.composed.canvas.getContext('2d').putImageData(out, 0, 0);
+  l.composed.texture.needsUpdate = true;
+  const any = l.objects.some(pickedOut);
+  const t = any ? l.composed.texture : l.textures[0];
+  l.mesh.material.map = t; l.shadow.material.map = t;
+  l.mesh.material.needsUpdate = l.shadow.material.needsUpdate = true;
+}
+
+// An object's own cut-out, from entries.png
+function objectMesh(o) {
+  if (o.mesh) return;
+  const [, , w, h] = o.info.box;
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  c.getContext('2d').putImageData(atlas, -o.info.atlas[0], -o.info.atlas[1], o.info.atlas[0], o.info.atlas[1], w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace;
+  const geo = new THREE.PlaneGeometry(w, h);
+  o.mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: t, alphaTest: 0.5, side: THREE.DoubleSide }));
+  o.shadow = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: t, color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide }));
+  o.mesh.userData.object = o;
+  root.add(o.shadow); root.add(o.mesh);
+}
+function dropObjectMesh(o) {
+  if (!o.mesh) return;
+  root.remove(o.mesh); root.remove(o.shadow);
+  o.mesh.geometry.dispose(); o.mesh.material.map.dispose(); o.mesh.material.dispose(); o.shadow.material.dispose();
+  o.mesh = o.shadow = null;
+}
+// A step forward or back: half the room between two layers
+function liftStep(spread) { return Math.max(W, H) * 0.06 * Math.max(spread, 0.25); }
+function objectDepth(o, spread) {
+  const base = o.layer && typeof o.layer.depth === 'number' ? o.layer.depth : 0;
+  return base - o.lift * liftStep(spread) - 0.4; // (a hair in front of its layer)
+}
+function layoutObjects(spread) {
+  for (const o of objects) {
+    if (!o.mesh) continue;
+    const [bx, by, bw, bh] = o.info.box;
+    const depth = objectDepth(o, spread), grow = (D + depth) / D;
+    const x = bx + bw / 2 - W / 2, y = H / 2 - (by + bh / 2);
+    o.mesh.position.set(x * grow, y * grow, -depth);
+    o.mesh.scale.set(grow, grow, 1);
+    o.shadow.position.set(x * grow + 3 * grow, y * grow - 3 * grow, -depth - 0.5 - spread * 2);
+    o.shadow.scale.set(grow, grow, 1);
+  }
+  placeOutline(spread);
+}
+function placeOutline(spread) {
+  if (outline) { root.remove(outline); outline.geometry.dispose(); outline.material.dispose(); outline = null; }
+  if (picked < 0) return;
+  const o = objects[picked], [bx, by, bw, bh] = o.info.box;
+  const depth = objectDepth(o, spread) - 0.2, grow = (D + depth) / D;
+  // (a frame two of the board's pixels wide, just outside the box, over everything)
+  const t = 2, x0 = bx - W / 2 - t, x1 = bx + bw - W / 2 + t, y0 = H / 2 - by + t, y1 = H / 2 - by - bh - t;
+  const frame = new THREE.Shape([new THREE.Vector2(x0, y1), new THREE.Vector2(x1, y1), new THREE.Vector2(x1, y0), new THREE.Vector2(x0, y0)]);
+  frame.holes.push(new THREE.Path([new THREE.Vector2(x0 + t, y1 + t), new THREE.Vector2(x0 + t, y0 - t), new THREE.Vector2(x1 - t, y0 - t), new THREE.Vector2(x1 - t, y1 + t)]));
+  outline = new THREE.Mesh(new THREE.ShapeGeometry(frame), new THREE.MeshBasicMaterial({ color: 0xf2b134, depthTest: false, transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
+  outline.position.z = -depth;
+  outline.scale.set(grow, grow, 1);
+  outline.renderOrder = 10;
+  root.add(outline);
+}
+
+// Something about an object changed: its cut-out made or dropped, its layer drawn again, everything placed
+function objectsChanged(changed) {
+  for (const o of changed) {
+    if (pickedOut(o)) objectMesh(o); else dropObjectMesh(o);
+  }
+  for (const l of new Set(changed.map((o) => o.layer).filter(Boolean))) compose(l);
+  layout(); applyLook(); showPicked();
+}
+function pick(n) {
+  picked = n;
+  placeOutline(Number($('spread').value));
+  applyLook(); showPicked();
+}
+function showPicked() {
+  const out = objects.filter(pickedOut).length;
+  $('objectCount').textContent = objects.length ? `${objects.length} in the scene${out ? `, ${out} picked out` : ''}` : '';
+  $('objAll').hidden = !out;
+  $('objectNone').hidden = picked >= 0;
+  $('objectPicked').hidden = picked < 0;
+  if (picked < 0) return;
+  const o = objects[picked], i = o.info;
+  const what = { player1: 'Player 1', player2: 'Player 2', stage: 'The stage', panel: 'The panel', other: 'Other' }[i.what] || 'Object';
+  $('objectWhat').textContent = `${what} · entry ${i.entry}${i.board === 'stage' ? ' (stage board)' : ''}`;
+  $('objectAbout').textContent = `in ${o.layer ? o.layer.info.name.replace(/^part-/, '') : i.layer} · tile ${i.tile} · colours ${i.colour} · level ${i.level} · ` +
+    `${i.box[2]}×${i.box[3]} at ${i.box[0]},${i.box[1]}${o.lift ? ` · ${o.lift > 0 ? '+' : ''}${o.lift} step${Math.abs(o.lift) === 1 ? '' : 's'}` : ''}`;
+  $('objHide').textContent = o.hidden ? 'Show' : 'Hide';
+  $('objSolo').setAttribute('aria-pressed', String(soloObject === picked));
+}
+$('objHide').onclick = () => { const o = objects[picked]; if (!o) return; o.hidden = !o.hidden; objectsChanged([o]); };
+$('objSolo').onclick = () => {
+  const o = objects[picked]; if (!o) return;
+  const before = soloObject >= 0 ? objects[soloObject] : null;
+  soloObject = soloObject === picked ? -1 : picked;
+  objectsChanged([o, before].filter(Boolean));
+};
+$('objForward').onclick = () => { const o = objects[picked]; if (!o) return; o.lift++; objectsChanged([o]); };
+$('objBack').onclick = () => { const o = objects[picked]; if (!o) return; o.lift--; objectsChanged([o]); };
+$('objReset').onclick = () => {
+  const o = objects[picked]; if (!o) return;
+  o.hidden = false; o.lift = 0; if (soloObject === picked) soloObject = -1;
+  objectsChanged([o]);
+};
+function allObjectsBack() {
+  const changed = objects.filter(pickedOut);
+  for (const o of objects) { o.hidden = false; o.lift = 0; }
+  soloObject = -1; picked = -1;
+  if (objects.length) objectsChanged(changed);
+}
+$('objAll').onclick = allObjectsBack;
+
+// Picking: a click (not a drag) on the picture finds the nearest thing drawn there; an object (its own cut-out, or the
+// front object of its layer there whose pixel the layer shows) is picked, anything else lets go
+const raycaster = new THREE.Raycaster(), pointer = new THREE.Vector2();
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', (e) => { downAt = e.button === 0 ? { x: e.clientX, y: e.clientY, t: performance.now() } : null; });
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (!downAt || !objects.length) return;
+  const moved = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y), long = performance.now() - downAt.t;
+  downAt = null;
+  if (moved > 5 || long > 500) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(pointer, camera);
+  const targets = [...layers.filter((l) => l.mesh.visible && l.original).map((l) => l.mesh), ...objects.filter((o) => o.mesh && o.mesh.visible).map((o) => o.mesh)];
+  for (const hit of raycaster.intersectObjects(targets, false)) {
+    const own = hit.object.userData.object;
+    if (own) {
+      const [, , w, h] = own.info.box;
+      const x = Math.floor(hit.uv.x * w), y = Math.floor((1 - hit.uv.y) * h);
+      if (objectPixel(own, own.info.box[0] + x, own.info.box[1] + y) >= 0) { pick(objects.indexOf(own)); return; }
+      continue;
+    }
+    const l = layers.find((m) => m.mesh === hit.object);
+    const x = Math.floor(hit.uv.x * W), y = Math.floor((1 - hit.uv.y) * H);
+    const shown = l.composed && l.objects.some(pickedOut) ? l.composed.data : l.original;
+    if (!shown) continue;
+    const at = (y * W + x) * 4;
+    if (!shown.data[at + 3]) continue; // (nothing of this layer here)
+    const colour = (shown.data[at] << 16) | (shown.data[at + 1] << 8) | shown.data[at + 2];
+    const o = l.objects.find((f) => !pickedOut(f) && objectPixel(f, x, y) >= 0);
+    pick(o && objectPixel(o, x, y) === colour ? objects.indexOf(o) : -1);
+    return;
+  }
+  pick(-1);
+});
 
 // ---------- the camera ----------
 function view(which) {
@@ -522,7 +890,7 @@ function resize() {
 window.addEventListener('resize', resize); resize();
 
 // ---------- controls ----------
-for (const id of ['spread', 'haze', 'byPace', 'backdrop']) $(id).addEventListener('input', layout);
+for (const id of ['spread', 'haze', 'byPace', 'backdrop', 'pixels']) $(id).addEventListener('input', layout);
 // across a whole stage: the camera itself moved, so the layers' depths make the parallax (at spread 1 by pace, the game's)
 $('pan').addEventListener('input', () => {
   const to = Number($('pan').value) * W * 0.4;
@@ -532,6 +900,19 @@ $('pan').addEventListener('input', () => {
 for (const id of ['shadow', 'crt']) $(id).addEventListener('input', applyLook);
 $('frame').addEventListener('input', () => { playing = false; $('play').textContent = '▶'; setFrame(Number($('frame').value) - 1); });
 $('play').onclick = () => { playing = !playing; $('play').textContent = playing ? '❚❚' : '▶'; $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play'); };
+// Every option as it is when a scene is opened, the layers all shown, and the three-quarter view
+function resetOptions() {
+  $('spread').value = kind === 'stage' ? 0.3 : 1;
+  $('byPace').checked = true;
+  $('backdrop').checked = kind !== 'stage';
+  $('shadow').value = 0.35; $('haze').value = 0; $('crt').checked = false; $('spin').checked = false;
+  $('pixels').value = 'arcade';
+  $('pan').value = 0; panAt = 0; $('panOut').value = 0;
+  for (const l of layers) l.on = true;
+  allObjectsBack();
+  listLayers(); layout(); applyLook(); view('angle');
+}
+$('reset').onclick = resetOptions;
 $('truePace').onclick = () => { $('byPace').checked = true; $('spread').value = 1; layout(); view('game'); };
 $('hideUi').onclick = () => { document.body.classList.add('no-ui'); resize(); };
 window.addEventListener('keydown', (e) => {
@@ -541,15 +922,26 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === ' ' && kind === 'clip') { e.preventDefault(); $('play').click(); }
   else if (e.key === 'ArrowRight' && kind === 'clip') { playing = false; setFrame(frameAt + 1); }
   else if (e.key === 'ArrowLeft' && kind === 'clip') { playing = false; setFrame(frameAt - 1); }
-  else if (e.key === 'Escape') { document.body.classList.remove('no-ui'); $('shot').hidden = true; resize(); }
+  else if ((e.key === 'Delete' || e.key === 'Backspace') && picked >= 0) { e.preventDefault(); $('objHide').click(); }
+  else if (e.key === '[' && picked >= 0) $('objBack').click();
+  else if (e.key === ']' && picked >= 0) $('objForward').click();
+  else if (e.key === 'Escape') {
+    if ($('shot').hidden && document.body.classList.contains('no-ui') === false && picked >= 0) { pick(-1); return; }
+    document.body.classList.remove('no-ui'); $('shot').hidden = true; resize();
+  }
 });
 
 // a photo: drawn again at the size chosen, shown to save (and saved, where the page may)
 $('takeShot').onclick = () => {
   const scale = Number($('shotSize').value);
   const before = renderer.getPixelRatio();
+  // (the part of the window the panel leaves, as it is seen: no offset, its own shape)
+  const f = free();
   renderer.setPixelRatio(scale);
-  renderer.setSize(window.innerWidth, window.innerHeight, false);
+  renderer.setSize(Math.round(f.w), Math.round(f.h), false);
+  camera.clearViewOffset();
+  camera.aspect = f.w / f.h;
+  camera.updateProjectionMatrix();
   renderer.render(scene, camera);
   let url = renderer.domElement.toDataURL('image/png');
   if ($('crt').checked) { // (the scanlines over it, as on the screen)
@@ -561,30 +953,170 @@ $('takeShot').onclick = () => {
   }
   renderer.setPixelRatio(before);
   resize();
-  $('shotImg').src = url; $('shot').hidden = false;
+  showPicture(url);
   try { const a = document.createElement('a'); a.href = url; a.download = `diorama ${new Date().toISOString().slice(0, 19).replace(/:/g, '.')}.png`; a.click(); } catch (e) { /* (the picture is shown to save) */ }
 };
-$('shotClose').onclick = () => { $('shot').hidden = true; };
-
-// opening: a picked folder, a dropped one, ?src=, or the sample a page may carry
-async function openFiles(files) {
-  sources = filesSource(files);
-  const which = $('which'); which.textContent = '';
-  if (!sources.length) { $('progress').textContent = 'No scene.json or stage.json in that folder.'; return; }
-  sources.forEach((s, n) => { const o = document.createElement('option'); o.value = n; o.textContent = s.name; which.append(o); });
-  which.hidden = sources.length < 2;
-  await show(sources[0]);
+$('shotClose').onclick = () => { $('shot').hidden = true; $('shotVideo').pause(); };
+function showPicture(url) {
+  $('shotVideo').hidden = true; $('shotImg').hidden = false; $('shotImg').src = url;
+  $('shotWords').firstChild.textContent = 'Right-click or long-press the picture to save it. ';
+  $('shot').hidden = false;
 }
-$('pick').addEventListener('change', (e) => openFiles([...e.target.files]));
-$('which').addEventListener('change', (e) => show(sources[Number(e.target.value)]));
 
+// A video: the window's picture as it is drawn (the controls hidden meanwhile), as MP4 where the browser makes it, else WebM.
+// A clip once through from its first frame at the speed chosen; a scene or a stage for eight seconds, turning slowly.
+$('record').onclick = () => {
+  if (!layers.length || !window.MediaRecorder) return;
+  const types = ['video/mp4;codecs=avc1.42E01E', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
+  const type = types.find((t) => MediaRecorder.isTypeSupported(t)) || '';
+  const hadUi = !document.body.classList.contains('no-ui');
+  const hadSpin = $('spin').checked;
+  document.body.classList.add('no-ui'); resize();
+  const stream = renderer.domElement.captureStream(60);
+  const recorder = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: 16e6 } : { videoBitsPerSecond: 16e6 });
+  const chunks = [];
+  recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+  recorder.onstop = () => {
+    stream.getTracks().forEach((t) => t.stop());
+    $('recording').hidden = true;
+    $('spin').checked = hadSpin;
+    if (hadUi) document.body.classList.remove('no-ui');
+    resize();
+    const blob = new Blob(chunks, { type: recorder.mimeType || 'video/webm' });
+    const url = URL.createObjectURL(blob);
+    const ext = (recorder.mimeType || '').includes('mp4') ? 'mp4' : 'webm';
+    $('shotImg').hidden = true; $('shotVideo').hidden = false; $('shotVideo').src = url; $('shotVideo').play().catch(() => {});
+    $('shotWords').firstChild.textContent = `Saved as ${ext.toUpperCase()} to your downloads; or right-click the video to save it. `;
+    $('shot').hidden = false;
+    try { const a = document.createElement('a'); a.href = url; a.download = `diorama ${new Date().toISOString().slice(0, 19).replace(/:/g, '.')}.${ext}`; a.click(); } catch (e) { /* (shown to save) */ }
+  };
+  let seconds = 8;
+  if (kind === 'clip') {
+    setFrame(0); playClock = 0; playing = true; $('play').textContent = '❚❚';
+    seconds = frames / ((doc.fps || 59.637) * Number($('rate').value));
+  } else {
+    $('spin').checked = true;
+  }
+  $('recording').hidden = false;
+  recorder.start(250);
+  setTimeout(() => {
+    if (kind === 'clip') { playing = false; $('play').textContent = '▶'; }
+    recorder.stop();
+  }, seconds * 1000 + 100);
+};
+
+// ---------- the scenes kept in this browser ----------
+// Every scene, clip and stage opened is kept (IndexedDB: until the browser's data for this page is cleared), listed with the
+// examples a page carries, and shown again from the list. Without the browser's storage, only this visit's are listed.
+let samples = [];
+const store = (() => {
+  let db = null;
+  const ready = new Promise((ok) => {
+    try {
+      const r = indexedDB.open('scene-diorama', 1);
+      r.onupgradeneeded = () => { r.result.createObjectStore('meta', { keyPath: 'id' }); r.result.createObjectStore('files', { keyPath: 'id' }); };
+      r.onsuccess = () => { db = r.result; ok(); };
+      r.onerror = () => ok();
+    } catch (e) { ok(); }
+  });
+  const run = (name, mode, work) => ready.then(() => new Promise((ok) => {
+    if (!db) return ok(null);
+    try {
+      const t = db.transaction(name, mode); const req = work(t.objectStore(name));
+      t.oncomplete = () => ok(req ? req.result : true); t.onerror = () => ok(null); t.onabort = () => ok(null);
+    } catch (e) { ok(null); }
+  }));
+  return {
+    list: () => run('meta', 'readonly', (o) => o.getAll()).then((all) => (all || []).sort((a, b) => b.added - a.added)),
+    files: (id) => run('files', 'readonly', (o) => o.get(id)).then((r) => (r ? r.files : null)),
+    put: async (meta, files) => (await run('files', 'readwrite', (o) => o.put({ id: meta.id, files }))) && run('meta', 'readwrite', (o) => o.put(meta)),
+    remove: (id) => Promise.all([run('meta', 'readwrite', (o) => o.delete(id)), run('files', 'readwrite', (o) => o.delete(id))]),
+    clear: () => Promise.all([run('meta', 'readwrite', (o) => o.clear()), run('files', 'readwrite', (o) => o.clear())]),
+  };
+})();
+function keptSource(meta) {
+  let files = null;
+  return { name: meta.name, json: meta.json, id: meta.id,
+    get: async (rel) => { files = files || (await store.files(meta.id)) || {}; return files[rel] || null; } };
+}
+let visit = []; // (opened this visit, for when the browser keeps nothing)
+// The list: the examples, then those kept (newest first); `showId`: the one to show then
+async function refreshList(showId) {
+  const kept = await store.list();
+  const keptIds = new Set(kept.map((m) => m.id));
+  sources = [...samples, ...kept.map(keptSource), ...visit.filter((v) => !keptIds.has(v.id))];
+  const which = $('which'); which.textContent = '';
+  sources.forEach((s, n) => {
+    const o = document.createElement('option'); o.value = n;
+    o.textContent = s.sample ? `Example: ${s.name}` : s.name; which.append(o);
+  });
+  which.hidden = sources.length < 2;
+  $('libraryRow').hidden = !sources.some((s) => s.id);
+  const at = Math.max(0, sources.findIndex((s) => s.id === showId));
+  which.value = at;
+  return sources[at];
+}
+$('forget').onclick = async () => {
+  const s = sources[Number($('which').value)];
+  if (!s || !s.id) return;
+  await store.remove(s.id); visit = visit.filter((v) => v.id !== s.id);
+  const next = await refreshList();
+  if (next) show(next);
+};
+$('forgetAll').onclick = async () => {
+  await store.clear(); visit = [];
+  const next = await refreshList();
+  if (next) show(next);
+};
+
+// opening: a picked folder, a dropped one, ?src=, or the samples a page may carry
+async function openFiles(files) {
+  const found = filesSource(files);
+  if (!found.length) {
+    $('progress').textContent = files.length
+      ? `No scene.json or stage.json among the ${files.length} files opened (${files.slice(0, 3).map((f) => f.path).join(', ')}…).`
+      : 'Nothing was opened: drop the folder itself, or use Open a saved folder.';
+    return;
+  }
+  // (the first shown at once, from what was opened; each kept meanwhile, its own files by their paths in its folder, and
+  // the list shows them when they are)
+  const metas = found.map((one) => ({ id: `${one.name}|${one.dir}`, name: one.name, json: one.json, added: Date.now() }));
+  visit.unshift(...found.map((one, n) => ({ ...one, id: metas[n].id })));
+  await refreshList(metas[0].id);
+  const showing = show(sources[Number($('which').value)]);
+  (async () => {
+    for (const [n, one] of found.entries()) {
+      const own = {};
+      for (const { file, path } of files) {
+        const p = path.replace(/\\/g, '/');
+        if (p.startsWith(one.dir)) own[p.slice(one.dir.length)] = file;
+      }
+      if (await store.put(metas[n], own)) visit = visit.filter((v) => v.id !== metas[n].id);
+    }
+    const at = $('which').value, id = sources[Number(at)] && sources[Number(at)].id;
+    await refreshList(id);
+  })();
+  await showing;
+}
+$('pick').addEventListener('change', (e) => openFiles([...e.target.files].map((file) => ({ file, path: file.webkitRelativePath || file.name }))));
+$('which').addEventListener('change', (e) => { const s = sources[Number(e.target.value)]; if (s) show(s); });
+$('split').addEventListener('change', () => { if (shown) show(shown); });
+
+// A dropped folder's files, each with its path: through the file system's handles where the browser has them, else its
+// entries
+async function handleFiles(handle, path = '') {
+  if (handle.kind === 'file') return [{ file: await handle.getFile(), path: path + handle.name }];
+  const out = [];
+  for await (const child of handle.values()) out.push(...await handleFiles(child, path + handle.name + '/'));
+  return out;
+}
 async function entryFiles(entry, path = '') {
-  if (entry.isFile) return new Promise((ok) => entry.file((f) => { f.relPath = path + f.name; ok([f]); }, () => ok([])));
+  if (entry.isFile) return new Promise((ok) => entry.file((file) => ok([{ file, path: path + entry.name }]), () => ok([])));
   const reader = entry.createReader(); const out = [];
   for (;;) {
     const batch = await new Promise((ok) => reader.readEntries(ok, () => ok([])));
     if (!batch.length) break;
-    for (const e of batch) out.push(...await entryFiles(e, path + entry.name + '/'));
+    for (const child of batch) out.push(...await entryFiles(child, path + entry.name + '/'));
   }
   return out;
 }
@@ -594,24 +1126,35 @@ window.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth =
 window.addEventListener('dragover', (e) => e.preventDefault());
 window.addEventListener('drop', async (e) => {
   e.preventDefault(); dragDepth = 0; $('drop').hidden = true;
-  const items = [...(e.dataTransfer.items || [])].map((i) => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
-  const files = [];
-  for (const entry of items) files.push(...await entryFiles(entry));
-  if (!files.length) files.push(...e.dataTransfer.files);
+  // (each item's handle and entry asked for now: the drop's data is gone once this handler waits)
+  const items = [...(e.dataTransfer.items || [])].filter((i) => i.kind === 'file');
+  const handles = items.map((i) => (i.getAsFileSystemHandle ? i.getAsFileSystemHandle() : null));
+  const entries = items.map((i) => (i.webkitGetAsEntry ? i.webkitGetAsEntry() : null));
+  const loose = [...e.dataTransfer.files];
+  let files = [];
+  for (let n = 0; n < items.length; n++) {
+    let got = [];
+    try { const handle = handles[n] && await handles[n]; if (handle) got = await handleFiles(handle); } catch (error) { got = []; }
+    if (!got.length && entries[n]) got = await entryFiles(entries[n]);
+    files.push(...got);
+  }
+  if (!files.length) files = loose.map((file) => ({ file, path: file.name }));
   openFiles(files);
 });
 
 // (a page can carry examples: window.DIORAMA_SAMPLES, each {name, json, files: {path: data URI}})
 const src = new URLSearchParams(location.search).get('src');
 if (src) show(urlSource(src));
-else if (window.DIORAMA_SAMPLES && window.DIORAMA_SAMPLES.length) {
-  sources = window.DIORAMA_SAMPLES.map(sampleSource);
-  const which = $('which'); which.textContent = '';
-  sources.forEach((s, n) => { const o = document.createElement('option'); o.value = n; o.textContent = `Example: ${s.name}`; which.append(o); });
-  which.hidden = sources.length < 2;
-  show(sources[0]);
-  $('hint').textContent = 'Showing examples saved from Street Fighter Alpha 3. Open your own saved folder on the left.';
-  $('hint').hidden = false;
+else {
+  samples = (window.DIORAMA_SAMPLES || []).map((one) => ({ ...sampleSource(one), sample: true }));
+  refreshList().then((first) => {
+    if (!first) return;
+    show(first);
+    if (first.sample) {
+      $('hint').textContent = 'Showing examples saved from Street Fighter Alpha 3. Open your own saved folder on the left.';
+      $('hint').hidden = false;
+    }
+  });
 }
 
 // ---------- each frame ----------

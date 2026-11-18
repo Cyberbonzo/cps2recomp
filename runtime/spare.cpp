@@ -93,7 +93,9 @@ void RunSpare(Machine &machine, Spare &spare, const std::function<void(Machine &
         g_keeping.fresh(machine);
     }
     before(machine);
+    NativeVideo::inSpare = true; // (its frame is not the picture shown: video/native.h, ShownFrame)
     machine.RunFrame();
+    NativeVideo::inSpare = false;
     if (after) {
         after(machine);
     }

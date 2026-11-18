@@ -72,6 +72,27 @@ public:
     // does not draw its own (Machine::ownPicture, a guest board's: fight/guest_stages.cpp)
     bool LastFrame(FrameData &data) const;
     static void DrawFrame(const FrameData &frame, uint32_t *picture, int pitch);
+    // A frame's records copied, to draw again later: the shown frame's (ShownFrame), or a frame of another machine's kept by
+    // whoever puts its picture together (a stage machine's behind the fighters: fight/battle.h, StageBehind)
+    struct Kept {
+        bool whole = false;
+        uint64_t number = 0;
+        std::vector<uint8_t> video, scrollExtra;
+        bool hasExtra = false;
+        native_video::Raster raster;
+        native_video::PictureOptions options;
+        std::vector<FrameEvent> events;
+        std::vector<native_video::PaletteUpload> uploads;
+        native_video::Layers layers[224];
+        std::vector<native_video::TileOverride> overrides[224];
+        void Keep(const FrameData &frame);
+        bool Get(FrameData &data) const;
+    };
+    // The last frame recorded whole that is the picture shown (a copy, for the scene export: port/scene.h): not one run on a
+    // spare machine (runtime/spare.h, which runs other frames on this machine and puts its state back), and kept when a
+    // state is put back (run-ahead's, a save state's: the picture shown is still that frame's). False before there is one.
+    bool ShownFrame(FrameData &data) const;
+    static inline bool inSpare = false; // (set while a spare's frame runs: RunSpare)
     // Told each frame drawn at once (the GPU's check, port/gpu_picture.h), before the CPU draws it
     void (*frameDrawn)(const FrameData &frame, void *user) = nullptr;
     void *frameUser = nullptr;
@@ -154,6 +175,7 @@ private:
     void FrameEnd();
     FrameData FrameRecords() const;
     bool m_lastWhole = false; // (the last frame was recorded whole: LastFrame)
+    Kept m_shown; // (the shown frame's records, copied: ShownFrame)
     bool m_inFrame = false, m_frameComparable = false;
     int m_frameRow = 0; // (the lines drawn so far)
     std::vector<uint8_t> m_frameVideo, m_frameScrollExtra;

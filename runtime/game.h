@@ -254,8 +254,14 @@ struct HudBox {
     uint8_t r, g, b;
     uint8_t fill = 56;
     bool round = false; // (an ellipse filling the rectangle, with no outline: a ball and the like)
+    // (a hit box's: what it is and whose, for the scene export, port/scene.h, which keeps the hit boxes apart from the rest
+    // of the readout; kHudDrawn for anything else drawn: a frame meter's cells, a guide)
+    uint8_t kind = 0;    // (HudBoxKind)
+    bool thrown = false; // (it belongs to something thrown)
+    int8_t player = -1;  // (0 or 1; -1 not known)
     bool operator==(const HudBox &) const = default;
 };
+enum HudBoxKind : uint8_t { kHudDrawn, kHudHurt, kHudAttack, kHudPush, kHudThrow, kHudThrowRange, kHudShmupBody, kHudShmupShot, kHudShmupShip };
 void SetBoxes(std::vector<HudBox> boxes);
 const std::vector<HudBox> &Boxes();
 

@@ -11,6 +11,7 @@
 #include "scene.h"
 #include "gpu_picture.h"
 #include "soundtrack.h"
+#include "video_record.h"
 #include "zoom.h"
 
 #include <array>
@@ -37,6 +38,7 @@ struct Options {
     std::string recordEntries; // entries file to add to (tools/recomp.py reads it)
     std::string dumpProgram;   // write the deciphered program here and stop
     std::string audioDump;     // WAV file of the sound (headless)
+    std::string videoOut;      // --record-video FILE.mp4: the whole run recorded as a video (video_record.h), as the Video page's Record video does
     std::string soundtrack;    // --soundtrack DIR: the custom soundtrack's folder (soundtrack.h; default: beside settings.ini)
     std::string soundtrackDump; // --soundtrack-dump FILE: WAV file of what the custom soundtrack plays (headless)
     std::string settingsPath;  // settings.ini with the player's feature choices
@@ -163,6 +165,17 @@ struct Port {
     SceneExport scene;
     void SaveScene();
     void SceneClip();
+    // The video recording (video_record.h, issue #376): Alt+F12 or the Video page's Record video, what is played and
+    // heard as an MP4 in the player's folder's videos/, until either again; or --record-video's file, the whole run
+    VideoRecorder recorder;
+    uint64_t videoFrame = 0; // (the frame the last picture handed to it was of)
+    bool shooting = false;   // (a screenshot being taken: the window's line about the recording not in it)
+    void RecordVideo();      // (starts or stops)
+    bool StartVideo(const std::string &path);
+    void StopVideo();
+    // Each frame run while recording: its sound (the game's, as heard; and the custom soundtrack's, at its rate) and the
+    // picture as screenshots take it, without the port's notices at the bottom
+    void VideoFrame(const int16_t *sound, size_t soundFrames, const float *music, size_t musicFrames, int musicRate);
     // The stage viewer's Save whole stage (fight/alternative.h, StageSweep): its frames stitched (scene.h), each frame
     StageStitch stageStitch;
     void StageSweepFrame();
@@ -191,8 +204,9 @@ struct Port {
     // The picture with the readout over it (runtime/game.h, SetHud), as the window and screenshots show it; and
     // where on it the readout's panels went (none: not asked)
     // (`over`: drawn over a picture all of `base` instead of the game's: for the readouts alone, Readouts)
+    // (`notices`: the port's lines at the bottom too, as the window has them: the speed, the zoom, a screenshot saved...)
     void Shown(std::vector<uint32_t> &pixels, std::vector<SDL_Rect> *panels = nullptr, bool over = false, uint32_t base = 0,
-               bool boxes = true) const;
+               bool boxes = true, bool notices = true) const;
     // The readouts alone (all Shown draws over the game's picture), for the GPU's picture (gpu_picture.h): red, green,
     // blue, alpha bytes, the colours times the alpha; from Shown over black and over white, whose difference is what
     // the readouts leave of what is under them
@@ -349,6 +363,12 @@ void StartOnAndroid();
 // the window, and how many times the board's lines the window opens
 Scaling DisplayScaling();
 Shape DisplayShape();
+// The size an SVG of the board's pixels is shown at (model/image_files.h, WriteSvg; issue #368): three times its rows
+// tall, its pixels as the Display page shows them (on the board's 4:3 screen narrower than tall; or square)
+inline void SvgSize(int columns, int rows, double &width, double &height) {
+    height = rows * 3.0;
+    width = columns * 3.0 * (DisplayShape() == Shape::SquarePixels ? 1.0 : (4.0 / 3.0) / (384.0 / 224.0));
+}
 int WindowSize();
 // The Arcade monitor page's full screen resolution (frontend_sdl.cpp: the screen switched to the board's 384 x 224, or
 // to a super resolution of its 224 lines), screen (0: the main one, 1..3: the others in the system's order) and Compact

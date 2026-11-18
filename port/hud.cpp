@@ -48,6 +48,9 @@ void DrawHud(uint32_t *pixels, int width, int height, std::vector<SDL_Rect> *pan
     // The boxes first, so that the text is over them
     const recomp::text::Canvas canvas{pixels, width, height};
     for (const cps2recomp::HudBox &box : parts & kHudBoxes ? cps2recomp::Boxes() : std::vector<cps2recomp::HudBox>{}) {
+        if (!(parts & (box.kind == cps2recomp::kHudDrawn ? kHudDrawnBoxes : kHudHitBoxes))) {
+            continue;
+        }
         const float x = static_cast<float>(box.x), y = static_cast<float>(box.y);
         const float w = static_cast<float>(box.width), h = static_cast<float>(box.height);
         if (box.x >= width || box.y >= height || box.x + box.width <= 0 || box.y + box.height <= 0) {

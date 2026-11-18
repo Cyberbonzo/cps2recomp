@@ -131,7 +131,7 @@ fight::MoveLog::Start MoveStart(int n) {
 namespace {
     // The boxes go to the session in its own terms: across as the picture's place plus the camera's word, and up, the
     // camera's word down being the picture's bottom (fight::ToPicture puts them back)
-    void AddBox(M68K &c, std::vector<fight::StageBox> &boxes, fight::BoxKind kind, uint32_t object, uint32_t box, bool thrown) {
+    void AddBox(M68K &c, std::vector<fight::StageBox> &boxes, fight::BoxKind kind, uint32_t object, uint32_t box, bool thrown, int8_t player) {
         const int halfWidth = static_cast<int>(c.Read(box + 2, 1)), halfHeight = static_cast<int>(c.Read(box + 6, 1));
         if (halfWidth == 0 || halfHeight == 0) {
             return;
@@ -144,15 +144,15 @@ namespace {
         const uint32_t camera = e.cameraRecord();
         const int cameraY = Word(camera + e.cameraY);
         const int pictureY = y - cameraY - 0x0F;
-        boxes.push_back({kind, x - e.pictureLeft, kFloorLine - pictureY + cameraY, halfWidth, halfHeight, thrown});
+        boxes.push_back({kind, x - e.pictureLeft, kFloorLine - pictureY + cameraY, halfWidth, halfHeight, thrown, player});
     }
 
-    void ObjectBoxes(M68K &c, std::vector<fight::StageBox> &boxes, uint32_t object, bool thrown, uint16_t character) {
+    void ObjectBoxes(M68K &c, std::vector<fight::StageBox> &boxes, uint32_t object, bool thrown, uint16_t character, int8_t player) {
         const uint32_t table = Ram32(object + e.boxTable);
         if (Ram8(object + e.canBeHit) != 0) {
             for (uint32_t n = 0; n < 4; n++) {
                 if (const uint16_t id = Ram16(object + e.hurtBoxes + 2 * n) & 0x1FFF) {
-                    AddBox(c, boxes, fight::BoxKind::Hurt, object, table + id * 8u, thrown);
+                    AddBox(c, boxes, fight::BoxKind::Hurt, object, table + id * 8u, thrown, player);
                 }
             }
         }
@@ -162,13 +162,13 @@ namespace {
                 // (the high bit: how near a throw reaches, drawn as an outline, and only while the character is free)
                 if ((id & 0x1FFF) && (!(id & 0x8000) || Ram16(object + e.control) == 0)) {
                     AddBox(c, boxes, (id & 0x8000) ? fight::BoxKind::ThrowRange : fight::BoxKind::Attack, object,
-                           table + (id & 0x1FFFu) * 8u, thrown);
+                           table + (id & 0x1FFFu) * 8u, thrown, player);
                 }
             }
         }
         if (!thrown) {
             const uint8_t push = Ram8(object + e.pushBox);
-            AddBox(c, boxes, fight::BoxKind::Push, object, c.Read(e.pushTable + push * 2u, 2) + character * 4u, false);
+            AddBox(c, boxes, fight::BoxKind::Push, object, c.Read(e.pushTable + push * 2u, 2) + character * 4u, false, player);
         }
     }
 } // namespace
@@ -181,7 +181,7 @@ std::vector<fight::StageBox> Boxes(Machine &machine) {
         if (Ram16(player + e.state) != 2) {
             continue;
         }
-        ObjectBoxes(c, boxes, player, false, Ram16(player + e.character));
+        ObjectBoxes(c, boxes, player, false, Ram16(player + e.character), static_cast<int8_t>(n));
         // What the player has thrown: the list's records, newest first, to the first that is not one
         const uint32_t list = e.thrownList + static_cast<uint32_t>(n) * e.thrownListSpace;
         for (uint32_t i = 1; i < 32; i++) {
@@ -189,7 +189,7 @@ std::vector<fight::StageBox> Boxes(Machine &machine) {
             if (thrown < e.player1 + static_cast<uint32_t>(e.records) * e.playerSize || thrown >= 0xFFFF00) {
                 break;
             }
-            ObjectBoxes(c, boxes, thrown, true, 0);
+            ObjectBoxes(c, boxes, thrown, true, 0, static_cast<int8_t>(n)); // (the list is the player's)
         }
     }
     return boxes;

@@ -59,6 +59,42 @@ F12 saves the picture as the window shows it, at the board's size (384 by 224, w
 readouts on it but not the camera's zoom, to `screenshots/` in the game's folder, as `<game> <date> <time>.png`
 (`Port::Screenshot`, issue #31). Where it went is said at the bottom for a few seconds.
 
+**SVG pictures too** (the Game page's `export_svg`, issue #368) writes an SVG beside the PNGs of screenshots, Save scene,
+Save whole stage and the model viewer's picture and animation (each frame and the sheet; not a scene clip's frames).
+Each of the board's pixels is a square of the SVG's grid, so it scales to any size exactly: what a row has of a colour
+side by side is one rectangle, made taller where the rows below have the same, and each colour's rectangles one path
+(an opaque picture's commonest colour one rectangle behind it all); see-through pixels are left out, a hit box's
+partly see-through fill keeps how much (`image_files::WriteSvg`). It is shown three times the board's lines, its pixels
+in the Display page's shape (`port::SvgSize`), and drawn with `shape-rendering="crispEdges"`. A scene's is
+`scene.svg`, the backdrop and then each board layer back to front and what is drawn over them, each a group (an
+Inkscape layer: drawing programs show them as layers); in a fighting game's round `parts.svg`, the same of its parts;
+a whole stage's `stage.svg`, each layer at its place. Drawn, they are the PNG pixel for pixel. A scene's SVG is a few
+hundred kilobytes.
+
+## Video recording
+
+The in-game menu's **Game > Video** page, every game (`port/video_record.h`, issue #376). **Record video** (Alt+F12)
+records what is played and heard as an MP4 in `videos/` in the game's folder, as `<game> <date> <time>.mp4`, until the
+row (now **Stop recording video**) or Alt+F12 again; quitting the game finishes it too. The picture is as screenshots
+take it, readouts and all, without the port's lines at the bottom (the speed, the zoom's label, what was saved: the
+window says **RECORDING VIDEO** and the time all the while, the video doesn't). The sound is the game's as heard (the
+Sound filter's too) and the custom soundtrack's, mixed at 48 kHz.
+
+The picture is made larger with each of the board's pixels a sharp block (only the edges between blocks blended, as
+the Display page's Sharp scaling does), in the shape the Display page shows it in (4:3, or square pixels); **Video
+size** chooses 3 times the board's lines (672, the default), 2, 4 or 1080 lines. The size is the game's widest picture's
+(its widescreen), fixed for the file: a narrower picture has black beside it. A vertical game turned upright is
+recorded upright. The video's time is the game's: a frame for each of the board's frames run, so stopped or in the menu
+nothing is recorded and slowed or sped up it plays at the board's speed.
+
+It is H.264 (Constrained Baseline, BT.709 said in the stream, a key frame every two seconds, the same quantizer for
+every picture) and AAC-LC at 48 kHz, which every player, browser and phone plays: minih264 and minimp4 in
+`third_party/`, FAAC downloaded at build time. The encoding is done on a thread of its own: should it fall behind
+(a slow machine at a large size), a picture is left out and the one before shown longer, the sound all kept, rather
+than the game held up. `--record-video FILE.mp4` records a whole run, from its first frame to its last, headless or not;
+headless (or `--unthrottled`) nothing is left out, the game waiting for the encoder instead, so `--movie M.txt
+--headless --record-video M.mp4` makes a movie's play into a video faster than it plays.
+
 ## Scene export
 
 The picture taken apart (`port/scene.h`, issue #366; the in-game menu's **Game > Scene export** page, every game).
@@ -70,6 +106,34 @@ more than one layer (`objects-0` to `objects-3`: how many scroll screens are beh
 layers back to front; laid over each other on the backdrop colour in that order they make `picture.png` again. A
 fight on another game's stage has that game's layers too (`stage-...`), behind the game's.
 
+In a round of a fighting game, the scene is also saved by what is in it (issue #367): `part-stage-behind`, `part-player1`,
+`part-player2`, `part-stage-front` and `part-panel` (and `part-other`: shadows, and anything the game does not name),
+listed under `parts` in `scene.json` back to front. Each part is the frame drawn again with only its objects and scroll
+screens, so a fighter is whole where the other stands in front of it. The game's own description says what each object
+is (`battle::PartOf`: the panel's, a player's by their colour sets, the stage's); the stage's pieces are behind or in
+front of the fighters by where they are among the layers, and on another game's stage by that game's marks of what is in
+front. Clips have the parts too, a folder each. Not yet right in Street Fighter II, Champion Edition and Hyper
+Fighting, whose fighters' colour sets go by character (issue #394).
+
+Each object entry of the board's list is saved by itself too (issue #397): `entries.png` holds every entry drawn alone
+and whole (the frame drawn again with only its tiles), side by side, and `entry-map.png` says which entry each object
+pixel of the picture is of (1 + its place in the list, red the low byte, green the high). `scene.json`'s `entries`
+lists them front to back: the board (`game`, or `stage` for another game's), the entry's number, its first tile, colour
+set, level and attributes, the box of the picture it covers, where it is in `entries.png`, its objects layer, its part
+and what the game says it is (`player1`, `stage`, `panel`...). A clip's frames have the map and the list only
+(`entry-map/0001.png`, `entries/0001.json`, each box what of the entry is in front), from one more drawing of the
+objects (`PictureOptions::objectEntries`).
+
+What the port draws over the picture is saved too, as layers of its own (issue #398), whenever there is any: training
+mode's aids, a shooting game's hit boxes. `overlay-boxes` has the hit boxes, `overlay-hud` the rest (the text, the frame
+meter), each see-through where it covers nothing and as solid as it is drawn where it does (listed under `overlays` in
+`scene.json`, a folder each in a clip). `scene.json` lists the hit boxes as well (`boxes`, a clip's in each frame of
+`frameList`): each box's player (1 or 2), its kind (`hurt`, `attack`, `push`, `throw`, `throw-range`; a shooting
+game's `body`, `shot`, `ship`), `thrown` for something thrown, its rectangle in the picture, its colour and how solid its
+inside is (`fill`, of 255). A player's own boxes are theirs by the game's records; a thrown thing's go with the thrower
+where the game says (the Marvel games), else with the player whose picture they cover more of, else `null`. They are the
+boxes shown with that picture, as on the screen (run-ahead's too).
+
 Each layer is the frame drawn again from its records (`video/native.h`, `LastFrame`) with only that layer on, so what
 the game changed part way down the screen is in it as it was. **Record clip** (Ctrl+F12) does the same for every frame
 of 3, 5 or 10 seconds (**Clip length**), each layer's frames in a folder of their own (`objects/0001.png`...), with
@@ -80,9 +144,16 @@ The stage viewer's **Save whole stage** puts a stage together from one end to th
 **The scene diorama** (`tools/diorama/diorama.html`, issue #380) shows what these save as cut-outs at their own depths:
 the launcher's **Open diorama** (Games page, Tools) opens it in the browser, as does opening the file itself, then open a saved folder (or drop it on the page). Each layer is put further back and made
 larger by as much, so the front view (Game view) is the game's picture at any spread; turn it, pull the layers apart,
-hide or solo them, add shadows between them, haze or scanlines, and take a photo at up to 4x. A clip steps frame by
-frame or plays at 1x to 1/16x. A whole stage's layers go back by their parallax pace, so at a spread of 1 moving the
-camera across it gives the game's own parallax. Nothing leaves the browser.
+hide or solo them, add shadows between them, haze or scanlines, take a photo at up to 4x, or record a video (MP4, or
+WebM where the browser makes no MP4: a clip once through, a scene or stage turning). The board's pixels are shown as on
+its 4:3 screen (or square, when chosen). Every scene opened is kept in the browser's list until its data for the page is
+cleared. In a saved scene, click an object to pick it out of its layer (a frame is drawn round it): hide it, show it
+alone, or bring it forward or back a step at a time (Delete, [ and ]); its layer is drawn again without it, the objects
+it covered there in its place. A clip steps frame by frame or plays at 1x to 1/16x. A scene saved with hit boxes shows
+each player's as a layer of their own just in front of that player (with the board's layers, in front of the frontmost
+objects), drawn from `scene.json`'s list, and the readout in front of everything; each can be switched off in the list
+like any layer. A whole stage's layers go back by their parallax pace, so at a spread of 1 moving the camera across it
+gives the game's own parallax. Nothing leaves the browser.
 
 **Rapid fire** is the port's own (`rapid_fire`, Game page, every game): a held button is the game's pressed for two
 frames and let go for two, for the first button or for all of them, from the frame it goes down. Movies keep what the

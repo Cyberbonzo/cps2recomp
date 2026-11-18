@@ -6,6 +6,8 @@
 
 #include <cstring>
 
+#include "../recomp-common/menu_layout.h"
+
 #include "../machine/machine.h"
 #include "../runtime/game.h"
 
@@ -20,68 +22,63 @@ namespace port {
 
 namespace {
     // The first page's own rows
-    enum { kCoin = 1, kStart2, kReset, kTest, kResetOptions };
+    enum { kCoin = 1, kStart2, kTest };
 
-    // The speeds, slowest first, each about 1.4 times the one before: the game runs `frames` frames in `ticks` of
-    // the screen's
-    struct Speed {
-        const char *name;
-        int frames, ticks;
-    };
-    const Speed kSpeeds[] = {{"1/8", 1, 8}, {"1/6", 1, 6}, {"1/4", 1, 4}, {"1/3", 1, 3}, {"1/2", 1, 2}, {"3/4", 3, 4}, {"Full", 1, 1},
-                             {"1.5x", 3, 2}, {"2x", 2, 1}, {"3x", 3, 1}, {"4x", 4, 1}, {"6x", 6, 1}, {"8x", 8, 1}};
-    constexpr int kFull = 6;
 } // namespace
 
 void Menu::Open(bool withStates) {
     const cps2recomp::Game &game = cps2recomp::TheGame();
     recomp::MenuConfig config;
-    // Online, Display, Game and Stage first (issue #196), then the game's pages that belong at the head; then three groups
-    // with a line between them: the save states, what the game offers, and leaving. Under Game: the speed, Mute, and
-    // the Board, Cheats and Sound pages (a first page of fewer rows).
-    config.groups.push_back({{recomp::MenuRow::Page, 0, "Online"}, {recomp::MenuRow::Page, 0, "Display"},
-                             {recomp::MenuRow::Page, 0, "Game"}});
-    // (and Stage, for a game with a choice of stage: where the fights are, whatever is played; fight/session.h)
-    if (std::any_of(game.features.begin(), game.features.end(),
-                    [](const cps2recomp::Feature &feature) { return !strcmp(feature.category, "Stage"); })) {
-        config.groups.back().push_back({recomp::MenuRow::Page, 0, "Stage"});
-    }
-    config.pages.push_back({"Game", "", "", true, {recomp::MenuRow::Speed, recomp::MenuRow::Mute}});
-    for (const char *under : {"Board", "Cheats", "Sound"}) {
-        config.pages.push_back({under, "Game"});
+    // The standard layout (recomp-common/menu_layout.h, taken from this toolkit's, issue #196): Online, Display, Game
+    // and Stage first; Alternative modes; the save states; the other pages and the board's own rows; leaving. Under
+    // Game: the speed, Mute, and the Board, Cheats and Sound pages.
+    // (Game, Board, Cheats and Sound first, in that order, as the Game page lists them: the game's own page, with its
+    // description, where it has one; their rows count the features that are on)
+    const auto own = [&game](const char *name) -> const cps2recomp::Page * {
+        for (const cps2recomp::Page &page : game.pages) {
+            if (!strcmp(page.name, name)) {
+                return &page;
+            }
+        }
+        return nullptr;
+    };
+    const char *const standard[] = {recomp::layout::kGame, recomp::layout::kBoard, recomp::layout::kCheats, recomp::layout::kSound};
+    for (const char *name : standard) {
+        const cps2recomp::Page *page = own(name);
+        config.pages.push_back({name, page ? page->parent : "", page ? page->description : ""});
     }
     config.pages.push_back({"Arcade monitor", "Display", "A CRT at the board's own resolution: set on the launcher."});
-    std::vector<recomp::MenuRow> top;
+    std::vector<std::string> modes;
     for (const cps2recomp::Page &page : game.pages) {
+        if (std::any_of(std::begin(standard), std::end(standard), [&page](const char *name) { return !strcmp(page.name, name); })) {
+            continue;
+        }
         // (such pages are ways of running the game: their rows do not count features that are on)
         config.pages.push_back({page.name, page.parent, page.description, false});
-        if (page.top && !*page.parent) {
-            top.push_back({recomp::MenuRow::Page, 0, page.name});
+        if (page.top && !*page.parent && strcmp(page.name, recomp::layout::kModes)) {
+            modes.push_back(page.name);
         }
     }
-    if (!top.empty()) {
-        config.groups.push_back(std::move(top));
+    recomp::layout::Rows rows;
+    // (Stage, for a game with a choice of stage: where the fights are, whatever is played; fight/session.h)
+    if (std::any_of(game.features.begin(), game.features.end(),
+                    [](const cps2recomp::Feature &feature) { return !strcmp(feature.category, recomp::layout::kStage); })) {
+        rows.heads.push_back(recomp::layout::kStage);
     }
-    if (withStates) {
-        config.groups.push_back({{recomp::MenuRow::Save}, {recomp::MenuRow::Load}, {recomp::MenuRow::Slot}});
-    }
-    config.groups.push_back({
-        {recomp::MenuRow::Pages},
-        {recomp::MenuRow::Action, kCoin, "Insert coin", "Puts a coin in the first slot."},
-        {recomp::MenuRow::Action, kStart2, "Player 2 joins",
+    rows.modes = std::move(modes);
+    rows.states = withStates;
+    rows.actions = {
+        {recomp::MenuRow::Action, kCoin, recomp::layout::kInsertCoin, "Puts a coin in the first slot."},
+        {recomp::MenuRow::Action, kStart2, recomp::layout::kPlayer2Joins,
          "Presses player 2's Start: with a coin in (or free play), a second player to practise against."},
-        {recomp::MenuRow::Action, kTest, "Test menu",
+        {recomp::MenuRow::Action, kTest, recomp::layout::kTestMenu,
          "The game's own operator menu (the board's test switch, F2): its settings, such as difficulty and rounds. "
          "Its Exit row goes back."},
-    });
-    config.groups.push_back({
-        {recomp::MenuRow::Action, kResetOptions, "Reset all options",
-         "Puts every option back as it first was (the launcher's Enhanced preset), and the speed to full. The game's own "
-         "settings (its Test menu) and the controls stay as they are."},
-        {recomp::MenuRow::Action, kReset, "Reset game", "Starts the board again, as if switched off and on."},
-        {recomp::MenuRow::Quit},
-        {recomp::MenuRow::Resume},
-    });
+    };
+    rows.resetOptionsDescription = "Puts every option back as it first was (the launcher's Enhanced preset), and the speed to full. "
+                                   "The game's own settings (its Test menu) and the controls stay as they are.";
+    rows.resetDescription = "Starts the board again, as if switched off and on.";
+    recomp::layout::Standard(config, rows);
     // (during an online match, the features the match decides for both players are left as it has them: a change on
     // one side alone would leave the two games apart; the host sets them before hosting)
     const std::function<bool(size_t)> decided = matchDecides;
@@ -140,6 +137,10 @@ void Menu::Open(bool withStates) {
                                        "Others can no longer join: the match's code stops working. Your game goes on as it is."});
             continue;
         }
+        if (recordingVideo && !strcmp(command.name, "video_record")) {
+            config.commands.push_back({command.category, "Stop recording video", "Ends the video being recorded and saves it."});
+            continue;
+        }
         if (recordingClip && !strcmp(command.name, "scene_clip")) {
             config.commands.push_back({command.category, "Stop recording", "Ends the clip being recorded here; its frames so far are kept."});
             continue;
@@ -175,8 +176,8 @@ void Menu::Open(bool withStates) {
                               "the speed.";
     config.muted = [this] { return muted; };
     config.setMuted = [this](bool to) { muted = to; };
-    config.confirmName = "Enter or A";
-    config.closeName = "Esc";
+    config.confirmName = recomp::sdl::kConfirmName;
+    config.closeName = recomp::sdl::kCloseName;
     m_menu.Configure(std::move(config));
     m_menu.Open();
 }
@@ -189,14 +190,11 @@ Menu::Menu() {
 }
 
 void Menu::Speeds(recomp::MenuConfig &config) {
-    for (const Speed &speed : kSpeeds) {
-        config.speeds.push_back(speed.name);
-    }
-    config.normalSpeed = kFull;
+    recomp::layout::Speeds(config);
 }
 
 Menu::Rate Menu::GameRate() const {
-    const Speed &speed = kSpeeds[std::clamp(m_menu.Speed(), 0, static_cast<int>(std::size(kSpeeds)) - 1)];
+    const recomp::layout::Speed speed = recomp::layout::SpeedOf(m_menu.Speed());
     // (the slower of the player's choice and what the game's sources ask for: runtime/game.h)
     const int slowBy = cps2recomp::SlowMotion();
     if (slowBy > 1 && speed.frames * slowBy > speed.ticks) {
@@ -210,7 +208,7 @@ Menu::Rate Menu::GameRate() const {
 }
 
 void Menu::SetFullSpeed() {
-    m_menu.SetSpeed(kFull);
+    m_menu.SetSpeed(recomp::layout::kFull);
 }
 
 void Menu::Faster(int by) {
@@ -235,20 +233,34 @@ Menu::Action Menu::Buttons(uint16_t pressed) {
 }
 
 Menu::Action Menu::Press(unsigned buttons) {
-    const recomp::Menu::Chosen chosen = m_menu.Buttons(buttons);
+    return Act(m_menu.Buttons(buttons));
+}
+
+bool Menu::Mouse(const SDL_Event &event, SDL_Window *window, const recomp::sdl::MenuPlace &place, Action &action) {
+    recomp::Menu::Chosen chosen;
+    if (!recomp::sdl::MouseEvent(event, window, place, m_menu, chosen)) {
+        action = Action::None;
+        return false;
+    }
+    action = Act(chosen);
+    return true;
+}
+
+Menu::Action Menu::Act(const recomp::Menu::Chosen &chosen) {
     switch (chosen.kind) {
     case recomp::Menu::Chosen::Save: return Action::Save;
     case recomp::Menu::Chosen::Load: return Action::Load;
     case recomp::Menu::Chosen::Quit: return Action::Quit;
+    case recomp::Menu::Chosen::Reset: return Action::Reset;
+    case recomp::Menu::Chosen::ResetOptions: return Action::ResetOptions;
     case recomp::Menu::Chosen::Command:
         m_command = static_cast<size_t>(chosen.id);
         return Action::Command;
     case recomp::Menu::Chosen::Action:
-        return chosen.id == kCoin           ? Action::Coin
-               : chosen.id == kStart2       ? Action::Start2
-               : chosen.id == kTest         ? Action::Test
-               : chosen.id == kResetOptions ? Action::ResetOptions
-                                            : Action::Reset;
+        return chosen.id == kCoin     ? Action::Coin
+               : chosen.id == kStart2 ? Action::Start2
+               : chosen.id == kTest   ? Action::Test
+                                      : Action::None;
     default: return Action::None;
     }
 }

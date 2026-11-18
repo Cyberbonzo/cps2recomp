@@ -17,6 +17,7 @@
 #include "../fight/tag.h"
 #include "../fight/guest_stages.h"
 #include "png_write.h"
+#include "../model/image_files.h"
 #include "present.h"
 #include "gpu_picture.h"
 #include "../runtime/spare.h"
@@ -642,6 +643,29 @@ void RegisterPortFeatures() {
                                   "Opens exports/scenes beside your saves, where Save scene and Record clip write, in your file "
                                   "manager.",
                                   nullptr});
+    // (SVG beside the PNGs: issue #368, model/image_files.h's WriteSvg)
+    TheGame().features.push_back({"export_svg", "Game", "SVG pictures too",
+                                  "Screenshots (F12), Save scene, the stage viewer's Save whole stage and the model viewer's "
+                                  "saves also write SVG pictures beside their PNGs: each pixel a square, so they scale to "
+                                  "any size exactly. A scene's and a whole stage's has each layer as a layer of its own "
+                                  "(scene.svg, parts.svg, stage.svg), for drawing programs. Not for clips.",
+                                  0});
+    // (the video recording: Port::RecordVideo, video_record.h)
+    TheGame().pages.push_back({"Video", "Game", "What you play and hear, recorded as an MP4 video that plays anywhere."});
+    TheGame().commands.push_back({"video_record", "Video", "Record video",
+                                  "Records the game as you play it, with its sound (the custom soundtrack's too), as an MP4 "
+                                  "video in videos beside your saves, until this row again (Stop recording) or Alt+F12. "
+                                  "The picture is as screenshots take it, readouts and all, without the lines at the bottom; "
+                                  "the video's time is the game's: stopped or in this menu nothing is recorded, and slowed "
+                                  "or sped up it plays at the game's own speed.",
+                                  nullptr});
+    TheGame().features.push_back({"video_size", "Video", "Video size",
+                                  "How large Record video makes the picture: so many times the board's lines, each of its "
+                                  "pixels a sharp block, in the shape the Display page shows it in.",
+                                  0,
+                                  {"3 times (672 lines)", "2 times (448 lines)", "4 times (896 lines)", "1080 lines"}});
+    TheGame().commands.push_back({"video_show_folder", "Video", "Show videos folder",
+                                  "Opens videos beside your saves, where Record video writes, in your file manager.", nullptr});
     TheGame().commands.push_back({"online_host", "Online", "Host a match",
                                   "Others can join you online while you play on as you like (modes, the menu, save states): "
                                   "the match's code is at the bottom of the screen to give them, and with your name from the "
@@ -1313,6 +1337,17 @@ void Port::RunCommand(size_t index) {
         SceneClip();
         return;
     }
+    if (index < commands.size() && !strcmp(commands[index].name, "video_record")) {
+        RecordVideo();
+        return;
+    }
+    if (index < commands.size() && !strcmp(commands[index].name, "video_show_folder")) {
+        const std::string folder = PlayerFolder() + "videos";
+        std::error_code error;
+        std::filesystem::create_directories(std::filesystem::path(std::u8string(folder.begin(), folder.end())), error);
+        OpenFolder(folder);
+        return;
+    }
     if (index < commands.size() && !strcmp(commands[index].name, "scene_show_folder")) {
         const std::string folder = PlayerFolder() + "exports/scenes";
         std::error_code error;
@@ -1602,7 +1637,7 @@ bool Port::Tick() {
     return true;
 }
 
-void Port::Shown(std::vector<uint32_t> &pixels, std::vector<SDL_Rect> *panels, bool over, uint32_t base, bool boxes) const {
+void Port::Shown(std::vector<uint32_t> &pixels, std::vector<SDL_Rect> *panels, bool over, uint32_t base, bool boxes, bool notices) const {
     const int across = ShownWidth();
     if (over) {
         pixels.assign(static_cast<size_t>(across) * Video::kHeight, base);
@@ -1623,6 +1658,9 @@ void Port::Shown(std::vector<uint32_t> &pixels, std::vector<SDL_Rect> *panels, b
     DrawHud(px, W, H, panels, turned ? +port::kHudText : boxParts | port::kHudText);
     // A line at the bottom, in the middle (`up` lines higher)
     auto status = [&](const char *text, int up) {
+        if (!notices) {
+            return; // (a video's picture: Port::VideoFrame)
+        }
         const recomp::text::Canvas canvas{px, W, H};
         const float width = recomp::text::TextWidth(text, 1);
         const float x = (W - width) / 2, y = static_cast<float>(H - 11 - up);
@@ -1712,7 +1750,14 @@ void Port::Shown(std::vector<uint32_t> &pixels, std::vector<SDL_Rect> *panels, b
         status(zoom.Label(), said++ * 14);
     }
     if (shotTicks > 0) {
-        status(shotSaid.c_str(), said * 14);
+        status(shotSaid.c_str(), said++ * 14);
+    }
+    // (a video being recorded: how long so far, all the while, in the window only)
+    if (recorder.Recording() && !shooting) {
+        const int seconds = static_cast<int>(recorder.Seconds());
+        char text[64];
+        snprintf(text, sizeof(text), "%s  %d:%02d", recomp::Tr("RECORDING VIDEO"), seconds / 60, seconds % 60);
+        status(text, said * 14);
     }
     // (online: each player's name under their side's life bar, and under it a win streak of two or more)
     if (net && !connecting) {
@@ -2160,9 +2205,11 @@ bool Port::Screenshot() {
         name = std::string(GAME_ID " ") + stamp + " " + std::to_string(n);
     }
     const int ticks = shotTicks;
-    shotTicks = 0; // (not the last one's line in this one)
+    shotTicks = 0; // (not the last one's line in this one, nor the recording's)
+    shooting = true;
     std::vector<uint32_t> shown;
     Shown(shown);
+    shooting = false;
     shotTicks = ticks;
     const std::string path = folder + name + ".png";
     if (!WritePng(path.c_str(), shown.data(), static_cast<uint32_t>(ShownWidth()), Video::kHeight)) {
@@ -2173,6 +2220,21 @@ bool Port::Screenshot() {
     }
     fprintf(stderr, "screenshot: %s\n", path.c_str());
     shotSaid = "SCREENSHOT SAVED  screenshots/" + name + ".png";
+    if (FeatureOn("export_svg")) {
+        // (the same as an SVG: the Game page's SVG pictures too)
+        cps2recomp::image_files::Picture picture;
+        picture.width = ShownWidth();
+        picture.height = Video::kHeight;
+        picture.pixels.resize(shown.size());
+        for (size_t n = 0; n < shown.size(); n++) {
+            picture.pixels[n] = shown[n] | 0xFF000000u;
+        }
+        double width = 0, height = 0;
+        port::SvgSize(picture.width, picture.height, width, height);
+        if (cps2recomp::image_files::WriteSvg(folder + name + ".svg", picture, width, height)) {
+            shotSaid += " .svg";
+        }
+    }
     shotTicks = kSpeedTicks;
     return true;
 }
@@ -2205,6 +2267,97 @@ void Port::SceneClip() {
     menu.recordingClip = scene.Recording();
 }
 
+// The video's size, from the Video page's Video size: so many times the picture's lines (or 1080 lines), in its
+// shape as the Display page has it (the whole window's: the board's monitor's); the widest picture the game makes
+// (its widescreen), so that a picture as wide as that fills it and a narrower one has black beside it
+static void VideoSize(int shown, int &width, int &height) {
+    static const int kTimes[] = {3, 2, 4, 0};
+    const int choice = std::clamp(FeatureValue("video_size"), 0, 3);
+    const int columns = TheGame().widestPicture ? std::clamp(TheGame().widestPicture(), +Video::kWidth, +Video::kMaxWidth) : shown;
+    const bool turned = port::Turned();
+    const int across = turned ? +Video::kHeight : columns, down = turned ? columns : +Video::kHeight;
+    const port::Shape shape = port::DisplayShape() == port::Shape::Fill ? port::Shape::Arcade : port::DisplayShape();
+    const int lines = kTimes[choice] ? down * kTimes[choice] : 1080;
+    VideoRecorder::SizeFor(port::PictureShape(across, down, shape, 4.0f / 3.0f), lines, width, height);
+}
+
+bool Port::StartVideo(const std::string &path) {
+    int width = 0, height = 0;
+    VideoSize(ShownWidth(), width, height);
+    std::string error;
+    if (!recorder.Start(path, width, height, Machine::kFramesPerSecond, error)) {
+        fprintf(stderr, "video: %s\n", error.c_str());
+        return false;
+    }
+    fprintf(stderr, "video: recording %s (%d x %d)\n", path.c_str(), width, height);
+    recorder.SetWaiting(opt.headless || opt.unthrottled); // (not in real time: no picture left out)
+    videoFrame = frame;
+    menu.recordingVideo = true;
+    return true;
+}
+
+void Port::StopVideo() {
+    if (!recorder.Recording()) {
+        return;
+    }
+    const std::string path = recorder.Path();
+    const double seconds = recorder.Seconds();
+    const uint64_t dropped = recorder.Dropped();
+    const bool saved = recorder.Stop();
+    menu.recordingVideo = false;
+    fprintf(stderr, "video: %s %s (%.1f s%s)\n", saved ? "saved" : "not saved", path.c_str(), seconds,
+            dropped ? (", " + std::to_string(dropped) + " pictures left out").c_str() : "");
+    const size_t slash = path.find_last_of('/');
+    shotSaid = saved ? std::string(recomp::Tr("VIDEO SAVED")) + "  videos/" + (slash == std::string::npos ? path : path.substr(slash + 1))
+                     : recomp::Tr("VIDEO NOT SAVED");
+    shotTicks = kSpeedTicks;
+}
+
+void Port::RecordVideo() {
+    if (recorder.Recording()) {
+        StopVideo();
+        return;
+    }
+    const std::string folder = PlayerFolder() + "videos/";
+    std::error_code ignored;
+    std::filesystem::create_directories(std::filesystem::path(std::u8string(folder.begin(), folder.end())), ignored);
+    // (named as a screenshot is: the game and the time, a number after it for another in the same second)
+    std::string name = SceneName();
+    for (int n = 2; std::filesystem::exists(std::filesystem::u8path(folder + name + ".mp4")); n++) {
+        name = SceneName() + " " + std::to_string(n);
+    }
+    if (!StartVideo(folder + name + ".mp4")) {
+        shotSaid = recomp::Tr("VIDEO NOT SAVED");
+        shotTicks = kSpeedTicks;
+    }
+}
+
+void Port::VideoFrame(const int16_t *sound, size_t soundFrames, const float *music, size_t musicFrames, int musicRate) {
+    if (!recorder.Recording()) {
+        return;
+    }
+    recorder.Sound(sound, soundFrames, QSound::kSampleRate);
+    if (music && musicFrames) {
+        recorder.Music(music, musicFrames, musicRate);
+    }
+    const int frames = static_cast<int>(frame - videoFrame);
+    if (frames <= 0) {
+        return;
+    }
+    videoFrame = frame;
+    static std::vector<uint32_t> pixels, upright;
+    Shown(pixels, nullptr, false, 0, true, false);
+    const uint32_t *picture = pixels.data();
+    int across = ShownWidth(), down = Video::kHeight;
+    if (port::Turned()) {
+        port::TurnPicture(pixels.data(), across, upright);
+        picture = upright.data();
+        std::swap(across, down);
+    }
+    const port::Shape shape = port::DisplayShape() == port::Shape::Fill ? port::Shape::Arcade : port::DisplayShape();
+    recorder.Picture(picture, across, down, port::PictureShape(across, down, shape, 4.0f / 3.0f), frames);
+}
+
 void Port::StageSweepFrame() {
     switch (modes::StageSweep()) {
     case modes::Sweep::None: break;
@@ -2224,6 +2377,8 @@ void Port::StageSweepFrame() {
                 c = ' ';
             }
         }
+        stageStitch.svg = FeatureOn("export_svg"); // (stage.svg too: the Game page's SVG pictures too)
+        port::SvgSize(1, 1, stageStitch.svgPixelWidth, stageStitch.svgPixelHeight);
         if (!scene.WriteStage(std::move(stageStitch), PlayerFolder() + "exports/stages/", name, stage)) {
             shotSaid = recomp::Tr("A STAGE IS STILL BEING SAVED");
             shotTicks = kSpeedTicks;
@@ -3639,6 +3794,8 @@ void Usage() {
             "                         fNAME=N (a feature set)\n"
             "  --stats                speed, at the end\n"
             "  --audio-dump FILE      write the sound to a WAV file\n"
+            "  --record-video F.mp4   record the whole run as a video (the Video page's size), headless or not; with\n"
+            "                         --movie, a movie's play as a video\n"
             "  --dump-program FILE    write the deciphered 68000 program and stop\n",
             GAME_NAME, GAME_ROM_SET);
 }
@@ -3863,6 +4020,8 @@ bool ParseArgs(int argc, char **argv, port::Options &o) {
             o.menuTest = next();
         } else if (a == "--audio-dump") {
             o.audioDump = next();
+        } else if (a == "--record-video") {
+            o.videoOut = next();
         } else if (a == "--dump-program") {
             o.dumpProgram = next();
         } else {
@@ -4005,6 +4164,10 @@ int main(int argc, char **argv) {
     }
     int result = 0;
     const auto begin = std::chrono::steady_clock::now();
+    // (--record-video: the whole run, from its first frame: Port::StartVideo, finished below)
+    if (!p.opt.videoOut.empty() && !p.StartVideo(p.opt.videoOut)) {
+        return 1;
+    }
     if (p.opt.headless) {
         std::vector<int16_t> sound;
         std::vector<float> music, musicMade;
@@ -4070,9 +4233,18 @@ int main(int argc, char **argv) {
             if (!p.opt.audioDump.empty()) {
                 sound.insert(sound.end(), p.machine->audio.begin(), p.machine->audio.end());
             }
+            bool musicFresh = false;
+            if ((!p.opt.soundtrackDump.empty() || p.recorder.Recording()) && p.soundtrackOn) {
+                p.soundtrack.Make(p.machine->soundtrack.state, !FastForward(), musicMade);
+                musicFresh = true;
+            }
+            if (p.recorder.Recording()) {
+                const std::vector<int16_t> &made = p.machine->audio;
+                p.VideoFrame(made.data(), made.size() / 2, musicFresh ? musicMade.data() : nullptr, musicFresh ? musicMade.size() / 2 : 0,
+                             p.soundtrack.Rate());
+            }
             if (!p.opt.soundtrackDump.empty() && p.soundtrackOn) {
                 // (silence where nothing plays, so that the file's time is the game's; at the first song's rate)
-                p.soundtrack.Make(p.machine->soundtrack.state, !FastForward(), musicMade);
                 musicRate = musicRate ? musicRate : (musicMade.empty() ? 0 : p.soundtrack.Rate());
                 const size_t due = musicRate ? static_cast<size_t>(p.frame * (musicRate / Machine::kFramesPerSecond)) * 2 : 0;
                 if (music.size() + musicMade.size() < due) {
@@ -4114,6 +4286,7 @@ int main(int argc, char **argv) {
     } else {
         result = port::RunWindowed(p);
     }
+    p.StopVideo();
     if (p.opt.stats) {
         const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - begin).count();
         fprintf(stderr, "%llu frames in %.2f s: %.0f a second (cpu: %s)\n", static_cast<unsigned long long>(p.frame), seconds,

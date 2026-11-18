@@ -9,6 +9,9 @@
 //
 // A fight on another game's stage (fight/guest_stages.h) has that board's layers too, behind the game's.
 //
+// What the port draws over the picture (training's hit boxes and readout) is in it too, as layers of its own, and the hit
+// boxes are listed in scene.json, each with its player (issue #398).
+//
 // A clip is the same for each frame of a few seconds, in a folder per layer, written by threads beside the game.
 #pragma once
 
@@ -69,17 +72,60 @@ public:
         uint32_t backdrop = 0;
         std::vector<uint32_t> picture; // (as shown, solid)
         std::vector<Layer> layers;     // (back to front)
+        // A fighting game's picture by what is in it (issue #367: the stage behind the fighters, each player, the stage in
+        // front of them, the panel, anything else), back to front; none for a game that does not say (battle::PartOf)
+        std::vector<Layer> parts;
+        // Each object entry by itself (issue #397), front to back: the entry drawn alone, in the box it covers (a still's:
+        // all of them in one picture, entries.png), and a map of the entry each object pixel is of (entry-map.png), so that
+        // one object can be picked out of its layer. A clip's frames have the map and the entries' boxes of it in front.
+        struct Entry {
+            std::string board;      // ("game", or "stage": another game's)
+            int entry = 0;          // (its number in its board's list)
+            uint32_t tile = 0;      // (its first tile)
+            int colour = 0, level = 0; // (its colour set, and its level: 0-7, against the scroll screens)
+            uint16_t attributes = 0;
+            int x = 0, y = 0, w = 0, h = 0; // (the box in the picture it covers)
+            std::string layer;      // (the objects layer it is in: "objects", "objects-2", "stage-objects"...)
+            std::string part;       // (the part it is in, "part-player1"...; "" if the scene has none)
+            std::string what;       // (what the game says it is: "stage", "player1", "player2", "panel", "other"; "")
+            std::vector<uint32_t> pixels; // (w x h, as a layer's; a still's only)
+        };
+        std::vector<Entry> entries;
+        std::vector<uint32_t> entryMap; // (each pixel: 1 + the front entry's place in `entries`; 0 none)
+        // The readout the port draws over the picture (issue #398), each a picture of its own with what it does not cover
+        // clear: "overlay-boxes", the hit boxes (training's, a shooting game's); "overlay-hud", the rest (the text, the
+        // frame meter). None when nothing is drawn over the picture.
+        std::vector<Layer> overlays;
+        // The hit boxes in the picture, where it shows them, each with its player and what it is (for the diorama, which
+        // puts each player's beside that player)
+        struct Box {
+            int player = -1; // (0 or 1; -1 not known)
+            uint8_t kind = 0; // (cps2recomp::HudBoxKind)
+            bool thrown = false;
+            int x = 0, y = 0, width = 0, height = 0;
+            uint32_t colour = 0; // (red in the low byte)
+            uint8_t fill = 0;    // (how solid its inside is, of 255)
+        };
+        std::vector<Box> boxes;
     };
-    // The last frame's scene (false: no records to draw it from: before the game's first object list, or --video board)
-    static bool Take(cps2recomp::Machine &machine, Scene &scene);
+    // The last frame's scene (false: no records to draw it from: before the game's first object list, or --video board);
+    // `entries`: its objects each by itself too (Scene::entries): kEntryPictures each drawn alone (a still's), kEntryMap
+    // only the map of which is in front where and their boxes there (a clip's frame: the objects drawn once more)
+    static constexpr int kNoEntries = 0, kEntryMap = 1, kEntryPictures = 2;
+    static bool Take(cps2recomp::Machine &machine, Scene &scene, int entries = kNoEntries);
 
 private:
     struct Clip {
         std::atomic<bool> on{false};
         std::string folder;
-        int wanted = 0, taken = 0;
+        int wanted = 0, taken = 0, missed = 0;
         std::vector<std::string> names; // (the first frame's layers, in its order: the folders)
         std::string json;               // (each frame's line of scene.json)
+        std::vector<std::string> partNames; // (... and the parts', issue #367)
+        std::string partsJson;
+        bool entries = false; // (a frame had objects: entry-map/ and entries/, issue #397)
+        std::vector<std::string> overlayNames; // (... and the overlays', issue #398)
+        std::string overlaysJson;
     } m_clip;
     // The writers: frames waiting to be written as PNGs
     struct Job {
@@ -123,6 +169,9 @@ public:
     void Add(cps2recomp::Machine &machine, int camera);
     // The stage's files in a folder of its own under `under` named `name`; what to say. The stitch is over.
     std::string Write(const std::string &under, const std::string &name, const std::string &stage);
+    // (stage.svg too, its layers each a group: the Game page's SVG pictures too, issue #368; set when it is written)
+    bool svg = false;
+    double svgPixelWidth = 3, svgPixelHeight = 3; // (the size of a pixel of it shown: port::SvgSize)
     void End() {
         m_begun = false;
         m_layers.clear();

@@ -585,6 +585,16 @@ namespace {
             return;
         }
         (void)machine;
+        // (the Game page's SVG pictures too: the same picture as an SVG, at the PNG's size)
+        if (FeatureOn("export_svg")) {
+            const int size = ExportSize();
+            if (!image_files::WriteSvg(folder + file + ".svg", pictures[0], pictures[0].width * size, pictures[0].height * size)) {
+                Say("NOT SAVED");
+                return;
+            }
+            Say("SAVED  exports/" + file + ".png .svg");
+            return;
+        }
         Say("SAVED  exports/" + file + ".png");
     }
 
@@ -696,14 +706,22 @@ namespace {
         const size_t count = pictures.size();
         g_writing = true;
         Say("SAVING " + std::to_string(count) + " FRAMES...");
-        std::thread([folder, name, shown, size, json, times, count, pictures = std::move(pictures), sheet = std::move(sheet)] {
+        const bool svg = FeatureOn("export_svg"); // (the Game page's SVG pictures too: each frame's and the sheet's)
+        std::thread([folder, name, shown, size, json, times, count, svg, pictures = std::move(pictures), sheet = std::move(sheet)] {
             bool ok = true;
             char file[32];
             for (size_t n = 0; n < count; n++) {
                 snprintf(file, sizeof(file), "frame %02d.png", static_cast<int>(n));
                 ok = image_files::WritePng(folder + file, pictures[n], size) && ok;
+                if (svg) {
+                    snprintf(file, sizeof(file), "frame %02d.svg", static_cast<int>(n));
+                    ok = image_files::WriteSvg(folder + file, pictures[n], pictures[n].width * size, pictures[n].height * size) && ok;
+                }
             }
             ok = image_files::WritePng(folder + "sheet.png", sheet, size) && ok;
+            if (svg) {
+                ok = image_files::WriteSvg(folder + "sheet.svg", sheet, sheet.width * size, sheet.height * size) && ok;
+            }
             ok = image_files::WriteApng(folder + name + ".png", pictures, times, size) && ok;
             ok = image_files::WriteGif(folder + name + ".gif", pictures, times, size) && ok;
             ok = image_files::WriteAll(folder + "animation.json", std::vector<uint8_t>(json.begin(), json.end())) && ok;

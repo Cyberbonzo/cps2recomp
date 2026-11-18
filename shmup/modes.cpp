@@ -540,14 +540,22 @@ namespace {
     void Boxes(const Machine &machine) {
         std::vector<HudBox> boxes;
         if (d.playing && d.playing() && g.mode != Mode::Viewer && !Starting()) {
+            // (each marked as the hit box it is, for the scene export: port/scene.h)
+            auto add = [&](void (*make)(std::vector<HudBox> &), uint8_t kind) {
+                const size_t from = boxes.size();
+                make(boxes);
+                for (size_t n = from; n < boxes.size(); n++) {
+                    boxes[n].kind = kind;
+                }
+            };
             if (FeatureValue("enemy_hitboxes") && d.bodyBoxes) {
-                d.bodyBoxes(boxes);
+                add(d.bodyBoxes, kHudShmupBody);
             }
             if (FeatureValue("bullet_hitboxes") && d.shotBoxes) {
-                d.shotBoxes(boxes);
+                add(d.shotBoxes, kHudShmupShot);
             }
             if (FeatureValue("player_hitboxes") && d.shipBoxes) {
-                d.shipBoxes(boxes);
+                add(d.shipBoxes, kHudShmupShip);
             }
         }
         if (boxes.empty() && g_boxesBefore.empty() && g_boxesListed.empty() && cps2recomp::Boxes().empty()) {
