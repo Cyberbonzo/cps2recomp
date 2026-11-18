@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Instant replay**: the in-game menu's **Game > Video** page's **Save replay** (Alt+Shift+F12) saves the last 30
+  seconds just played as a video, with no recording started (**Replay length**: 30, 60 or 10 seconds, or off). The
+  game keeps a state every second and every frame's controls, and plays them again into the video beside the game in a
+  few seconds, which goes on as it does.
 - **The scene diorama as a 3D model**: **Save 3D model (glTF)** writes the scene as shown as a `.glb`: each layer, object
   picked out and overlay a flat cut-out at its depth, named as in the list, with the camera, for Blender (File > Import
   > glTF 2.0) and other 3D programs. From its camera Blender draws the game's picture.
