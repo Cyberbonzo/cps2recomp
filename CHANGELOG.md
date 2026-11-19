@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Arcade monitor: modes at the board's exact rate, and a frame delay**: on Windows, **Make the mode at the board's
+  rate** (Arcade monitor page) has Switchres make the 384 x 224 or super resolution mode at exactly 59.637 Hz and
+  switch the screen to it, for the **Monitor** chosen (Arcade 15 kHz, a TV, the tri-sync monitors...), as GroovyMAME
+  does; the desktop's mode comes back when the game ends. And synced to the screen, each frame's controls are read
+  and its picture made as late before the screen's refresh as it can be (a frame delay, worked out by itself), which
+  takes most of the wait for the refresh out of the controls' lag. The log says the mode made and the delay.
 - **Arcade monitor: synced to the screen**: in full screen at an arcade resolution, the game now runs one frame for
   each of the screen's refreshes instead of on the board's own 59.64 Hz clock, so a mode that isn't exactly that rate
   (most CRT Emudriver modes run at 59.98 or 60 Hz) no longer shows a frame twice every few seconds or tears. **Keep

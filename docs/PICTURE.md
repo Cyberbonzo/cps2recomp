@@ -65,6 +65,20 @@ mode the monitor can't take is never chosen while playing.
   such a mode shows a frame twice every few seconds (a hitch in a scroll) and tears; synced, it never does, and the
   game runs 0.6% faster at 60 Hz. On: the board's clock, each picture shown as soon as it's made. Online, always the
   board's pace. The log says the screen's measured rate every ten seconds.
+- **Make the mode at the board's rate** (Windows): with 384 x 224 or Super resolution, full screen has
+  [Switchres](https://github.com/antonioginer/switchres) (GroovyMAME's) make that mode at exactly 59.637 Hz and
+  switch the screen to it (CRT Emudriver's custom modes), instead of taking the nearest mode the system lists (most
+  run at 59.98 or 60 Hz). The game then plays at the board's own speed when synced to the screen, and on the board's
+  pace never shows a frame twice. The desktop's mode comes back when the game ends. If Switchres can't make it, the
+  listed mode is used, and the log says why.
+- **Monitor**: the monitor whose ranges Switchres keeps to (its presets): Arcade 15 kHz, Generic 15 kHz (a TV or
+  consumer CRT), NTSC TV, PAL TV, Arcade 15/25 kHz, Arcade 15/25/31 kHz, Arcade 31 kHz. A mode outside a monitor's
+  ranges can harm it: choose the one it is.
+- **The frame delay**: synced to the screen, each frame's controls are read and its picture made as late before the
+  screen's refresh as it can be, rather than just after the one before: the longest a frame has taken lately, and a
+  margin, before the refresh (wider after a refresh is missed, narrower again in time). That takes most of the wait
+  for the refresh out of the controls' lag. It needs the system to say when the screen refreshes, so it is on Windows
+  only for now; the log's "sync to the screen" line says the delay and how many refreshes were missed.
 - **Compact menu**: the in-game menu in small letters with its rows close together, so a page fits in 224 lines. It
   is on by itself in full screen at an arcade resolution.
 

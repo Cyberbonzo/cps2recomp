@@ -105,6 +105,15 @@ at build time (below).
 `recomp-common/launcher/src/countries.h` has their names from it. A release carries the license as
 `licenses/flag-icons-MIT.txt`.
 
+### Switchres (GPL-2.0-or-later)
+
+`third_party/switchres/` is [Switchres](https://github.com/antonioginer/switchres) 2.2.2 (commit 1b1982c), the
+modeline generator GroovyMAME uses, Copyright 2010-2021 Chris Kennedy, Antonio Giner, Alexandre Wodarczyk and Gil
+Delescluse. Its sources are kept as published (only those the Windows build compiles, and the Linux backends, are
+here). It is licensed under the GNU General Public License, version 2 or (at your option) any later version, and so
+is used here under the GPL-3.0. The Windows programs link it in (the Arcade monitor page's Make the mode at the
+board's rate).
+
 ## Downloaded at build time
 
 None of these is stored in this repository.

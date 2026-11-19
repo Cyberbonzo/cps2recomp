@@ -4,6 +4,7 @@
 // The window: SDL3 picture, sound and controls around Port::RunFrame().
 #include "game_info.h"
 
+#include "arcade_screen.h"
 #include "bindings.h"
 #include "port.h"
 #include "png_write.h"
@@ -105,10 +106,28 @@ namespace {
     }
 
     // The window's full screen as the Arcade monitor page says (ArcadeResolution): its mode on the chosen screen where
-    // it has one; else the desktop's own. Kept by the window for F11 too
-    void SetFullscreenMode(SDL_Window *window) {
+    // it has one; else the desktop's own. Kept by the window for F11 too. With Make the mode at the board's rate, and the
+    // window full screen (`full`), the desktop switched to a mode Switchres makes at the board's exact rate
+    // (arcade_screen.h), and the window full screen on that desktop
+    void SetFullscreenMode(SDL_Window *window, bool full) {
         SDL_DisplayMode mode{};
         const ArcadeMode want = ArcadeResolution();
+        if (want != ArcadeMode::Off && full && SwitchresChosen()) {
+            MadeMode made;
+            std::string error;
+            const int columns = want == ArcadeMode::Super ? 2560 : Video::kWidth;
+            if (SwitchresMake(DisplayScreen(), ArcadeMonitorPreset(), columns, Video::kHeight, Machine::kFramesPerSecond, made, error)) {
+                fprintf(stderr, "full screen: switchres made %dx%d at %.3f Hz (%.3f kHz)%s for monitor %s\n", made.width, made.height,
+                        made.vfreq, made.hfreq / 1000, made.exact ? "" : ", not the board's rate: the monitor's ranges allow no nearer",
+                        ArcadeMonitorPreset());
+                SDL_PumpEvents(); // (the system's word that the desktop changed)
+                SDL_SetWindowFullscreenMode(window, nullptr);
+                return;
+            }
+            fprintf(stderr, "full screen: switchres: %s; a mode the system lists instead\n", error.c_str());
+        } else if (SwitchresActive()) {
+            SwitchresRestore(); // (the Arcade monitor page back to off, or the window out of full screen)
+        }
         if (want != ArcadeMode::Off && ArcadeModeOf(ChosenDisplay(), want, mode)) {
             if (!SDL_SetWindowFullscreenMode(window, &mode)) {
                 fprintf(stderr, "full screen %dx%d at %.2f Hz: %s\n", mode.w, mode.h, mode.refresh_rate, SDL_GetError());
@@ -346,7 +365,7 @@ int RunWindowed(Port &port) {
         SDL_DestroyProperties(properties);
 #ifndef __ANDROID__
         if (made) {
-            SetFullscreenMode(made);
+            SetFullscreenMode(made, fullscreen);
             if (fullscreen && !fullscreenNow) {
                 SDL_SetWindowFullscreen(made, true);
             }
@@ -583,6 +602,15 @@ int RunWindowed(Port &port) {
     uint64_t nextFrame = SDL_GetTicksNS();
     uint64_t syncLast = 0, syncSince = 0; // (Sync to the screen: the last frame's time, the measuring's start)
     int syncFrames = 0;
+    // The frame delay, synced to the screen (GroovyMAME's frame_delay, worked out by itself): each frame's controls read
+    // and its picture made as late before the refresh it goes up at as it can be, instead of just after the one before,
+    // which takes most of the wait for the screen's refresh out of the controls' lag. Its work the longest of late
+    // (decaying), a margin for the system's own (more after a refresh missed, less again in time); only where the
+    // system says when the screen refreshes (RefreshClock, Windows)
+    RefreshClock refreshClock;
+    double syncWork = 0, syncMargin = 1.5e6, syncDelaySum = 0; // (nanoseconds)
+    uint64_t syncAimed = 0; // (the refresh the frame being made was to be ready for)
+    int syncMissed = 0, syncCalm = 0;
     bool running = true;
     while (running && !port.quit && (port.opt.frames == 0 || port.frame < port.opt.frames)) {
         SDL_Event ev;
@@ -915,7 +943,7 @@ int RunWindowed(Port &port) {
                 if (DisplayScreen() != shownScreen) {
                     CentreOnScreen(window);
                 }
-                SetFullscreenMode(window);
+                SetFullscreenMode(window, full);
                 if (full) {
                     SDL_SetWindowFullscreen(window, true);
                 }
@@ -927,8 +955,27 @@ int RunWindowed(Port &port) {
 #endif
         // (Sync to the screen, in full screen at an arcade mode and not online: each frame waits for the screen's
         // refresh, the frame timer below only keeping a frame from coming far sooner than one)
-        const bool arcadeMode = window && (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN) && SDL_GetWindowFullscreenMode(window);
+        // (an arcade mode: the one the window was given, or the desktop in the mode Switchres made)
+        const bool arcadeMode = window && (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN) &&
+                                (SDL_GetWindowFullscreenMode(window) || SwitchresActive());
         const bool syncScreen = arcadeMode && ArcadeSyncChosen() && !port.net;
+        // (the screen's refreshes followed while synced, for the frame delay: started again when the window's size,
+        // so its mode, changes)
+        {
+            static bool clockOn = false;
+            static int clockWidth = 0, clockHeight = 0;
+            int w = 0, h = 0;
+            SDL_GetWindowSizeInPixels(window, &w, &h);
+            if (syncScreen && (!clockOn || w != clockWidth || h != clockHeight)) {
+                refreshClock.Start(window);
+                clockOn = true;
+                clockWidth = w;
+                clockHeight = h;
+            } else if (!syncScreen && clockOn) {
+                refreshClock.Stop();
+                clockOn = false;
+            }
+        }
         // (the Display page's VSync, as changed in the menu)
         presenter.SetVsync(FeatureOn("display_vsync") || syncScreen);
         if (port.quit) {
@@ -1149,21 +1196,53 @@ int RunWindowed(Port &port) {
             // (paced by the screen: the picture just shown waited for its refresh. A frame never sooner than nine
             // tenths of the board's after the last, in case the system shows it without waiting)
             const uint64_t now = SDL_GetTicksNS();
-            const uint64_t soonest = syncLast + static_cast<uint64_t>(kFrameNs * 0.9);
-            if (syncLast && now < soonest) {
-                SDL_DelayPrecise(soonest - now);
+            uint64_t refresh = 0;
+            double period = 0;
+            double delay = 0;
+            if (syncLast && refreshClock.Next(now, refresh, period)) {
+                // (this frame's work, from the end of the last delay to its picture shown)
+                const double work = static_cast<double>(now - syncLast);
+                syncWork = std::max(work, syncWork - 20000.0);
+                // (shown after the refresh it was made for: missed, and a frame stays up twice; a wider margin)
+                if (syncAimed && now > syncAimed) {
+                    syncMissed++;
+                    syncMargin = std::min(syncMargin + 500000.0, 6e6);
+                    syncCalm = 0;
+                } else if (++syncCalm >= 600 && syncMargin > 1.5e6) {
+                    syncMargin = std::max(syncMargin - 250000.0, 1.5e6);
+                    syncCalm = 0;
+                }
+                // (the picture just shown goes up at `refresh`; the next to be ready for the one after it)
+                syncAimed = refresh + static_cast<uint64_t>(period);
+                const double start = static_cast<double>(syncAimed) - syncWork - syncMargin;
+                delay = std::clamp(start - static_cast<double>(now), 0.0, period);
+                if (delay > 0) {
+                    SDL_DelayPrecise(static_cast<uint64_t>(delay));
+                }
+            } else {
+                syncAimed = 0;
+                const uint64_t soonest = syncLast + static_cast<uint64_t>(kFrameNs * 0.9);
+                if (syncLast && now < soonest) {
+                    SDL_DelayPrecise(soonest - now);
+                }
             }
+            syncDelaySum += delay;
             syncLast = SDL_GetTicksNS();
             nextFrame = syncLast;
-            // (the screen's refresh as measured, in the log every ten seconds or so: the mode's real rate)
+            // (the screen's refresh as measured, in the log every ten seconds or so: the mode's real rate; and the
+            // frame delay)
             if (!syncSince) {
                 syncSince = syncLast;
                 syncFrames = 0;
+                syncDelaySum = 0;
             } else if (++syncFrames == 600) {
-                fprintf(stderr, "sync to the screen: %.3f frames a second (the board's: %.3f)\n",
-                        syncFrames * 1e9 / static_cast<double>(syncLast - syncSince), Machine::kFramesPerSecond);
+                fprintf(stderr, "sync to the screen: %.3f frames a second (the board's: %.3f), frame delay %.1f ms%s, %d refreshes missed\n",
+                        syncFrames * 1e9 / static_cast<double>(syncLast - syncSince), Machine::kFramesPerSecond,
+                        syncDelaySum / syncFrames / 1e6, period > 0 ? "" : " (the screen's refreshes not followed: none)", syncMissed);
                 syncSince = syncLast;
                 syncFrames = 0;
+                syncDelaySum = 0;
+                syncMissed = 0;
             }
         } else if (!port.opt.unthrottled && !FastForward()) {
             syncLast = syncSince = 0;
@@ -1211,6 +1290,8 @@ int RunWindowed(Port &port) {
         port.ReplayMake();
     }
     port.StopVideo(); // (a video being recorded finished: before SDL_Quit, which takes its sound converters with it)
+    refreshClock.Stop();
+    SwitchresRestore(); // (the desktop's mode as it was)
     SDL_Quit();
     return 0;
 }
