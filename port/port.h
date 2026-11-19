@@ -407,6 +407,8 @@ int WindowSize();
 // menu switch
 enum class ArcadeMode { Off, Board, Super };
 ArcadeMode ArcadeResolution();
+// The Arcade monitor page's Sync to the screen (crt_sync): in an arcade mode, frames paced by the screen's refresh
+bool ArcadeSyncChosen();
 int DisplayScreen();
 bool CompactMenuChosen();
 // A vertical game's picture shown upright (Game::vertical, the Display page's "Picture turned"): the board's picture,
