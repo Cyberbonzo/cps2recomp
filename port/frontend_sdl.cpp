@@ -430,7 +430,7 @@ int RunWindowed(Port &port) {
         if (presenter.Shaded() && getenv("CPS2RECOMP_SHADER_SHOT")) {
             presenter.Shader()->keepLast = true;
         }
-        if (port.opt.stats) {
+        if (port.opt.stats || ArcadeResolution() != ArcadeMode::Off) {
             fprintf(stderr, "picture: %s\n", presenter.Shaded()  ? ("OpenGL, shader " + preset).c_str()
                                              : presenter.UsesGpu() ? SDL_GetGPUDeviceDriver(presenter.Device())
                                                                    : SDL_GetRendererName(presenter.Renderer()));
@@ -610,7 +610,10 @@ int RunWindowed(Port &port) {
     RefreshClock refreshClock;
     double syncWork = 0, syncMargin = 1.5e6, syncDelaySum = 0; // (nanoseconds)
     uint64_t syncAimed = 0; // (the refresh the frame being made was to be ready for)
+    uint64_t syncWorkEnd = 0; // (when this frame's work was done: its picture about to be shown, the wait for the screen not counted)
     int syncMissed = 0, syncCalm = 0;
+    uint64_t paceSince = 0; // (the board's pace in an arcade mode: the rate as measured, for the log)
+    int paceFrames = 0;
     bool running = true;
     while (running && !port.quit && (port.opt.frames == 0 || port.frame < port.opt.frames)) {
         SDL_Event ev;
@@ -1055,6 +1058,8 @@ int RunWindowed(Port &port) {
             menuPlace = {menuWhere.x, menuWhere.y, menuWhere.w, menuWhere.h, static_cast<int>(menuWidth), static_cast<int>(menuHeight)};
             SDL_Delay(8);
             nextFrame = SDL_GetTicksNS();
+            // (the menu's time is not the game's: the rates measured, and the frame delay's last frame, start again)
+            syncLast = syncSince = paceSince = 0;
             continue;
         }
 
@@ -1148,6 +1153,7 @@ int RunWindowed(Port &port) {
         // (--video gpu: the game's picture drawn on the GPU from the native records, with the readouts over it, when the
         // presenter draws with SDL_GPU and the GPU can draw the frame: gpu_picture.h; else the CPU's picture)
         bool drawn = false;
+        syncWorkEnd = SDL_GetTicksNS(); // (the frame run; drawing it and showing it are the presenter's, below)
         if (port.gpuWanted && presenter.UsesGpu() && !presenter.Shaded() && !turned && !port.FramedColumns()) {
             if (port.gpuPicture.Device() != presenter.Device()) {
                 port.gpuPicture.Close();
@@ -1200,11 +1206,13 @@ int RunWindowed(Port &port) {
             double period = 0;
             double delay = 0;
             if (syncLast && refreshClock.Next(now, refresh, period)) {
-                // (this frame's work, from the end of the last delay to its picture shown)
-                const double work = static_cast<double>(now - syncLast);
-                syncWork = std::max(work, syncWork - 20000.0);
-                // (shown after the refresh it was made for: missed, and a frame stays up twice; a wider margin)
-                if (syncAimed && now > syncAimed) {
+                // (this frame's work: from the end of the last delay to its picture handed over, never the wait for the
+                // screen in showing it, which would make the work a whole refresh and the delay nothing)
+                // (a frame held up, once, kept for a second or two at most: the longest decays by 2% a frame)
+                const double work = syncWorkEnd > syncLast ? std::min(static_cast<double>(syncWorkEnd - syncLast), period) : 0.0;
+                syncWork = std::max(work, syncWork * 0.98);
+                // (the refresh after the one aimed at already come: missed, and a frame stays up twice; a wider margin)
+                if (syncAimed && refresh > syncAimed + static_cast<uint64_t>(period * 1.5)) {
                     syncMissed++;
                     syncMargin = std::min(syncMargin + 500000.0, 6e6);
                     syncCalm = 0;
@@ -1212,8 +1220,12 @@ int RunWindowed(Port &port) {
                     syncMargin = std::max(syncMargin - 250000.0, 1.5e6);
                     syncCalm = 0;
                 }
-                // (the picture just shown goes up at `refresh`; the next to be ready for the one after it)
-                syncAimed = refresh + static_cast<uint64_t>(period);
+                // (the next frame for the next refresh; never the one aimed at last, where showing a picture did not wait
+                // for it: one frame for each refresh)
+                if (syncAimed && refresh < syncAimed + static_cast<uint64_t>(period * 0.5)) {
+                    refresh = syncAimed + static_cast<uint64_t>(period);
+                }
+                syncAimed = refresh;
                 const double start = static_cast<double>(syncAimed) - syncWork - syncMargin;
                 delay = std::clamp(start - static_cast<double>(now), 0.0, period);
                 if (delay > 0) {
@@ -1236,9 +1248,10 @@ int RunWindowed(Port &port) {
                 syncFrames = 0;
                 syncDelaySum = 0;
             } else if (++syncFrames == 600) {
-                fprintf(stderr, "sync to the screen: %.3f frames a second (the board's: %.3f), frame delay %.1f ms%s, %d refreshes missed\n",
+                fprintf(stderr, "sync to the screen: %.3f frames a second (the board's: %.3f), frame delay %.1f ms%s (work %.1f ms, margin %.1f ms), %d refreshes missed\n",
                         syncFrames * 1e9 / static_cast<double>(syncLast - syncSince), Machine::kFramesPerSecond,
-                        syncDelaySum / syncFrames / 1e6, period > 0 ? "" : " (the screen's refreshes not followed: none)", syncMissed);
+                        syncDelaySum / syncFrames / 1e6, period > 0 ? "" : " (the screen's refreshes not followed: none)",
+                        syncWork / 1e6, syncMargin / 1e6, syncMissed);
                 syncSince = syncLast;
                 syncFrames = 0;
                 syncDelaySum = 0;
@@ -1246,6 +1259,22 @@ int RunWindowed(Port &port) {
             }
         } else if (!port.opt.unthrottled && !FastForward()) {
             syncLast = syncSince = 0;
+            syncAimed = 0;
+            // (in an arcade mode on the board's pace: the rate as measured, in the log every ten seconds or so)
+            if (arcadeMode) {
+                const uint64_t at = SDL_GetTicksNS();
+                if (!paceSince) {
+                    paceSince = at;
+                    paceFrames = 0;
+                } else if (++paceFrames == 600) {
+                    fprintf(stderr, "board's pace: %.3f frames a second (the board's: %.3f)\n",
+                            paceFrames * 1e9 / static_cast<double>(at - paceSince), Machine::kFramesPerSecond);
+                    paceSince = at;
+                    paceFrames = 0;
+                }
+            } else {
+                paceSince = 0;
+            }
             nextFrame += static_cast<uint64_t>(kFrameNs);
             const uint64_t now = SDL_GetTicksNS();
             if (nextFrame > now) {
