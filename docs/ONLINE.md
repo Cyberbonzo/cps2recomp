@@ -196,7 +196,8 @@ build/mvsc/mvsc --rom rom/mvsc --join 127.0.0.1:7845 --net-service off   # (the 
 - **Win streaks**: in the fighting games, a player who wins two or more matches in a row against the other has it
   said under their life bar ("STREAK 3"), counted from when both have pressed Start, until the streak ends.
 - **Names**: each player's name, as set on the launcher's Online page, is under their life bar (Hide names, on the
-  Online page, hides them).
+  Online page, hides them and the streaks; Names shown: At the top puts each side's names and streak on one line along
+  the top edge, clear of a game's second life bars).
 - **Chat**: press T on the keyboard, a gamepad's right stick click, or the touch screen's Chat button, type a line and
   press Enter (Esc, or the click again, puts it away). The Steam Deck and phones show their own on-screen keyboard.
   The last few lines show at the bottom left for a few seconds, and under them how to chat (as a match begins) and

@@ -6,6 +6,11 @@
   running match (it goes on for both players; your fighter stands still while it is open), in place of the overlay.
   Its **Online match** page has the host's **Start Ball battle**, **Start Tag team battle** and **Back to Versus**, and
   each player's own fighters; the first page has Mute, Resume and **Leave the match**.
+- **Online names out of the way, and Cross Fever's gauge filling optional** (issue #363): the Online page's **Names
+  shown → At the top** puts each side's names and win streak on one line along the top edge of the picture, clear of
+  Marvel vs. Capcom's partner life bars; **Hide names** now hides the streaks too. Marvel vs. Capcom's **Cross Fever
+  gauges → Only by fighting** (Alternative modes page; online, the host's) stops the hyper combo gauges filling by
+  themselves.
 - **Instant replay**: the in-game menu's **Game > Video** page's **Save replay** (Alt+Shift+F12) saves the last 30
   seconds just played as a video, with no recording started (**Replay length**: 30, 60 or 10 seconds, or off). The
   game keeps a state every second and every frame's controls, and plays them again into the video beside the game in a

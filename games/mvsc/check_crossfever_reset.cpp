@@ -15,12 +15,14 @@
 #include <map>
 #include <stdexcept>
 #include <string>
+#include <string>
 
 namespace {
     using namespace cps2recomp;
     std::array<uint8_t, 0x10000> memory;
     std::map<uint32_t, HookFn> hooks;
     bool enabled = true, routing = true;
+    int gaugeChoice = 0; // (cross_fever_gauge)
 
     void Require(bool value, const std::string &why) {
         if (!value) {
@@ -48,6 +50,7 @@ namespace cps2recomp {
 
     Game &TheGame() { static Game game; return game; }
     bool FeatureOn(const char *) { return enabled; }
+    int FeatureValue(const char *name) { return std::string(name) == "cross_fever_gauge" ? gaugeChoice : 0; }
     uint8_t *Ram(uint32_t address) { return &memory[address & 0xFFFF]; }
     bool BattleMode() { return false; }
     namespace session { bool InSession() { return false; } }
@@ -254,6 +257,13 @@ int main() {
         MakeRecords();
         Require(!Step() && Step(), "normal match transitions must retain gauge phase");
         StateVersions();
+        // Cross Fever gauges: Only by fighting (issue #363): the mode stays on, the gauges get nothing by themselves
+        ClearOldState();
+        MakeRecords();
+        gaugeChoice = 1;
+        for (unsigned n = 0; n < 30; n++) { Require(!Step(), "Only by fighting still filled a gauge"); }
+        gaugeChoice = 0;
+        Require(Step(), "Fill by themselves did not come back at once"); // (the clock waited at seven meanwhile)
         std::cout << "PASS: Cross Fever reset, clock, ownership and legacy/current marked states\n";
     } catch (const std::exception &error) {
         std::cerr << "FAIL: " << error.what() << '\n';
