@@ -1318,6 +1318,13 @@ void Port::MenuAct(Menu::Action action) {
         RunCommand(menu.Command());
         menu.Close();
         return;
+    case Menu::Action::OnlineCommand:
+        OnlineCommand(menu.Command());
+        return;
+    case Menu::Action::Leave:
+        menu.Close();
+        LeaveOnline();
+        return;
     case Menu::Action::Save:
         if (SaveState(path, error)) {
             menu.Close();
@@ -1394,9 +1401,17 @@ void Port::Key(char key, unsigned n) {
     case '-': menu.Faster(-1); break;
     case '=': menu.Faster(1); break;
     case 'h': hurry = !hurry; break; // (tests: the frontend sets it while F is held)
-    case 'l': leaving = net && !leaving; break; // (tests: online, Esc's "Leave the match?")
-    case 'y': // (tests: ... answered yes)
-        if (leaving) {
+    case 'l': // (tests: online, Esc: the match's menu, or the question whether to leave)
+        if (net && (menu.IsOpen() || leaving)) {
+            menu.Close();
+            leaving = false;
+        } else if (net) {
+            OpenOnlineMenu();
+        }
+        break;
+    case 'y': // (tests: ... the match left)
+        if (net && (leaving || menu.OnlineOpen())) {
+            menu.Close();
             LeaveOnline();
         }
         break;
@@ -1876,44 +1891,13 @@ void Port::Shown(std::vector<uint32_t> &pixels, std::vector<SDL_Rect> *panels, b
             line(it->text, it->own ? recomp::text::Color{170, 200, 255, 255} : recomp::text::Color{255, 255, 255, 255});
         }
     }
-    // (online: Esc's question, in the middle, over the game, which goes on; the port's own, not the readout, which the
-    // game's sources set every frame. --net-arcade's wait: whether to stop hosting, the game stopped meanwhile)
-    if (net && leaving && !OnlineRows().empty()) {
-        // (a match: the rows, the chosen one marked; Left and Right change it, Confirm starts the mode or leaves)
-        const recomp::text::Canvas canvas{px, W, H};
-        const std::vector<OnlineRow> rows = OnlineRows();
-        std::vector<std::pair<std::string, recomp::text::Color>> lines;
-        for (int n = 0; n < static_cast<int>(rows.size()); n++) {
-            const OnlineRow &row = rows[n];
-            std::string text;
-            if (row.kind == 0) {
-                text = std::string("Play: < ") + kOnlineModes[std::clamp(onlineMode, 0, 2)] + " >  (Confirm starts it)";
-            } else if (row.kind == 1) {
-                const Feature *feature = FindFeature(row.feature);
-                const auto it = onlinePicks.find(row.feature);
-                const int value = it != onlinePicks.end() ? it->second : FeatureValue(row.feature.c_str());
-                const char *name = feature && value >= 0 && value < static_cast<int>(feature->choices.size()) ? feature->choices[value] : "?";
-                text = row.title + ": < " + name + " >";
-            } else {
-                text = row.title;
-            }
-            const bool on = n == std::clamp(onlineRow, 0, static_cast<int>(rows.size()) - 1);
-            lines.push_back({(on ? "> " : "  ") + text, on ? recomp::text::Color{255, 210, 80, 255} : recomp::text::Color{255, 255, 255, 255}});
-        }
-        lines.push_back({"Up/Down: row  Left/Right: change  Confirm  Back: close", {170, 170, 170, 255}});
-        float width = 0;
-        for (const auto &line : lines) {
-            width = std::max(width, recomp::text::TextWidth(line.first.c_str(), 1));
-        }
-        const float x = (W - width) / 2;
-        float y = H / 2.0f - 11.0f * static_cast<float>(lines.size());
-        canvas.Fill(x - 8, y - 6, width + 16, 22.0f * static_cast<float>(lines.size()) + 4, {20, 22, 30, 235});
+    // (online: the menu (Port::OpenOnlineMenu), in the middle, over the game, which goes on; the port's own, not the
+    // readout, which the game's sources set every frame. Esc's question when there is no match to choose for (watching,
+    // --net-arcade's wait: whether to stop hosting, the game stopped meanwhile)
+    if (net && menu.OnlineOpen() && notices) {
+        menu.Draw(px, W, H);
         if (panels) {
-            panels->push_back({static_cast<int>(x) - 8, static_cast<int>(y) - 6, static_cast<int>(width) + 17, 22 * static_cast<int>(lines.size()) + 4});
-        }
-        for (const auto &line : lines) {
-            canvas.Text(x, y, 1, 0, line.second, line.first.c_str());
-            y += 22;
+            panels->push_back({0, 0, W, H});
         }
     } else if (net && leaving) {
         const recomp::text::Canvas canvas{px, W, H};
@@ -3223,78 +3207,83 @@ void Port::OnlineEvent(int player, const std::string &text) {
     }
 }
 
-std::vector<Port::OnlineRow> Port::OnlineRows() const {
-    std::vector<OnlineRow> rows;
+void Port::OpenOnlineMenu() {
+    leaving = false;
     if (!net || connecting || net->Watching()) {
-        return rows;
+        // (watching, or a host waiting: no match to choose for, only Esc's question: Confirm leaves, Back stays)
+        leaving = true;
+        return;
     }
     const int me = net->Local();
+    Menu::Online online;
+    onlineModes.clear();
+    onlineRows.clear();
     if (net->Players() == 2 && net->Hosting()) {
-        rows.push_back({0, "", ""});
-    }
-    if (net->Players() == 2 && FindFeature(me == 0 ? "court_one" : "court_two")) {
-        rows.push_back({1, me == 0 ? "court_one" : "court_two", "Ball battle: your fighter"});
-    }
-    if (net->Players() == 2 && FindFeature("team_size")) {
-        const int size = FeatureValue("team_size") == 1 ? 3 : 2;
-        static const char *const kOrder[3] = {"first", "second", "third"};
-        for (int n = 0; n < size; n++) {
-            rows.push_back({1, "team_" + std::to_string(me + 1) + "_" + std::to_string(n + 1), std::string("Tag team: your ") + kOrder[n]});
+        // (the host's: each mode this game has, a command that starts it for both, and Versus that ends it)
+        for (const int mode : {1, 2, 0}) {
+            if (!OnlineModeHere(mode) || (mode == 0 && onlineModes.empty())) {
+                continue;
+            }
+            onlineModes.push_back(mode);
+            online.commands.push_back({Menu::kOnlinePage, mode == 0 ? "Back to Versus" : std::string("Start ") + kOnlineModes[mode],
+                                       mode == 0 ? "Ends the mode for both players: the board starts again, and each presses Start to "
+                                                   "come back in."
+                                                 : std::string("Starts ") + kOnlineModes[mode] + " for both players, with your settings "
+                                                   "of its page from before the match, and each player's own picks below."});
         }
     }
-    rows.push_back({2, "", net->Hosting() && hostedFromMenu ? "Leave the match (play alone)" : "Leave the match"});
-    return rows;
-}
-
-void Port::OnlineMenu(unsigned pressed) {
-    const std::vector<OnlineRow> rows = OnlineRows();
-    if (rows.empty()) {
-        // (watching, or a host waiting: Confirm leaves, Back stays)
-        if (pressed & recomp::kMenuConfirm) {
-            LeaveOnline();
-        } else if (pressed & recomp::kMenuBack) {
-            leaving = false;
+    auto pick = [&](const std::string &feature, const std::string &title, const std::string &description) {
+        const Feature *found = FindFeature(feature);
+        if (!found) {
+            return;
         }
-        return;
-    }
-    const int count = static_cast<int>(rows.size());
-    onlineRow = std::clamp(onlineRow, 0, count - 1);
-    if (pressed & recomp::kMenuBack) {
-        leaving = false;
-        return;
-    }
-    if (pressed & recomp::kMenuUp) {
-        onlineRow = (onlineRow + count - 1) % count;
-    }
-    if (pressed & recomp::kMenuDown) {
-        onlineRow = (onlineRow + 1) % count;
-    }
-    const OnlineRow &row = rows[onlineRow];
-    const int way = (pressed & recomp::kMenuRight) ? 1 : (pressed & recomp::kMenuLeft) ? -1 : 0;
-    if (row.kind == 0) {
-        for (int n = 0; way && n < 3; n++) { // (the next mode this game has)
-            onlineMode = (onlineMode + way + 3) % 3;
-            if (OnlineModeHere(onlineMode)) {
-                break;
+        onlineRows.push_back(feature);
+        online.features.push_back({Menu::kOnlinePage, title, description, {found->choices.begin(), found->choices.end()}});
+    };
+    if (net->Players() == 2) {
+        pick(me == 0 ? "court_one" : "court_two", "Ball battle: your fighter",
+             "Who you play in the ball battle: someone at random, or this one. The other player sees your choice.");
+        if (FindFeature("team_size")) {
+            const int size = FeatureValue("team_size") == 1 ? 3 : 2;
+            static const char *const kOrder[3] = {"first", "second", "third"};
+            for (int n = 0; n < size; n++) {
+                pick("team_" + std::to_string(me + 1) + "_" + std::to_string(n + 1), std::string("Tag team: your ") + kOrder[n],
+                     std::string("Your team's ") + kOrder[n] + " fighter in the tag team battle: someone at random, or this one.");
             }
         }
-        if (pressed & recomp::kMenuConfirm) {
-            const uint32_t seed = static_cast<uint32_t>(std::random_device()()) | 1;
-            net->Command("mode=" + std::to_string(onlineMode) + ":" + std::to_string(seed));
-            leaving = false;
+    }
+    online.value = [this](size_t row) {
+        if (row >= onlineRows.size()) {
+            return 0;
         }
-    } else if (row.kind == 1 && way) {
-        const Feature *feature = FindFeature(row.feature);
-        if (feature && !feature->choices.empty()) {
-            const int choices = static_cast<int>(feature->choices.size());
-            const auto it = onlinePicks.find(row.feature);
-            const int now = it != onlinePicks.end() ? it->second : FeatureValue(feature->name);
-            const int next = (now + way + choices) % choices;
-            onlinePicks[row.feature] = next;
-            net->Command(row.feature + "=" + std::to_string(next));
+        const auto it = onlinePicks.find(onlineRows[row]);
+        return it != onlinePicks.end() ? it->second : FeatureValue(onlineRows[row].c_str());
+    };
+    online.setValue = [this](size_t row, int value) {
+        if (row < onlineRows.size() && net) {
+            onlinePicks[onlineRows[row]] = value;
+            net->Command(onlineRows[row] + "=" + std::to_string(value));
         }
-    } else if (row.kind == 2 && (pressed & recomp::kMenuConfirm)) {
+    };
+    online.leave = net->Hosting() && hostedFromMenu ? "Leave the match (play alone)" : "Leave the match";
+    online.leaveDescription = net->Hosting() && hostedFromMenu ? "Ends the match for both: your own game comes back, still hosted."
+                                                               : "Ends the match for both players.";
+    menu.OpenOnline(std::move(online));
+}
+
+void Port::OnlineCommand(size_t index) {
+    if (net && index < onlineModes.size()) {
+        const uint32_t seed = static_cast<uint32_t>(std::random_device()()) | 1;
+        net->Command("mode=" + std::to_string(onlineModes[index]) + ":" + std::to_string(seed));
+    }
+    menu.Close();
+}
+
+void Port::LeaveQuestion(unsigned pressed) {
+    if (pressed & recomp::kMenuConfirm) {
         LeaveOnline();
+    } else if (pressed & recomp::kMenuBack) {
+        leaving = false;
     }
 }
 
@@ -3556,24 +3545,39 @@ void Port::RunFrame() {
         const size_t first = opt.menuTest.find(':'), second = opt.menuTest.find(':', first + 1);
         const std::string keys =
             opt.menuTest.substr(first + 1, second == std::string::npos ? std::string::npos : second - first - 1);
-        menu.Open(true);
-        for (const char key : keys) {
-            MenuAct(menu.Buttons(key == 'u' ? kUp : key == 'd' ? kDown : key == 'l' ? kLeft : key == 'r' ? kRight : key == 'a' ? kPunch1 : 0));
-        }
-        if (second != std::string::npos && menu.IsOpen()) {
-            std::vector<uint32_t> pixels;
-            uint32_t width = 0, height = 0;
-            // (CPS2RECOMP_MENU_SIZE=WxH: at that size, as on a screen of it; the menu compact as the Arcade monitor page says)
-            int wantWidth = 0, wantHeight = 0;
-            if (const char *size = getenv("CPS2RECOMP_MENU_SIZE")) {
-                sscanf(size, "%dx%d", &wantWidth, &wantHeight);
+        if (net && !connecting) {
+            // (online: the match's menu, over the game, which goes on; it is left open, as the player would leave it)
+            OpenOnlineMenu();
+            for (const char key : keys) {
+                MenuAct(menu.Buttons(key == 'u' ? kUp : key == 'd' ? kDown : key == 'l' ? kLeft : key == 'r' ? kRight : key == 'a' ? kPunch1 : 0));
             }
-            menu.SetCompact(CompactMenuChosen() || (wantHeight > 0 && wantHeight < 2 * Video::kHeight && port::ArcadeResolution() != port::ArcadeMode::Off));
-            MenuPicture(pixels, width, height, wantWidth, wantHeight);
-            menu.Draw(pixels.data(), static_cast<int>(width), static_cast<int>(height));
-            WritePng(opt.menuTest.substr(second + 1).c_str(), pixels.data(), width, height);
+            if (second != std::string::npos) {
+                std::vector<uint32_t> pixels;
+                Shown(pixels);
+                WritePng(opt.menuTest.substr(second + 1).c_str(), pixels.data(), static_cast<uint32_t>(ShownWidth()), Video::kHeight);
+            }
+            opt.menuTest.clear();
         }
-        menu.Close();
+        if (!opt.menuTest.empty()) {
+            menu.Open(true);
+            for (const char key : keys) {
+                MenuAct(menu.Buttons(key == 'u' ? kUp : key == 'd' ? kDown : key == 'l' ? kLeft : key == 'r' ? kRight : key == 'a' ? kPunch1 : 0));
+            }
+            if (second != std::string::npos && menu.IsOpen()) {
+                std::vector<uint32_t> pixels;
+                uint32_t width = 0, height = 0;
+                // (CPS2RECOMP_MENU_SIZE=WxH: at that size, as on a screen of it; the menu compact as the Arcade monitor page says)
+                int wantWidth = 0, wantHeight = 0;
+                if (const char *size = getenv("CPS2RECOMP_MENU_SIZE")) {
+                    sscanf(size, "%dx%d", &wantWidth, &wantHeight);
+                }
+                menu.SetCompact(CompactMenuChosen() || (wantHeight > 0 && wantHeight < 2 * Video::kHeight && port::ArcadeResolution() != port::ArcadeMode::Off));
+                MenuPicture(pixels, width, height, wantWidth, wantHeight);
+                menu.Draw(pixels.data(), static_cast<int>(width), static_cast<int>(height));
+                WritePng(opt.menuTest.substr(second + 1).c_str(), pixels.data(), width, height);
+            }
+            menu.Close();
+        }
     }
     memcpy(machine->players, pad, sizeof(pad));
     RapidFire();

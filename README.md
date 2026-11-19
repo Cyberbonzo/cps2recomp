@@ -97,8 +97,8 @@ Linux, the Steam Deck and Windows can play each other.
   timer, rounds); cheats are off.
 - **Four players**: in the tag-team games, with Tag team at 2 vs 2 on the host, a match is four people, each on their
   own machine or two at a machine (**People at this machine** on the Online page), all joining with the one code.
-- **Ball battle and tag team online**: in two-person matches, the host switches to either from Esc's overlay (and
-  back to versus), and each player picks their own fighters there.
+- **Ball battle and tag team online**: in two-person matches, the host starts either from the in-game menu (Esc), which
+  opens over the running match, and each player picks their own fighters there.
 - **On screen:** the players' **names**, the ping (and the input delay, if you like), and the **win streak** of a
   player who keeps winning.
 - **FT5 / FT10:** in Marvel vs. Capcom and X-Men vs. Street Fighter, the host can choose **Set format** on the

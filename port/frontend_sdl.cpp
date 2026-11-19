@@ -513,12 +513,15 @@ int RunWindowed(Port &port) {
     bool stickWaiting = false;
     auto toggleMenu = [&]() {
         if (port.net) {
-            // (online: no menu, the game goes on for both players; Esc gives up a wait, and in a match asks whether to
-            // leave it: Port::leaving)
+            // (online: the game goes on for both players; Esc gives up a wait, and in a match opens the match's own menu
+            // over it, or asks whether to leave when there is nothing to choose: Port::OpenOnlineMenu)
             if (port.connecting && !port.net->Arcade()) {
                 port.LeaveOnline();
+            } else if (port.menu.IsOpen() || port.leaving) {
+                port.menu.Close();
+                port.leaving = false;
             } else {
-                port.leaving = !port.leaving;
+                port.OpenOnlineMenu();
             }
             return;
         }
@@ -537,7 +540,7 @@ int RunWindowed(Port &port) {
     uint64_t openedByT = 0; // (when T opened it: its own letter, if the system sends it as text too, is not the line's)
     bool keysAfterChat = false;
     auto chatOpen = [&](bool open) {
-        if (open == port.typing || (open && (!port.net || port.connecting || port.leaving))) {
+        if (open == port.typing || (open && (!port.net || port.connecting || port.leaving || port.menu.IsOpen()))) {
             return;
         }
         port.typing = open;
@@ -617,10 +620,10 @@ int RunWindowed(Port &port) {
                 }
                 continue;
             }
-            // (online, Esc's overlay: the right button leaves it, as Back does)
+            // (online, Esc's question: the right button leaves it, as Back does)
             if (port.leaving && ev.type == SDL_EVENT_MOUSE_BUTTON_DOWN && ev.button.which != SDL_TOUCH_MOUSEID &&
                 ev.button.button == SDL_BUTTON_RIGHT) {
-                port.OnlineMenu(recomp::kMenuBack);
+                port.LeaveQuestion(recomp::kMenuBack);
                 continue;
             }
             switch (ev.type) {
@@ -849,14 +852,13 @@ int RunWindowed(Port &port) {
                     port.menu.Note(""); // (a press of something else still takes the note away)
                     menuDirty = true;
                 }
-                if (!port.menu.IsOpen()) {
-                    heldAtClose = previousPad;
+                if (!port.menu.IsOpen() || port.net) {
+                    heldAtClose = previousPad; // (online, the game goes on: this side's player stands still meanwhile)
                 }
             } else if (port.leaving) {
-                // (online, Esc's overlay: the host's mode, this player's fighters, leaving: Port::OnlineMenu; this side's
-                // player stands still meanwhile)
+                // (online, Esc's question: Confirm leaves, Back stays; this side's player stands still meanwhile)
                 if (menuPressed) {
-                    port.OnlineMenu(menuPressed);
+                    port.LeaveQuestion(menuPressed);
                 }
                 heldAtClose = previousPad;
             }
@@ -971,8 +973,14 @@ int RunWindowed(Port &port) {
             presenter.SetOverlay(touchPicture.empty() ? nullptr : touchPicture.data(), touchWidth, touchHeight);
         }
 
-        if (port.menu.IsOpen()) {
-            // The game's picture as it was, with the menu over it
+        if (port.menu.IsOpen() && port.net) {
+            // (online, the menu on the game's own picture, where it is shown: for the mouse, menu_sdl.h)
+            menuPlace = {where.x, where.y, where.w, where.h, turned ? +Video::kHeight : port.ShownWidth(),
+                         turned ? port.ShownWidth() : +Video::kHeight};
+        }
+        if (port.menu.IsOpen() && !port.net) {
+            // The game's picture as it was, with the menu over it (online, the game goes on, the menu drawn on its picture:
+            // Port::Shown)
             if (menuBase.empty()) {
                 port.MenuPicture(menuBase, menuWidth, menuHeight, menuWantWidth, menuWantHeight); // (the size changed)
                 menuDirty = true;

@@ -293,7 +293,7 @@ struct Port {
     // Online play (netplay.h): the other side found before the first frame, and each frame run through it
     std::unique_ptr<Netplay> net;
     bool connecting = false; // (the other side not found yet: a window shows the wait)
-    bool leaving = false;    // (online: Esc asked whether to leave the match; said on the screen until answered)
+    bool leaving = false;    // (online, watching or waiting: Esc asked whether to leave; said on the screen until answered)
     bool cameIn = false;
     // Online: each side's win streak (matches won in a row, the other player's against them), counted in the fights
     // both players have pressed Start for (fight/battle.h: the round's result, and the rounds a match is won with); said
@@ -341,14 +341,14 @@ struct Port {
     // frame it was given for: "mode=N:SEED" (the host's: battle::StartOnline) and "row=value" (a player's own fighters
     // on the modes' pages: player 1's rows the host's, player 2's the other's), commas between
     void OnlineEvent(int player, const std::string &text);
-    // Esc's overlay in a match: its rows (the host's mode, this player's fighters, leaving), and a menu press on it
-    struct OnlineRow {
-        int kind = 0; // 0 the mode, 1 a fighter's row (`feature`), 2 leave
-        std::string feature, title;
-    };
-    std::vector<OnlineRow> OnlineRows() const;
-    void OnlineMenu(unsigned pressed);
-    int onlineRow = 0, onlineMode = 1;
+    // Esc in a match: the match's own menu (Menu::OpenOnline), drawn over the game, which goes on: the host's modes to
+    // start (OnlineCommand), this player's own fighters for them (onlinePicks, sent as events), leaving. Watching, or a
+    // host waiting, Esc asks only whether to leave (`leaving`, answered by LeaveQuestion)
+    void OpenOnlineMenu();
+    void OnlineCommand(size_t index);
+    void LeaveQuestion(unsigned pressed);
+    std::vector<int> onlineModes;           // (the menu's commands' modes, in its order)
+    std::vector<std::string> onlineRows;    // (the menu's features' rows: the game's features they stand for)
     std::map<std::string, int> onlinePicks; // (this player's fighters as chosen, before their events have run)
     void HearEvents();
     void Matched();
