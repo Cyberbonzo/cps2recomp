@@ -7,6 +7,13 @@
   (most CRT Emudriver modes run at 59.98 or 60 Hz) no longer shows a frame twice every few seconds or tears. **Keep
   the board's pace** (Arcade monitor page) goes back to the board's clock. The log (logs/game.log) says which arcade
   mode was chosen and the screen's refresh as measured.
+- **Online: your fighters for Tag team and Ball battle are the ones you chose**: the match's menu sometimes started a mode
+  with an earlier pick of a row instead of the last one (scrolling through the fighters and back, say), which looked
+  random. And during a Ball battle Esc opened the match's menu without showing it (the court's own framing of the picture
+  left out the menu, the chat and the names); it is shown now.
+- **Endless battle: the stage's front in front of the fighters**: with the stages shuffled or scrolling, a stage's
+  pieces that the board draws in front of the fighters (Fetus of God's bulbs, say) were covered by the fighters and
+  their shadows. They are in front again, as in a match.
 - **Online: the in-game menu in a match**: Esc (or the gamepad's menu button) opens the in-game menu, small, over the
   running match (it goes on for both players; your fighter stands still while it is open), in place of the overlay.
   Its **Online match** page has the host's **Start Ball battle**, **Start Tag team battle** and **Back to Versus**, and

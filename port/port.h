@@ -235,6 +235,9 @@ struct Port {
     // (`notices`: the port's lines at the bottom too, as the window has them: the speed, the zoom, a screenshot saved...)
     void Shown(std::vector<uint32_t> &pixels, std::vector<SDL_Rect> *panels = nullptr, bool over = false, uint32_t base = 0,
                bool boxes = true, bool notices = true) const;
+    // ... all of it but the game's picture and its boxes and text (DrawHud), on a picture of W x H: also over a mode's own
+    // framing of the picture (Framed), which would else have none of it (online, the match's menu)
+    void Overlays(uint32_t *px, int W, int H, std::vector<SDL_Rect> *panels, bool notices, int across) const;
     // The readouts alone (all Shown draws over the game's picture), for the GPU's picture (gpu_picture.h): red, green,
     // blue, alpha bytes, the colours times the alpha; from Shown over black and over white, whose difference is what
     // the readouts leave of what is under them
