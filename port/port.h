@@ -340,7 +340,11 @@ struct Port {
     // Online, the modes played in a match (Netplay::Command): an event of `player`'s, run on both sides before the
     // frame it was given for: "mode=N:SEED" (the host's: battle::StartOnline) and "row=value" (a player's own fighters
     // on the modes' pages: player 1's rows the host's, player 2's the other's), commas between
-    void OnlineEvent(int player, const std::string &text);
+    // (`at`: the frame it is run before. A mode starts with each row as the events before its frame left it, in
+    // onlinePickLog: a rollback back to before a pick may have run that pick already)
+    void OnlineEvent(int player, const std::string &text, uint64_t at);
+    std::map<std::string, std::map<uint64_t, int>> onlinePickLog;
+    std::map<std::string, int> onlinePickBase; // (each row as it was before its first event)
     // Esc in a match: the match's own menu (Menu::OpenOnline), drawn over the game, which goes on: the host's modes to
     // start (OnlineCommand), this player's own fighters for them (onlinePicks, sent as events), leaving. Watching, or a
     // host waiting, Esc asks only whether to leave (`leaving`, answered by LeaveQuestion)

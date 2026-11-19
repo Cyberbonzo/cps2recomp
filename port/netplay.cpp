@@ -2019,7 +2019,7 @@ void Netplay::Run(Port &port, uint64_t at, bool drawing) {
     }
     for (int machine = 0; needed == 2 && machine < machines; ++machine) {
         const auto event = events[machine].find(at);
-        if (event != events[machine].end()) port.OnlineEvent(machine, event->second);
+        if (event != events[machine].end()) port.OnlineEvent(machine, event->second, at);
     }
     const bool versus = set.Target() && battle::TwoPeopleNow();
     port.machine->drawing = drawing;

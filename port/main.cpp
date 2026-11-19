@@ -34,6 +34,7 @@
 #include <zlib.h>
 
 #include <algorithm>
+#include <iterator>
 #include <chrono>
 #include <cmath>
 #include <map>
@@ -3182,7 +3183,7 @@ void Port::LeaveOnline() {
 }
 
 
-void Port::OnlineEvent(int player, const std::string &text) {
+void Port::OnlineEvent(int player, const std::string &text, uint64_t at) {
     for (size_t at = 0; at < text.size();) {
         const size_t comma = std::min(text.find(',', at), text.size());
         const std::string item = text.substr(at, comma - at);
@@ -3196,11 +3197,20 @@ void Port::OnlineEvent(int player, const std::string &text) {
             const int mode = atoi(item.c_str() + eq + 1);
             const size_t colon = item.find(':', eq);
             const uint32_t seed = colon == std::string::npos ? 1 : static_cast<uint32_t>(strtoul(item.c_str() + colon + 1, nullptr, 10));
+            // (each row as the events before this frame left it: a rollback back to here may have run later ones already)
+            for (const auto &[row, log] : onlinePickLog) {
+                const auto it = log.upper_bound(at);
+                SetFeatureForNow(row.c_str(), it == log.begin() ? onlinePickBase[row] : std::prev(it)->second);
+            }
             battle::StartOnline(*machine, mode, seed);
         } else if (OwnRow(player, name)) {
             const Feature *feature = FindFeature(name);
             const int value = atoi(item.c_str() + eq + 1);
             if (feature && value >= 0 && value < static_cast<int>(std::max<size_t>(feature->choices.size(), 2))) {
+                if (!onlinePickBase.count(name)) {
+                    onlinePickBase[name] = FeatureValue(feature->name);
+                }
+                onlinePickLog[name][at] = value;
                 SetFeatureForNow(feature->name, value);
             }
         }
@@ -3388,6 +3398,9 @@ void Port::ArcadeFrame() {
 
 void Port::Matched() {
     connecting = false;
+    onlinePickLog.clear();
+    onlinePickBase.clear();
+    onlinePicks.clear();
     net->BeginSet();
     chatHintUntil = net->Watching() ? 0 : tick + kChatTicks;
     // (the host's player, playing while it waited, is in already; the joining side is told so in the welcome)
