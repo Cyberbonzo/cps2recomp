@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.6.0-beta.3
+
+**Online matches get the in-game menu, with the host starting Tag team or Ball battle from it; the game can record
+video and save the last 30 seconds as a replay; scenes export as layers, SVG and 3D models; and arcade monitors get
+their own resolutions.** Pre-release, as 1.6.0-beta.2 was.
+
 - **Arcade monitor: synced to the screen**: in full screen at an arcade resolution, the game now runs one frame for
   each of the screen's refreshes instead of on the board's own 59.64 Hz clock, so a mode that isn't exactly that rate
   (most CRT Emudriver modes run at 59.98 or 60 Hz) no longer shows a frame twice every few seconds or tears. **Keep
