@@ -22,11 +22,36 @@ namespace port {
 
 namespace {
     // The first page's own rows
-    enum { kCoin = 1, kStart2, kTest };
+    enum { kCoin = 1, kStart2, kTest, kLeave };
 
 } // namespace
 
+void Menu::OpenOnline(Online online) {
+    m_menu.Close();
+    recomp::MenuConfig config;
+    config.groups = {{{recomp::MenuRow::Page, 0, kOnlinePage}},
+                     {{recomp::MenuRow::Mute}, {recomp::MenuRow::Resume}},
+                     {{recomp::MenuRow::Action, kLeave, online.leave, online.leaveDescription}}};
+    config.pages.push_back({kOnlinePage, "", "The match's modes and your own picks for them.", false});
+    config.features = std::move(online.features);
+    config.commands = std::move(online.commands);
+    config.value = std::move(online.value);
+    config.setValue = std::move(online.setValue);
+    config.muted = [this] { return muted; };
+    config.setMuted = [this](bool to) { muted = to; };
+    config.confirmName = recomp::sdl::kConfirmName;
+    config.closeName = recomp::sdl::kCloseName;
+    m_onlineMenu = recomp::Menu();
+    m_onlineMenu.SetCompact(true); // (drawn on the game's own picture, at the board's size)
+    m_onlineMenu.Configure(std::move(config));
+    m_onlineMenu.Open();
+    m_onlineMenu.Buttons(recomp::kMenuConfirm); // (into the Online match page, its first row: the first page's first)
+    m_online = true;
+}
+
 void Menu::Open(bool withStates) {
+    m_online = false;
+    m_onlineMenu.Close();
     const cps2recomp::Game &game = cps2recomp::TheGame();
     recomp::MenuConfig config;
     // The standard layout (recomp-common/menu_layout.h, taken from this toolkit's, issue #196): Online, Display, Game
@@ -226,19 +251,19 @@ Menu::Action Menu::Buttons(uint16_t pressed) {
         buttons |= recomp::kMenuConfirm;
     }
     // (a press of something else, a coin button say, still takes the note away, as it always did)
-    if (pressed && !buttons && m_menu.IsOpen()) {
-        m_menu.Note("");
+    if (pressed && !buttons && IsOpen()) {
+        Shown().Note("");
     }
     return Press(buttons);
 }
 
 Menu::Action Menu::Press(unsigned buttons) {
-    return Act(m_menu.Buttons(buttons));
+    return Act(Shown().Buttons(buttons));
 }
 
 bool Menu::Mouse(const SDL_Event &event, SDL_Window *window, const recomp::sdl::MenuPlace &place, Action &action) {
     recomp::Menu::Chosen chosen;
-    if (!recomp::sdl::MouseEvent(event, window, place, m_menu, chosen)) {
+    if (!IsOpen() || !recomp::sdl::MouseEvent(event, window, place, Shown(), chosen)) {
         action = Action::None;
         return false;
     }
@@ -255,9 +280,10 @@ Menu::Action Menu::Act(const recomp::Menu::Chosen &chosen) {
     case recomp::Menu::Chosen::ResetOptions: return Action::ResetOptions;
     case recomp::Menu::Chosen::Command:
         m_command = static_cast<size_t>(chosen.id);
-        return Action::Command;
+        return m_online ? Action::OnlineCommand : Action::Command;
     case recomp::Menu::Chosen::Action:
-        return chosen.id == kCoin     ? Action::Coin
+        return chosen.id == kLeave    ? Action::Leave
+               : chosen.id == kCoin   ? Action::Coin
                : chosen.id == kStart2 ? Action::Start2
                : chosen.id == kTest   ? Action::Test
                                       : Action::None;

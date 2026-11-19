@@ -96,9 +96,12 @@ the players. A match that isn't in the lobby can't be watched by code. From a te
 ## Ball battle and tag team online
 
 In a two-person match of a fighting game that has them, the host can switch to **Ball battle** or the **Tag team
-battle** and back to **Versus**, at any time: Esc (or the gamepad's menu button) shows **Play: < Ball battle >**; Left and Right choose,
-Confirm starts it. Both players choose their own fighters on the same overlay (**Ball battle: your fighter**, **Tag
-team: your first**, second, third): the host for player 1's side, the other player for player 2's, Random or anyone.
+battle** and back to **Versus**, at any time. Esc (or the gamepad's menu button) opens the in-game menu, small, over the
+game, which goes on for both players (your own fighter stands still while it is open); it opens on its **Online match**
+page. There the host has **Start Ball battle**, **Start Tag team battle** and **Back to Versus**, and both players choose
+their own fighters (**Ball battle: your fighter**, **Tag team: your first**, second, third): the host for player 1's
+side, the other player for player 2's, Random or anyone. Back goes to the menu's first page: the Online match page,
+Mute, Resume and **Leave the match**. Watching, or waiting for a player, Esc only asks whether to leave.
 What each player picks, and what the host starts, is said on both screens. The rest of each mode's page (first to how
 many, the stage, the team's size and style...) is the host's, as the host had it before the match; online, both sides
 are always people (never the CPU), and the stage is one of the game's own. A joining player's own picks for player 2's
@@ -200,11 +203,11 @@ build/mvsc/mvsc --rom rom/mvsc --join 127.0.0.1:7845 --net-service off   # (the 
   how to send or put away the line you're typing. Chat goes straight from one game to the other, as the
   controls do (through the host's to the others, with more machines): nothing of it passes through our service. While you type, the keyboard is the chat's, so a keyboard
   player's fighter stands still; a gamepad still plays.
-- **Leaving a match**: Esc, or the gamepad's menu button, asks **Leave the match?** over the game (which goes on);
-  Confirm leaves, Back stays.
-- **Off during a match**: the cheats (on both sides, for a fair match), the in-game menu, save states, pause, the speed, run-ahead, the training mode and the
+- **Leaving a match**: Esc, or the gamepad's menu button, opens the in-game menu over the game (which goes on): its
+  first page's **Leave the match** leaves. Watching, Esc asks **Stop watching?**: Confirm leaves, Back stays.
+- **Off during a match**: the cheats (on both sides, for a fair match), the in-game menu's other pages, save states, pause, the speed, run-ahead, the training mode and the
   other modes (endless battle, ring out, the viewers); in two-person matches, Ball battle and the tag team battle
-  can be started from Esc's overlay (above). A match ends when any player closes their game.
+  can be started from the menu's Online match page (above). A match ends when any player closes their game.
 
 ## Checking connections and reconnects
 

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Online: the in-game menu in a match**: Esc (or the gamepad's menu button) opens the in-game menu, small, over the
+  running match (it goes on for both players; your fighter stands still while it is open), in place of the overlay.
+  Its **Online match** page has the host's **Start Ball battle**, **Start Tag team battle** and **Back to Versus**, and
+  each player's own fighters; the first page has Mute, Resume and **Leave the match**.
 - **Instant replay**: the in-game menu's **Game > Video** page's **Save replay** (Alt+Shift+F12) saves the last 30
   seconds just played as a video, with no recording started (**Replay length**: 30, 60 or 10 seconds, or off). The
   game keeps a state every second and every frame's controls, and plays them again into the video beside the game in a
