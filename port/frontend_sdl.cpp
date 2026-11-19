@@ -114,7 +114,7 @@ namespace {
                 fprintf(stderr, "full screen %dx%d at %.2f Hz: %s\n", mode.w, mode.h, mode.refresh_rate, SDL_GetError());
             } else {
                 // (the mode as the system lists it: Windows rounds a mode's refresh to whole hertz, so the rate measured
-                // with Sync to the screen is the one to trust)
+                // synced to the screen is the one to trust)
                 fprintf(stderr, "full screen: arcade mode %dx%d at %.3f Hz (%d/%d)\n", mode.w, mode.h, mode.refresh_rate,
                         mode.refresh_rate_numerator, mode.refresh_rate_denominator);
             }

@@ -2,10 +2,11 @@
 
 ## Unreleased
 
-- **Arcade monitor: Sync to the screen**: in full screen at an arcade resolution, the game runs one frame for each of
-  the screen's refreshes instead of on the board's own 59.64 Hz clock, so a mode that isn't exactly that rate (a
-  2560 x 240 at 60 Hz, say) no longer shows a frame twice every few seconds or tears. The log (logs/game.log) now
-  says which arcade mode was chosen and, with the option on, the screen's refresh as measured.
+- **Arcade monitor: synced to the screen**: in full screen at an arcade resolution, the game now runs one frame for
+  each of the screen's refreshes instead of on the board's own 59.64 Hz clock, so a mode that isn't exactly that rate
+  (most CRT Emudriver modes run at 59.98 or 60 Hz) no longer shows a frame twice every few seconds or tears. **Keep
+  the board's pace** (Arcade monitor page) goes back to the board's clock. The log (logs/game.log) says which arcade
+  mode was chosen and the screen's refresh as measured.
 - **Online: the in-game menu in a match**: Esc (or the gamepad's menu button) opens the in-game menu, small, over the
   running match (it goes on for both players; your fighter stands still while it is open), in place of the overlay.
   Its **Online match** page has the host's **Start Ball battle**, **Start Tag team battle** and **Back to Versus**, and

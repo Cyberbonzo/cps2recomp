@@ -744,13 +744,15 @@ void RegisterPortFeatures() {
                                   "one or another, in the order the system lists them. One that isn't connected: the main. "
                                   "Set on the launcher; the in-game menu can only put it back to the main one.",
                                   kFeatureLauncherOnly, {"Main", "Second", "Third", "Fourth"}});
-    // (crt_sync: frontend_sdl.cpp, the frames paced by the screen's refresh in place of the board's clock)
-    TheGame().features.push_back({"crt_sync", "Arcade monitor", "Sync to the screen",
-                                  "In full screen at an arcade resolution: the game runs one frame for each of the screen's "
-                                  "refreshes, each shown as the screen refreshes, so a mode that isn't exactly the board's 59.64 Hz "
-                                  "(a 60 Hz one, say) never shows a frame twice or tears. The game then runs at the screen's rate "
-                                  "(at 60 Hz, 0.6% faster than the board, too little to notice), and the controls can be a frame "
-                                  "later. Not online, where both players keep the board's pace. Off: the board's pace.",
+    // (crt_board_pace: frontend_sdl.cpp. Off, the default: in an arcade mode the frames are paced by the screen's refresh,
+    // as a mode the system lists is seldom exactly the board's rate; on: by the board's clock, as in a window)
+    TheGame().features.push_back({"crt_board_pace", "Arcade monitor", "Keep the board's pace",
+                                  "In full screen at an arcade resolution the game is synced to the screen: one frame for each "
+                                  "of its refreshes, each shown as it refreshes, so a mode that isn't exactly the board's 59.64 Hz "
+                                  "(most run at 59.98 or 60) never shows a frame twice or tears; the game then runs at the "
+                                  "screen's rate (0.6% faster at 60 Hz, too little to notice). On: the board's own clock, each "
+                                  "picture shown as soon as it's made, as GroovyMAME does with a mode made at the exact rate. "
+                                  "Online, always the board's pace.",
                                   0});
     TheGame().features.push_back({"crt_compact_menu", "Arcade monitor", "Compact menu",
                                   "The in-game menu in small letters with its rows close together, as suits a screen of few "
@@ -792,7 +794,7 @@ int DisplayScreen() {
     return std::clamp(FeatureValue("crt_screen"), 0, 3);
 }
 bool ArcadeSyncChosen() {
-    return FeatureValue("crt_sync") != 0;
+    return FeatureValue("crt_board_pace") == 0;
 }
 bool CompactMenuChosen() {
     return FeatureValue("crt_compact_menu") != 0;

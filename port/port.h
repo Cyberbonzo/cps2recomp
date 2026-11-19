@@ -407,7 +407,7 @@ int WindowSize();
 // menu switch
 enum class ArcadeMode { Off, Board, Super };
 ArcadeMode ArcadeResolution();
-// The Arcade monitor page's Sync to the screen (crt_sync): in an arcade mode, frames paced by the screen's refresh
+// In an arcade mode, frames paced by the screen's refresh: unless the Arcade monitor page's Keep the board's pace is on
 bool ArcadeSyncChosen();
 int DisplayScreen();
 bool CompactMenuChosen();
