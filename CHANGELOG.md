@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Online: your fighters for Tag team and Ball battle are the ones you chose**: the match's menu sometimes started a mode
+  with an earlier pick of a row instead of the last one (scrolling through the fighters and back, say), which looked
+  random. And during a Ball battle Esc opened the match's menu without showing it (the court's own framing of the picture
+  left out the menu, the chat and the names); it is shown now.
 - **Endless battle: the stage's front in front of the fighters**: with the stages shuffled or scrolling, a stage's
   pieces that the board draws in front of the fighters (Fetus of God's bulbs, say) were covered by the fighters and
   their shadows. They are in front again, as in a match.
