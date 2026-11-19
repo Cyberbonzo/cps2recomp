@@ -1694,6 +1694,21 @@ void Port::Shown(std::vector<uint32_t> &pixels, std::vector<SDL_Rect> *panels, b
     uint32_t *const px = turned ? upright.data() : pixels.data();
     const int W = turned ? +Video::kHeight : across, H = turned ? across : +Video::kHeight;
     DrawHud(px, W, H, panels, turned ? +port::kHudText : boxParts | port::kHudText);
+    Overlays(px, W, H, panels, notices, across);
+    if (turned) {
+        // (back as the board draws it: a quarter to the right)
+        for (int y = 0; y < Video::kHeight; y++) {
+            for (int x = 0; x < across; x++) {
+                pixels[static_cast<size_t>(y) * across + x] = upright[static_cast<size_t>(across - 1 - x) * Video::kHeight + y];
+            }
+        }
+    }
+}
+
+// What the port draws over the game's picture (Shown), on `px` (W x H): the notices at the bottom, online play's lines,
+// names, chat, the match's menu and Esc's question; also over a mode's own framing of the picture (Framed). `across`: the
+// picture's width as the board draws it (the online set's bar along the top)
+void Port::Overlays(uint32_t *px, int W, int H, std::vector<SDL_Rect> *panels, bool notices, int across) const {
     // A line at the bottom, in the middle (`up` lines higher)
     auto status = [&](const char *text, int up) {
         if (!notices) {
@@ -1963,14 +1978,6 @@ void Port::Shown(std::vector<uint32_t> &pixels, std::vector<SDL_Rect> *panels, b
             y += 22;
         }
     }
-    if (turned) {
-        // (back as the board draws it: a quarter to the right)
-        for (int y = 0; y < Video::kHeight; y++) {
-            for (int x = 0; x < across; x++) {
-                pixels[static_cast<size_t>(y) * across + x] = upright[static_cast<size_t>(across - 1 - x) * Video::kHeight + y];
-            }
-        }
-    }
 }
 
 void Port::Readouts(std::vector<uint32_t> &rgba, std::vector<SDL_Rect> *panels) const {
@@ -2078,6 +2085,8 @@ void Port::Framed(std::vector<uint32_t> &pixels, Zoomed &zoomed) {
         }
     }
     port::DrawHud(laid.data(), columns, kLines, nullptr, port::kHudText);
+    // (and what the port draws over the picture: online, the match's menu, the chat and the names, as Shown has them)
+    Overlays(laid.data(), columns, kLines, nullptr, true, columns);
     for (int y = 0; y < kLines; y++) {
         const uint32_t *row = &laid[static_cast<size_t>(y) * columns];
         for (int x = 0; x < columns; x++) {
@@ -3224,10 +3233,11 @@ void Port::LeaveOnline() {
 
 
 void Port::OnlineEvent(int player, const std::string &text, uint64_t at) {
-    for (size_t at = 0; at < text.size();) {
-        const size_t comma = std::min(text.find(',', at), text.size());
-        const std::string item = text.substr(at, comma - at);
-        at = comma + 1;
+    // (`at` is the frame the event is for; `place` where in the text the item read is)
+    for (size_t place = 0; place < text.size();) {
+        const size_t comma = std::min(text.find(',', place), text.size());
+        const std::string item = text.substr(place, comma - place);
+        place = comma + 1;
         const size_t eq = item.find('=');
         if (eq == std::string::npos) {
             continue;
