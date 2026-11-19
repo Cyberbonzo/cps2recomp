@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Tommy McLeroy. Part of cps2recomp.
 //
 // An arcade monitor's screen (the launcher's Arcade monitor page): a mode made at the board's exact rate with
-// Switchres (third_party/switchres, Windows), and the screen's refreshes as they happen, for the frame delay of a game
+// Switchres (downloaded at build time, Windows), and the screen's refreshes as they happen, for the frame delay of a game
 // synced to the screen (frontend_sdl.cpp).
 #pragma once
 

@@ -98,18 +98,25 @@ if (UNIX AND NOT APPLE)
     target_link_libraries(video_encoders PRIVATE m)
 endif ()
 
-# Switchres (third_party/switchres, GPL-2.0-or-later, Antonio Giner and others: arcade_screen.h), the modes made for an
-# arcade monitor at the board's exact rate: Windows only for now, compiled as it is, linked in statically.
-# (TODO: Linux, with its KMS and xrandr backends, which need libdrm's and Xrandr's headers in the build image)
+# Switchres (GPL-2.0-or-later, Antonio Giner and others: port/arcade_screen.h), the modes made for an arcade monitor at
+# the board's exact rate: downloaded (its release's archive, checked against its SHA-256) and compiled as it is, linked in
+# statically. Windows only for now (TODO: Linux, with its KMS and xrandr backends, which need libdrm's and Xrandr's
+# headers in the build image)
 if (WIN32)
+    FetchContent_Declare(switchres
+        URL https://github.com/antonioginer/switchres/archive/refs/tags/v2.2.2.tar.gz
+        URL_HASH SHA256=8abda61c21f375e08f0f2dcaaa105f072e892bdd639417316c0290d7b6b80027
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+    FetchContent_MakeAvailable(switchres) # (its sources only: it has no CMakeLists.txt, and its own build, a makefile, is not used)
     set(SWITCHRES_SOURCES monitor modeline switchres display custom_video log edid switchres_wrapper display_windows
         custom_video_ati_family custom_video_ati custom_video_adl custom_video_pstrip resync_windows)
-    list(TRANSFORM SWITCHRES_SOURCES PREPEND third_party/switchres/)
+    list(TRANSFORM SWITCHRES_SOURCES PREPEND "${switchres_SOURCE_DIR}/")
     list(TRANSFORM SWITCHRES_SOURCES APPEND .cpp)
     add_library(switchres STATIC ${SWITCHRES_SOURCES})
     target_compile_definitions(switchres PRIVATE SR_WIN32_STATIC)
     target_compile_options(switchres PRIVATE -w)
     target_link_libraries(switchres PRIVATE gdi32 user32 advapi32)
+    target_include_directories(switchres INTERFACE "${switchres_SOURCE_DIR}")
 endif ()
 
 # (macOS: handing the front to the launcher, port/front_macos.mm)

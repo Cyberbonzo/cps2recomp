@@ -252,7 +252,7 @@ from any game, ever, and never a key). Security reports go by [SECURITY.md](SECU
 - The programs use SDL 3 (zlib), Dear ImGui (MIT) and the Inter font (SIL OFL 1.1); the release archives carry their
   licenses.
 - The Windows programs make arcade-monitor modes with [Switchres](https://github.com/antonioginer/switchres) (Chris
-  Kennedy, Antonio Giner, Alexandre Wodarczyk, Gil Delescluse; GPL-2.0-or-later), in `third_party/switchres/`.
+  Kennedy, Antonio Giner, Alexandre Wodarczyk, Gil Delescluse; GPL-2.0-or-later), downloaded at build time.
 
 The repository holds no game data and nothing derived from it.
 

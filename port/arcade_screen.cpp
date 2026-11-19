@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (C) 2026 Tommy McLeroy. Part of cps2recomp.
 //
-// arcade_screen.h: Switchres's exact-rate modes and the screen's refresh clock, on Windows; elsewhere neither.
+// arcade_screen.h: Switchres's exact-rate modes (GPL-2.0-or-later, downloaded at build time) and the screen's refresh clock, on Windows; elsewhere neither.
 #include "arcade_screen.h"
 
 #include <atomic>
@@ -15,7 +15,7 @@
 #ifdef _WIN32
 #define SR_WIN32_STATIC
 #include <windows.h>
-#include "../third_party/switchres/switchres_wrapper.h"
+#include <switchres_wrapper.h> // (downloaded at build time: CMakeLists.txt)
 #endif
 
 namespace port {
