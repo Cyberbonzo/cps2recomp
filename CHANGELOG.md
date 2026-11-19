@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Arcade monitor: synced to the screen**: in full screen at an arcade resolution, the game now runs one frame for
+  each of the screen's refreshes instead of on the board's own 59.64 Hz clock, so a mode that isn't exactly that rate
+  (most CRT Emudriver modes run at 59.98 or 60 Hz) no longer shows a frame twice every few seconds or tears. **Keep
+  the board's pace** (Arcade monitor page) goes back to the board's clock. The log (logs/game.log) says which arcade
+  mode was chosen and the screen's refresh as measured.
 - **Online: your fighters for Tag team and Ball battle are the ones you chose**: the match's menu sometimes started a mode
   with an earlier pick of a row instead of the last one (scrolling through the fighters and back, say), which looked
   random. And during a Ball battle Esc opened the match's menu without showing it (the court's own framing of the picture
