@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **Every game runs at the board's speed** (testers: Hyper Fighting and Super Turbo too fast): the board's timing is
+  now the default for every game, the CPS-1 games included. Street Fighter II's turbo speeds (Hyper Fighting's, Super
+  Turbo's) fit in more of the game's work wherever a frame has time to spare, so with every clock the port ran them
+  faster than the board: in a fight Super Turbo's round clock ticked every 27.3 frames, and every 31 with the board's
+  timing; Hyper Fighting's every 29, and every 33.5 with the board's timing. **Slowdown** (Game page, every game but the shoot-'em-ups, which
+  have their own) replaces Arcade timing, off unless chosen: **Arcade perfect** (the default) or **None** (every clock).
+- **The CPS-1's board timing**: its PAL's wait on every access outside 400000-7FFFFF (F00000-FEFFFF on the QSound
+  board), and the CPS-A's DMA as on the CPS-1, where the objects are in video RAM: one entry of the object table a line,
+  all 256 from the line after the game sets the table's base, as well as the row scroll, the tile rows and the palette.
+  The DMA's time is counted in its own 16 MHz and turned into the 68000's clock (16, 12 or 10 MHz), with the step its
+  scheduler takes at each of its eleven tasks' places up to the last one in use (jtcps1_dma.v). Checked against jtcps1
+  simulated: the DMA within 0.05% a frame. On CPS-2 the same rule leaves Street Fighter Alpha 2 the reference's at
+  5,634 of 5,671 frames (5,639 before; single frames in the fight), its DMA within 0.16% a frame (0.3% before).
+- `--check-rewrites` runs the readable rewrites with the board's timing on too (a plain run takes the game's own code
+  in their place). Save states are version 13 (the object table's copy and the DMA's part clock).
+
 ## 1.6.0-beta.3
 
 **Online matches get the in-game menu, with the host starting Tag team or Ball battle from it; the game can record
