@@ -32,7 +32,34 @@
   `--ram-log FILE` writes work RAM at every vertical blank as the reference harness logs the board's, and
   `--cpu-clock 10|12` runs a CPS-1's 68000 at another board's clock.
 - `--check-rewrites` runs the readable rewrites with the board's timing on too (a plain run takes the game's own code
-  in their place). Save states are version 13 (the object table's copy and the DMA's part clock).
+  in their place). Version 14 saves include the board’s object-copy progress, the DMA clock and MVC’s partner-tag state.
+- **Marvel vs. Capcom Tag team** supports three players, with the two teammates on either side. In a four-player
+  match the host can pair P1/P2 against P3/P4 in classic Tag team or Cross Fever. P1/P3 against P2/P4 remains the
+  default. A reserve player can hold HP+HK to tag when the game allows it, or release to cancel. Only the point
+  player's own command can spend meter on a team Hyper or Duo.
+- **Cross Fever** now defaults to **Only by fighting** for both teams' gauges. The host can choose **Fill by
+  themselves** for Dreamcast meter gain and set the Duo countdown, who can request a tag, the Dreamcast taunt chord
+  and whether both teams reselect for a rematch. A fresh board clears both teams' previous starting order.
+  [Controls and Dreamcast comparison](games/mvsc/CROSS_FEVER.md).
+- **Controllers** keep their player numbers when another pad disconnects. A returning pad reclaims its slot when
+  the system recognizes it. In a local MVC fight, **Pause on controller disconnect** shows which player's pad to
+  reconnect.
+- **Keyboard controls** now read a bound left or right Alt during play, including attacks and directions held by
+  another player. **Game → Keyboard only** lets JoyToKey users play through their mapped keys without also sending
+  native stick clicks to chat or the menu. Each machine chooses its own setting.
+- **Hosting and match settings** let the host set input delay and choose an unlisted match from inside the game.
+  Hosting from Esc also reads the launcher's **Allow spectators** choice, including when hosting again.
+  The match menu includes MVC's host rules and each player's own display and input settings. Protocol 14 carries board timing and four-player state, supports
+  three-person rooms and requires matching builds for players and spectators. [Hosting](docs/ONLINE.md).
+- **Input during network waits** defaults to **Retain short taps**, which keeps sampled presses and releases in
+  order while the match waits. Choose **Current state** to use the controls held when each frame advances. Online
+  input movies record changes and the final frame.
+- **Online timing** keeps late inputs, discards stale clock estimates and uses fresh peer progress to pace four
+  machines. A quiet link retries every 32 ms. The match log shows each direct link's round-trip time and separates
+  waits for input prediction from waits for clock pacing.
+- **Online HUD** adds Soft, Faint and High contrast. The set score's background fits its text and MVC team names
+  sit below the helper count. Each player can change name, streak, ping and delay visibility in the match menu.
+  [Matched screenshots and test results](docs/ONLINE_TESTING.md#four-player-input-and-timing-checks-november-18-2026).
 
 ## 1.6.0-beta.3
 
