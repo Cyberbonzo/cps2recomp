@@ -6,6 +6,7 @@
 
 #include "../machine/machine.h"
 #include "menu.h"
+#include "movie.h"
 #include "netplay.h"
 #include "present.h"
 #include "scene.h"
@@ -19,12 +20,29 @@
 #include <cstdio>
 #include <deque>
 #include <filesystem>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace port {
+
+// One online fighter-pick row. Netplay::Run orders a frame's events by sender, then OnlineEvent reads each
+// sender's comma-separated commands in order. A replay can already have later picks in this history.
+struct OnlinePickHistory {
+    using Position = std::tuple<uint64_t, int, size_t>; // frame, sender, command byte offset
+    explicit OnlinePickHistory(int initial) : base(initial) {}
+    void Record(Position at, int value) { picks[at] = value; }
+    int Before(Position at) const {
+        const auto next = picks.lower_bound(at);
+        return next == picks.begin() ? base : std::prev(next)->second;
+    }
+private:
+    int base;
+    std::map<Position, int> picks;
+};
 
 struct Options {
     std::string romPath = "rom";
@@ -84,21 +102,15 @@ struct Options {
     uint64_t rollbackTest = 0;  // --rollback-test SEED: each frame run as online play's rollback would (RollbackTest)
     bool online = false;        // --host or --join: online play (netplay.h), as `net` says
     Netplay::Settings net;
+    bool netSpectatorsRequested = false; // explicit --net-spectators, independent of any previous menu-hosted match
+    int netDelayOverride = -1; // --net-delay overrides the saved host preference, including when explicitly zero
+    int launcherNetDelay = -1; // the launcher's global Online setting, below an explicit per-game choice
     std::string netSay;         // --net-say [FRAME:]TEXT: (tests) the line said in the chat at FRAME of the match (120)
     uint64_t netSayAt = 120;
     // --net-command FRAME:TEXT, again for more: (tests) an event this side makes at FRAME of the match (Netplay::Command:
     // "mode=1:7" the ball battle with seed 7, "court_one=3" a fighter)
     std::vector<std::pair<uint64_t, std::string>> netCommands;
     std::string netTyping;      // --net-typing TEXT: (pictures) a line shown as being typed, all through the match
-};
-
-// Recorded input: what the players hold, at the frames where it changes
-// (each line: the frame, then each player's; two players unless a movie has more)
-struct Movie {
-    using Pads = std::array<uint16_t, cps2recomp::Machine::kMaxPlayers>;
-    std::map<uint64_t, Pads> changes;
-    bool Load(const std::string &path);
-    bool Save(const std::string &path) const;
 };
 
 // --rollback-test: what online play's rollback does to the game (issue #70), with no network. Player 1's controls
@@ -237,9 +249,8 @@ struct Port {
     // (`notices`: the port's lines at the bottom too, as the window has them: the speed, the zoom, a screenshot saved...)
     void Shown(std::vector<uint32_t> &pixels, std::vector<SDL_Rect> *panels = nullptr, bool over = false, uint32_t base = 0,
                bool boxes = true, bool notices = true) const;
-    // ... all of it but the game's picture and its boxes and text (DrawHud), on a picture of W x H: also over a mode's own
-    // framing of the picture (Framed), which would else have none of it (online, the match's menu)
-    void Overlays(uint32_t *px, int W, int H, std::vector<SDL_Rect> *panels, bool notices, int across) const;
+    // Draw the requested game HUD parts, then the notices and online overlays on either the board or the framed court.
+    void Overlays(uint32_t *px, int W, int H, std::vector<SDL_Rect> *panels, bool notices, unsigned hudParts, bool waiting) const;
     // The readouts alone (all Shown draws over the game's picture), for the GPU's picture (gpu_picture.h): red, green,
     // blue, alpha bytes, the colours times the alpha; from Shown over black and over white, whose difference is what
     // the readouts leave of what is under them
@@ -257,7 +268,7 @@ struct Port {
         float x = 0, y = 0, size = 0; // (the view's middle in the picture, and its size against the shape's)
         bool settled = false;
     } frameCamera;
-    std::vector<uint32_t> framedFight, framedLaid; // (Framed's, kept from frame to frame)
+    std::vector<uint32_t> framedFight, framedLaid, framedWhite; // (Framed's, kept from frame to frame)
     std::vector<int> framedColumnOf;
     // The picture drawn on the GPU from the native records (--video gpu: docs/NATIVE_VIDEO.md), when the window's
     // presenter draws with SDL_GPU
@@ -345,11 +356,30 @@ struct Port {
     // Online, the modes played in a match (Netplay::Command): an event of `player`'s, run on both sides before the
     // frame it was given for: "mode=N:SEED" (the host's: battle::StartOnline) and "row=value" (a player's own fighters
     // on the modes' pages: player 1's rows the host's, player 2's the other's), commas between
-    // (`at`: the frame it is run before. A mode starts with each row as the events before its frame left it, in
-    // onlinePickLog: a rollback back to before a pick may have run that pick already)
+    // (`at`: the frame it is run before. A mode starts with each row as the events before its command left it.)
     void OnlineEvent(int player, const std::string &text, uint64_t at);
-    std::map<std::string, std::map<uint64_t, int>> onlinePickLog;
-    std::map<std::string, int> onlinePickBase; // (each row as it was before its first event)
+    std::map<std::string, OnlinePickHistory> onlinePickLog;
+    // The host's pause for choosing: while the host's match menu is open the game stands still for both ("setup=1",
+    // the host's event; "setup=0" when it closes), and the other player's opens by itself. The other player says
+    // "ready=1" when their fighters are chosen (a pick of theirs after it takes it back); a mode other than Versus starts
+    // only with the other player ready before its frame (the host's Start waits for it: onlinePendingMode). Only the
+    // events themselves are kept, by frame (a rollback runs them again alike); what they make of the pause and Ready is
+    // worked out from them (OnlineSetupScan), a mode's start being the same at its frame on both sides. (Spectators
+    // run the players' controls without the events: a pause, as a mode's start, is not theirs.)
+    std::map<uint64_t, int> onlineSetupLog; // (the host's "setup": frame, value)
+    std::map<uint64_t, int> onlineModeLog;  // (the host's "mode": frame, mode)
+    std::map<uint64_t, int> onlineReadyLog; // (the other player's Ready as their frame's events leave it: a pick, 0)
+    struct OnlineSetupState {
+        bool paused = false, ready = false;
+        uint64_t pausedFrames = 0; // (how many frames before were paused)
+    };
+    OnlineSetupState OnlineSetupScan(uint64_t before) const; // (the events of the frames before `before`)
+    bool OnlinePausedAt(uint64_t at) const;
+    bool OnlineOtherReady() const; // (the other player's Ready, as the frames run so far have it)
+    bool onlineSetupSent = false;  // (the host: what it last said)
+    int onlinePendingMode = -1;    // (the host: a Start waiting for the other player's Ready)
+    int onlineReadyMine = -1;      // (the other player: Ready as chosen, before its event has run)
+    void OnlineSetupFrame();       // (each tick of a match: the host's pause and its Start)
     // Esc in a match: the match's own menu (Menu::OpenOnline), drawn over the game, which goes on: the host's modes to
     // start (OnlineCommand), this player's own fighters for them (onlinePicks, sent as events), leaving. Watching, or a
     // host waiting, Esc asks only whether to leave (`leaving`, answered by LeaveQuestion)

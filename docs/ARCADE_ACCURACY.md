@@ -1,6 +1,6 @@
 # How close the arcade timing is to the board
 
-The port's **arcade timing** (the `arcade_timing` feature; the rules are in [TIMING.md](TIMING.md)) takes from the
+The port's **arcade timing** (**Slowdown → Arcade perfect**, `slowdown=0`; the rules are in [TIMING.md](TIMING.md)) takes from the
 68000 the clocks a CPS-2 board takes, so the games slow down where and as much as the board does. This page says
 what it was compared with, what that comparison shows and leaves open, and what is still to do before the port can
 be called arcade perfect. The work still to do is tracked in [#52](https://github.com/tmcleroy/cps2recomp/issues/52).
@@ -35,7 +35,7 @@ small changes:
   without the chip's own internal program, which isn't in any ROM set, and the sound program would otherwise wait
   for it forever.
 
-The port was run on the same input script with `--features arcade_timing`, dumping its work RAM at the same point
+The port was run on the same input script with the then-current `--features arcade_timing` (now `--features slowdown=0`), dumping its work RAM at the same point
 of every frame. A small script (`track.py`) pairs each reference frame with an identical frame of the port's.
 Pairs have to sit within 30 frames of the previous match. The stack area (`FF7C00-FF7FFF`) and two bytes
 (`FF043C`, `FFDF63`) are left out of the comparison. `diffat.py` lists the bytes that differ at a given frame.
