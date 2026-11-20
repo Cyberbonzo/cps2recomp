@@ -2,6 +2,46 @@
 
 ## Unreleased
 
+## 1.6.0-beta.4
+
+**Every game now runs at its arcade board's speed by default, and the Street Fighter II family is proven to.**
+Testers found Street Fighter II: Hyper Fighting and Super Street Fighter II Turbo running too fast; they were: the
+port gave the processor every clock unless Arcade timing was chosen, and the CPS-1 games had no board timing at all.
+Now every game takes the time the board takes (its memory waits, its video chip's copying, and the 68000's own
+clocks, five of which were wrong), CPS-1 and CPS-2 alike. **Slowdown → None** (Game page) gives the processor every
+clock instead. Also: Marvel vs. Capcom four-player teams and Cross Fever rematches, online Tag team and Ball battle
+chosen while paused with a Ready, and exact-rate arcade monitor modes (Switchres). Pre-release, as 1.6.0-beta.3 was.
+
+**The proof.** jotego's FPGA cores of the boards (jtcps2, jtcps1), simulated cycle by cycle, and the port play the
+same fight: the same inputs on the same frames from the same game state. The round clock's frames a second (more is
+slower):
+
+| Game | FPGA core | This release | 1.6.0-beta.3 |
+| --- | --- | --- | --- |
+| Super Turbo, Turbo 1 | 32.12 | 32.12 | 27.8 |
+| Super Turbo, Turbo 2 | 31.58 | 31.47 | 26.9 |
+| Super Turbo, Turbo 3 | 30.92 | 30.92 | 26.0 |
+| Super Turbo, Turbo 4 | 30.07 | 30.60 | 24.9 |
+| Hyper Fighting | 34.96 | 34.88 | 30.9 |
+
+Super Turbo's game state is the core's byte for byte through character select, the VS screen and the round's first
+seconds at every turbo setting (where it then parts, one turbo tick a frame apart, the scripted fight goes another
+way, and the speeds after that differ either way: Turbo 4's 0.5 is that). World Warrior and Champion Edition keep the
+core's pace through the fight; Alpha 2's attract mode keeps step with its core for 5,705 of 5,710 frames. How it
+was measured, and how to repeat it: docs/ARCADE_ACCURACY.md.
+
+Super Turbo, Turbo 4: the FPGA core, this release, and 1.6.0-beta.3 (every clock), the same fight from the round's start:
+
+![Super Turbo Turbo 4: core, this release, 1.6.0-beta.3](https://raw.githubusercontent.com/tmcleroy/cps2recomp/main/docs/evidence/ssf2t-turbo4-vs-jtcps2.gif)
+
+Super Turbo, Turbo 1:
+
+![Super Turbo Turbo 1: core, this release, 1.6.0-beta.3](https://raw.githubusercontent.com/tmcleroy/cps2recomp/main/docs/evidence/ssf2t-turbo1-vs-jtcps2.gif)
+
+Hyper Fighting against jtcps1:
+
+![Hyper Fighting: core, this release, every clock](https://raw.githubusercontent.com/tmcleroy/cps2recomp/main/docs/evidence/sf2hf-timing-vs-jtcps1.gif)
+
 - **Arcade monitor: modes at the board's exact rate, and a frame delay**: on Windows, **Make the mode at the board's
   rate** (Arcade monitor page) has Switchres make the 384 x 224 or super resolution mode at exactly 59.637 Hz and
   switch the screen to it, for the **Monitor** chosen (Arcade 15 kHz, a TV, the tri-sync monitors...), as GroovyMAME
