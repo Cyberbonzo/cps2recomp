@@ -92,6 +92,17 @@ public:
         address &= 0xFFFFFF;
         return address < unwaitedLow || address >= unwaitedHigh;
     }
+    // A write in [slowWriteLow, slowWriteHigh) waits a clock more: a CPS-1's video RAM, as jotego's jtcps1 has it
+    // (docs/TIMING.md). 0, 0: none.
+    uint32_t slowWriteLow = 0, slowWriteHigh = 0;
+    void WriteWait(uint32_t address) {
+        BusWait(address);
+        address &= 0xFFFFFF;
+        if (busWait && address >= slowWriteLow && address < slowWriteHigh) {
+            cycles += busWait;
+            waitsCounted += busWait;
+        }
+    }
     void BusWait(uint32_t address) {
         if (busWait && WaitedFor(address)) {
             cycles += busWait;

@@ -124,9 +124,9 @@ uint32_t M68K::Read(uint32_t address, unsigned size) {
     }
 }
 void M68K::Write(uint32_t address, unsigned size, uint32_t value) {
-    BusWait(address);
+    WriteWait(address);
     if (size == 2) {
-        BusWait(address + 2);
+        WriteWait(address + 2);
     }
     if (nativeWrites && nativeVideo && native_video::IsVideoRegister(address)) {
         // (a rewrite's: the game's side is told first, as a watch tells it before an instruction)
@@ -376,6 +376,7 @@ void M68K::Execute(uint16_t op) {
             }
             SetSR(size == 0 ? (SR() & 0xFF00) | (sr & 0x1F) : sr & 0xA71F);
             m_cycles += 20;
+            BusWait(pc); // (the 68000 fetches its next word again after a change of SR or CCR: a wait more)
             return;
         }
         if ((op & 0x0100) || reg2 == 4) {
@@ -454,7 +455,9 @@ void M68K::Execute(uint16_t op) {
         const Operand target = Locate(dstMode, reg2, sz);
         Store(target, sz, value);
         Logic(value, sz);
-        m_cycles += kOperandCycles[sz == 2][ModeIndex(dstMode, reg2)];
+        // (a destination of -(An) takes what (An) does: the 68000 adds its 2 only for a source)
+        const unsigned dstIndex = ModeIndex(dstMode, reg2);
+        m_cycles += kOperandCycles[sz == 2][dstIndex == 4 ? 2 : dstIndex];
         return;
     }
     case 0x4: {
@@ -574,10 +577,20 @@ void M68K::Execute(uint16_t op) {
                     const uint16_t value = static_cast<uint16_t>(Load(Locate(mode, reg, 1), 1));
                     SetSR((op & 0xFF00) == 0x4400 ? (SR() & 0xFF00) | (value & 0x1F) : value & 0xA71F);
                     m_cycles += 12 + operandCycles(1);
+                    if ((op & 0xFF00) == 0x4600) {
+                        BusWait(pc); // (MOVE to SR fetches its next word again: a wait more)
+                    }
                 }
                 return;
             } else {
                 const Operand target = Locate(mode, reg, size);
+                if ((op & 0xFF00) == 0x4200 && target.kind == Operand::Kind::Memory) {
+                    // (the 68000 reads what it clears first: that read's waits)
+                    BusWait(target.at);
+                    if (size == 2) {
+                        BusWait(target.at + 2);
+                    }
+                }
                 const uint32_t value = (op & 0xFF00) == 0x4200 ? 0 : Load(target, size);
                 uint32_t result = 0;
                 switch (op & 0xFF00) {
@@ -716,7 +729,11 @@ void M68K::Execute(uint16_t op) {
                 }
             } else { // Scc
                 const bool set = Condition(cc);
-                Store(Locate(mode, reg, 0), 0, set ? 0xFF : 0);
+                const Operand target = Locate(mode, reg, 0);
+                if (target.kind == Operand::Kind::Memory) {
+                    BusWait(target.at); // (in memory the 68000 reads the byte before it sets it: that read's wait)
+                }
+                Store(target, 0, set ? 0xFF : 0);
                 m_cycles += mode == 0 ? (set ? 6 : 4) : 8 + operandCycles(0);
             }
             return;
@@ -851,7 +868,8 @@ void M68K::Execute(uint16_t op) {
             m_cycles += operandCycles(size) + (size == 2 ? 12 : 8);
         } else {
             d[reg2] = (d[reg2] & ~kMask[size]) | (result & kMask[size]);
-            m_cycles += operandCycles(size) + (size == 2 ? 6 : 4);
+            // (the long's 6 is 8 from a register or an immediate, as the 68000's manual has it)
+            m_cycles += operandCycles(size) + (size == 2 ? (mode < 2 || (mode == 7 && reg == 4) ? 8 : 6) : 4);
         }
         return;
     }
@@ -862,7 +880,8 @@ void M68K::Execute(uint16_t op) {
             const unsigned sz = (op & 0x0100) ? 2 : 1;
             const uint32_t value = static_cast<uint32_t>(Extend(Load(Locate(mode, reg, sz), sz), sz));
             a[reg2] = isAdd ? a[reg2] + value : a[reg2] - value;
-            m_cycles += operandCycles(sz) + (sz == 2 ? 6 : 8);
+            // (the long's 6 is 8 from a register or an immediate)
+            m_cycles += operandCycles(sz) + (sz == 2 ? (mode < 2 || (mode == 7 && reg == 4) ? 8 : 6) : 8);
             return;
         }
         if ((op & 0x0130) == 0x0100) { // SUBX, ADDX
@@ -885,7 +904,8 @@ void M68K::Execute(uint16_t op) {
         } else {
             const uint32_t result = isAdd ? Add(d[reg2], value, size, false, false) : Sub(d[reg2], value, size, false, false);
             d[reg2] = (d[reg2] & ~kMask[size]) | result;
-            m_cycles += operandCycles(size) + (size == 2 ? 6 : 4);
+            // (the long's 6 is 8 from a register or an immediate)
+            m_cycles += operandCycles(size) + (size == 2 ? (mode < 2 || (mode == 7 && reg == 4) ? 8 : 6) : 4);
         }
         return;
     }
@@ -915,7 +935,8 @@ void M68K::Execute(uint16_t op) {
         const uint32_t result = Load(operand, size) ^ (d[reg2] & kMask[size]);
         Logic(result, size);
         Store(operand, size, result);
-        m_cycles += operandCycles(size) + (size == 2 ? 12 : 8);
+        // (into a data register: 4, or 8 for a long; into memory its read, its write and 8 or 12)
+        m_cycles += mode == 0 ? (size == 2 ? 8 : 4) : operandCycles(size) + (size == 2 ? 12 : 8);
         return;
     }
     case 0xE: { // shifts and rotates
