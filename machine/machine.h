@@ -12,6 +12,8 @@
 // are drawn as they pass. The hardware facts follow MAME's cps2 driver (BSD-3-Clause).
 #pragma once
 
+#include <cstdio>
+
 #include "../sound/driver.h"
 #include "../sound/qsound.h"
 #include "../sound/z80.h"
@@ -147,12 +149,11 @@ public:
     void ReportSoundTimes() const;
     bool monoForTest = false; // (--sound-test) the Z80 reads the game's stereo setting as mono
 
-    // The board's timing (the port's arcade_timing feature; docs/TIMING.md): the 68000 waits a clock for each bus
-    // access outside 500000-7FFFFF (M68K::busWait), and the CPS-A's DMA takes the bus from it for the row scroll,
-    // the scroll layers' tile rows and the palette. Off: the 68000 has every clock, as the port always gave it.
-    // (A CPS-2's timing: a CPS-1's is not modelled, and stays off.)
+    // The board's timing (the port's slowdown feature, "Arcade perfect" unless chosen; docs/TIMING.md): the 68000
+    // waits a clock for each bus access outside the board's unwaited range (M68K::busWait), and the CPS-A's DMA takes
+    // the bus from it for the row scroll, the scroll layers' tile rows, the palette and (a CPS-1's, whose objects are
+    // in video RAM) the object table. Off: the 68000 has every clock.
     void SetBoardTiming(bool on) {
-        on = on && !m_roms.board.cps1;
         boardTiming = on;
         cpu.busWait = on ? 1 : 0;
     }
@@ -160,6 +161,7 @@ public:
         return boardTiming;
     }
     uint64_t dmaCounted = 0; // (CPS2RECOMP_BUS_LOG: the DMA's clocks since the last frame)
+    std::FILE *ramLog = nullptr; // (--ram-log) work RAM written at the start of every vertical blank
     // The game's music from the player's files (machine/soundtrack.h): sees the game's sound requests
     Soundtrack soundtrack;
     // A request left for the sound side as the game leaves one (sixteen bytes, the last written last), not seen by
@@ -307,6 +309,10 @@ private:
     uint32_t LineDma();
     bool boardTiming = false;
     bool m_palettePending = false; // (the game has set the palette's base: the DMA copies it at the next line)
+    // (a CPS-1: the object table's entries the DMA is yet to copy, one a line, from the line after the game sets its
+    // base; and what is left over of a 68000 clock in turning the DMA's 16 MHz into the CPU's)
+    uint16_t m_objectDmaLeft = 0;
+    uint32_t m_dmaCarry = 0;
     void RunSound(int cycles);
     struct ChipWrite {
         uint8_t reg;

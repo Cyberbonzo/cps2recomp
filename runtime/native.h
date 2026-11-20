@@ -75,16 +75,16 @@ namespace native {
         return CheckRead(c, address, 2);
     }
     inline void W8(M68K &c, uint32_t address, uint32_t value) {
-        c.BusWait(address);
+        c.WriteWait(address);
         CheckWrite(c, address, 0, value);
     }
     inline void W16(M68K &c, uint32_t address, uint32_t value) {
-        c.BusWait(address);
+        c.WriteWait(address);
         CheckWrite(c, address, 1, value);
     }
     inline void W32(M68K &c, uint32_t address, uint32_t value) {
-        c.BusWait(address);
-        c.BusWait(address + 2);
+        c.WriteWait(address);
+        c.WriteWait(address + 2);
         CheckWrite(c, address, 2, value);
     }
 #else
@@ -118,7 +118,7 @@ namespace native {
         return (high << 16) | R16(c, address + 2);
     }
     inline void W8(M68K &c, uint32_t address, uint32_t value) {
-        c.BusWait(address);
+        c.WriteWait(address);
         address &= 0xFFFFFF;
         if (address >= 0xFF0000) {
             c.ram[address & 0xFFFF] = static_cast<uint8_t>(value);
@@ -127,7 +127,7 @@ namespace native {
         }
     }
     inline void W16(M68K &c, uint32_t address, uint32_t value) {
-        c.BusWait(address);
+        c.WriteWait(address);
         address &= 0xFFFFFE;
         if (address >= 0xFF0000) {
             uint8_t *p = &c.ram[address & 0xFFFF];

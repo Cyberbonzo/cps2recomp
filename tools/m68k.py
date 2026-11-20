@@ -279,7 +279,9 @@ def _decode(insn, dec, op):
                 change = {0: "sr |= 0x%Xu;", 1: "sr &= 0x%Xu;", 5: "sr ^= 0x%Xu;"}[reg2] % (
                     (value & 0xFF) | (0xFF00 if reg2 == 1 else 0))
                 insn.emit = lambda live: ["uint16_t sr = c.SR();", change,
-                                          "c.SetSR(static_cast<uint16_t>((c.SR() & 0xFF00) | (sr & 0x1F)));", cyc(20)]
+                                          "c.SetSR(static_cast<uint16_t>((c.SR() & 0xFF00) | (sr & 0x1F)));", cyc(20),
+                                          # (the 68000 fetches its next word again after it: a wait more)
+                                          "c.cycles += c.busWait;"]
                 return
             return by_interpreter(insn, dec, "%s #$%X,sr" % (name, value), flow="end", length=4)
         if op & 0x0100 or reg2 == 4:
@@ -380,7 +382,8 @@ def _decode(insn, dec, op):
         if dst_index > 8 or (src.kind == "a" and sz == 0):
             raise NotCode()
         dst = dec.ea(dst_mode, reg2, sz)
-        cycles += OPERAND_CYCLES[1 if sz == 2 else 0][dst_index]
+        # (a destination of -(An) takes what (An) does: the 68000 adds its 2 only for a source)
+        cycles += OPERAND_CYCLES[1 if sz == 2 else 0][2 if dst_index == 4 else dst_index]
         insn.text = "move.%s %s,%s" % (SUFFIX[sz], src.text, dst.text)
         insn.defs = insn.kills = NZVC
 
@@ -492,6 +495,8 @@ def _decode(insn, dec, op):
                 if top == 0x4200:
                     if live:
                         lines.append(logic("0", size))
+                    if ea.kind == "m":  # (the 68000 reads what it clears first: that read's waits)
+                        lines += ["c.BusWait(%s);" % ea.var] + (["c.BusWait(%s + 2);" % ea.var] if size == 2 else [])
                     lines += ea.store("0")
                 elif top == 0x4600:
                     lines.append("const uint32_t result = ~%s & 0x%Xu;" % (ea.load(), MASK[size]))
@@ -623,7 +628,9 @@ def _decode(insn, dec, op):
             insn.uses = CC_USES[cc]
 
             def emit(live, ea=ea, cc=cc):
-                lines = ea.pre + ["const bool set = %s;" % CC_EXPR[cc]] + ea.store("(set ? 0xFFu : 0u)")
+                lines = ea.pre + ["const bool set = %s;" % CC_EXPR[cc]] + (
+                    ["c.BusWait(%s);" % ea.var] if ea.kind == "m" else []) + ea.store("(set ? 0xFFu : 0u)")
+                # (in memory the 68000 reads the byte before it sets it: that read's wait)
                 return lines + [cyc("(set ? 6 : 4)" if mode == 0 else 8 + opc(0))]
 
             insn.emit = emit
@@ -744,7 +751,9 @@ def _decode(insn, dec, op):
         insn.text = ("%s.%s d%d,%s" % (name, SUFFIX[size], reg2, ea.text) if to_memory
                      else "%s.%s %s,d%d" % (name, SUFFIX[size], ea.text, reg2))
         insn.defs = insn.kills = NZVC
-        cycles = opc(size) + ((12 if size == 2 else 8) if to_memory else (6 if size == 2 else 4))
+        # (into the register, the long's 6 is 8 from a register or an immediate)
+        cycles = opc(size) + ((12 if size == 2 else 8) if to_memory else
+                              ((8 if mi in (0, 1, 11) else 6) if size == 2 else 4))
 
         def emit(live, ea=ea, cycles=cycles):
             lines = ea.pre + ["const uint32_t result = %s %s c.d[%d];" % (ea.load(), "&" if is_and else "|", reg2)]
@@ -768,7 +777,8 @@ def _decode(insn, dec, op):
             sz = 2 if op & 0x0100 else 1
             ea = dec.ea(mode, reg, sz)
             insn.text = "%sa.%s %s,a%d" % (name, SUFFIX[sz], ea.text, reg2)
-            cycles = opc(sz) + (6 if sz == 2 else 8)
+            # (the long's 6 is 8 from a register or an immediate, as the 68000's manual has it)
+            cycles = opc(sz) + ((8 if mi in (0, 1, 11) else 6) if sz == 2 else 8)
             insn.emit = lambda live: ea.pre + [
                 "c.a[%d] %s= %s;" % (reg2, sign, ea.load() if sz == 2 else "S16(%s)" % ea.load()), cyc(cycles)]
             return
@@ -792,7 +802,9 @@ def _decode(insn, dec, op):
         insn.text = ("%s.%s d%d,%s" % (name, SUFFIX[size], reg2, ea.text) if to_memory
                      else "%s.%s %s,d%d" % (name, SUFFIX[size], ea.text, reg2))
         insn.defs = insn.kills = ALL
-        cycles = opc(size) + ((12 if size == 2 else 8) if to_memory else (6 if size == 2 else 4))
+        # (into the register, the long's 6 is 8 from a register or an immediate)
+        cycles = opc(size) + ((12 if size == 2 else 8) if to_memory else
+                              ((8 if mi in (0, 1, 11) else 6) if size == 2 else 4))
 
         def emit(live, ea=ea, cycles=cycles):
             lines = ea.pre + ["const uint32_t value = %s;" % ea.load()]
@@ -846,7 +858,8 @@ def _decode(insn, dec, op):
             raise NotCode()
         insn.text = "eor.%s d%d,%s" % (SUFFIX[size], reg2, ea.text)
         insn.defs = insn.kills = NZVC
-        cycles = opc(size) + (12 if size == 2 else 8)
+        # (into a data register: 4, or 8 for a long; into memory its read, its write and 8 or 12)
+        cycles = (8 if size == 2 else 4) if mode == 0 else opc(size) + (12 if size == 2 else 8)
         insn.emit = lambda live: ea.pre + [
             "const uint32_t result = %s ^ (c.d[%d] & 0x%Xu);" % (ea.load(), reg2, MASK[size])] + (
                 [logic("result", size)] if live else []) + ea.store("result") + [cyc(cycles)]

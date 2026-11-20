@@ -212,7 +212,8 @@ def directly(insn, mem, nxt):
         return ["c.Trap(%d, 0x%Xu);" % (op & 15, nxt), "c.cycles += 38;"]
     if op == 0x46FC:  # move #value,sr
         value = (mem[insn.addr + 2] << 8) | mem[insn.addr + 3]
-        return ["c.pc = 0x%Xu;" % nxt, "c.MoveToSR(0x%04X);" % value, "c.cycles += 16;"]
+        # (the 68000 fetches its next word again after a change of SR: a wait more, M68K's MOVE to SR)
+        return ["c.pc = 0x%Xu;" % nxt, "c.MoveToSR(0x%04X);" % value, "c.cycles += 16 + c.busWait;"]
     return None
 
 def emit_routine(out, head, members, blocks, mem, hooks=(), watches=()):
