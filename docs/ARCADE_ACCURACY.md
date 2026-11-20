@@ -139,9 +139,12 @@ The same input to the same frame, the 68000 at the core's 10 MHz: the FPGA core 
 board's timing (the default), the port with every clock (as before). The core and the port tick the round clock
 together; with every clock the fight runs ahead (90, 90, 86 here).
 
-![Hyper Fighting's fight: jtcps1, the port with the board's timing, the port with every clock](screenshots/sf2hf/timing-vs-jtcps1.gif)
+![Hyper Fighting's fight: jtcps1, the port with the board's timing, the port with every clock](evidence/sf2hf-timing-vs-jtcps1.gif)
 
-![The same at 6.3 seconds into the fight, with the numbers](screenshots/sf2hf/timing-vs-jtcps1.png)
+![The same at 6.3 seconds into the fight, with the numbers](evidence/sf2hf-timing-vs-jtcps1.png)
+
+The whole fight, 18 seconds, the three stacked at three times the size:
+[evidence/sf2hf-timing-vs-jtcps1.mp4](evidence/sf2hf-timing-vs-jtcps1.mp4).
 
 ### Repeating it
 
