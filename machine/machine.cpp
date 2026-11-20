@@ -1176,9 +1176,18 @@ void Machine::Serialize(Archive &ar) {
     } else if (!ar.Saving()) {
         m_palettePending = false;
     }
-    if (ar.version == 0 || ar.version >= 13) { // (the board's timing: a CPS-1's object table, and the DMA's part clock)
+    // The preview's v13 ends the machine here or continues with a section mark (classic sound or game
+    // state). Upstream's v13 first writes a count in 0..256, which cannot start a four-character mark.
+    if (ar.version == 13 && !ar.Saving()) {
+        ar.v13BoardDma = !ar.AtEnd() && !ar.NextSectionMark();
+    }
+    // Embedded round starts, spare boards and guest boards are machine-only archives without a version.
+    // Old ones end here on QSound boards or continue immediately with classic CPS-1 sound.
+    const bool oldSnapshot = ar.version == 0 && !ar.Saving() && (ar.AtEnd() || (m_classic && ar.NextMark(0x43505331)));
+    if ((ar.version == 0 && !oldSnapshot) || ar.version >= 14 || (ar.version == 13 && ar.v13BoardDma)) {
         ar.Pod(m_objectDmaLeft);
         ar.Pod(m_dmaCarry);
+        ar.Check(m_objectDmaLeft <= 256 && m_dmaCarry < 1024);
     } else if (!ar.Saving()) {
         m_objectDmaLeft = 0;
         m_dmaCarry = 0;
