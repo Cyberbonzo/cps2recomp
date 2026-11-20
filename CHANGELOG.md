@@ -16,6 +16,10 @@
   simulated (docs/ARCADE_ACCURACY.md): the DMA within 0.05% a frame, and Hyper Fighting's fight at the core's speed
   within 0.2% (34.90 frames a round-clock second against 34.96; every clock: 30.89, 11.6% fast). On CPS-2 the same rule leaves Street Fighter Alpha 2 the reference's at
   5,634 of 5,671 frames (5,639 before; single frames in the fight), its DMA within 0.16% a frame (0.3% before).
+- **The evidence**, in `docs/ARCADE_ACCURACY.md`: Hyper Fighting's fight side by side with jtcps1 (a GIF and a still),
+  how to repeat the comparison, and `tools/reference/compare.py` (the frame-by-frame match and a fight's speed).
+  `--ram-log FILE` writes work RAM at every vertical blank as the reference harness logs the board's, and
+  `--cpu-clock 10|12` runs a CPS-1's 68000 at another board's clock.
 - `--check-rewrites` runs the readable rewrites with the board's timing on too (a plain run takes the game's own code
   in their place). Save states are version 13 (the object table's copy and the DMA's part clock).
 

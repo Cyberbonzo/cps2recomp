@@ -12,6 +12,8 @@
 // are drawn as they pass. The hardware facts follow MAME's cps2 driver (BSD-3-Clause).
 #pragma once
 
+#include <cstdio>
+
 #include "../sound/driver.h"
 #include "../sound/qsound.h"
 #include "../sound/z80.h"
@@ -159,6 +161,7 @@ public:
         return boardTiming;
     }
     uint64_t dmaCounted = 0; // (CPS2RECOMP_BUS_LOG: the DMA's clocks since the last frame)
+    std::FILE *ramLog = nullptr; // (--ram-log) work RAM written at the start of every vertical blank
     // The game's music from the player's files (machine/soundtrack.h): sees the game's sound requests
     Soundtrack soundtrack;
     // A request left for the sound side as the game leaves one (sixteen bytes, the last written last), not seen by
