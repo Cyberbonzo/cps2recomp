@@ -154,11 +154,16 @@ the players. A match that isn't in the lobby can't be watched by code. From a te
 
 In a two-person match of a fighting game that has them, the host can switch to **Ball battle** or the **Tag team
 battle** and back to **Versus**, at any time. Esc (or the gamepad's menu button) opens the in-game menu, small, over the
-game, which goes on for both players (your own fighter stands still while it is open); it opens on its **Online match**
-page. There the host has **Start Ball battle**, **Start Tag team battle** and **Back to Versus**, and both players choose
-their own fighters (**Ball battle: your fighter**, **Tag team: your first**, second, third): the host for player 1's
-side, the other player for player 2's, Random or anyone. Back goes to the menu's first page: the Online match page,
-Mute, Resume and **Leave the match**. Watching, or waiting for a player, Esc only asks whether to leave.
+game; it opens on its **Online match** page. The host's pauses the game for both players while it is open, and opens
+the other player's too; the other player's own Esc menu leaves the game going (their own fighter stands still while it
+is open). There the host has **Start Ball battle**, **Start Tag team battle** and **Back to Versus**, and both players
+choose their own fighters (**Ball battle: your fighter**, **Tag team: your first**, second, third): the host for
+player 1's side, the other player for player 2's, Random or anyone. The other player then sets **Ready**, which the
+host's page shows (**The other player**: Choosing or Ready); a fighter changed takes it back. The host's Start waits
+for Ready, the game still paused, and a mode starts only with the other player ready at its frame, on both sides alike.
+Closing the host's menu ends the pause. Back goes to the menu's first page: the Online match page, Mute, Resume and
+**Leave the match**. Watching, or waiting for a player, Esc only asks whether to leave. (Spectators run the players'
+controls without the match's events: a pause, as a mode's start, is not shown to them.)
 What each player picks, and what the host starts, is said on both screens. The rest of each mode's page (first to how
 many, the stage, the team's size and style...) is the host's, as the host had it before the match; online, both sides
 are always people (never the CPU), and the stage is one of the game's own. A joining player's own picks for player 2's

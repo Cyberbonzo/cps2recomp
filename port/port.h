@@ -359,6 +359,27 @@ struct Port {
     // (`at`: the frame it is run before. A mode starts with each row as the events before its command left it.)
     void OnlineEvent(int player, const std::string &text, uint64_t at);
     std::map<std::string, OnlinePickHistory> onlinePickLog;
+    // The host's pause for choosing: while the host's match menu is open the game stands still for both ("setup=1",
+    // the host's event; "setup=0" when it closes), and the other player's opens by itself. The other player says
+    // "ready=1" when their fighters are chosen (a pick of theirs after it takes it back); a mode other than Versus starts
+    // only with the other player ready before its frame (the host's Start waits for it: onlinePendingMode). Only the
+    // events themselves are kept, by frame (a rollback runs them again alike); what they make of the pause and Ready is
+    // worked out from them (OnlineSetupScan), a mode's start being the same at its frame on both sides. (Spectators
+    // run the players' controls without the events: a pause, as a mode's start, is not theirs.)
+    std::map<uint64_t, int> onlineSetupLog; // (the host's "setup": frame, value)
+    std::map<uint64_t, int> onlineModeLog;  // (the host's "mode": frame, mode)
+    std::map<uint64_t, int> onlineReadyLog; // (the other player's Ready as their frame's events leave it: a pick, 0)
+    struct OnlineSetupState {
+        bool paused = false, ready = false;
+        uint64_t pausedFrames = 0; // (how many frames before were paused)
+    };
+    OnlineSetupState OnlineSetupScan(uint64_t before) const; // (the events of the frames before `before`)
+    bool OnlinePausedAt(uint64_t at) const;
+    bool OnlineOtherReady() const; // (the other player's Ready, as the frames run so far have it)
+    bool onlineSetupSent = false;  // (the host: what it last said)
+    int onlinePendingMode = -1;    // (the host: a Start waiting for the other player's Ready)
+    int onlineReadyMine = -1;      // (the other player: Ready as chosen, before its event has run)
+    void OnlineSetupFrame();       // (each tick of a match: the host's pause and its Start)
     // Esc in a match: the match's own menu (Menu::OpenOnline), drawn over the game, which goes on: the host's modes to
     // start (OnlineCommand), this player's own fighters for them (onlinePicks, sent as events), leaving. Watching, or a
     // host waiting, Esc asks only whether to leave (`leaving`, answered by LeaveQuestion)

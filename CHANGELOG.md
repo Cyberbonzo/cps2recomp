@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Online Tag team and Ball battle: both players choose while the game is paused**: the host's Esc menu now pauses
+  the game for both players and opens the other player's, so each chooses their fighters there. The other player
+  then says **Ready**, and the host's **Start** waits until they have (changing a fighter takes Ready back). The other
+  player no longer has to choose before the host starts.
 - **The 68000's own timing, checked against jtcps2's and jtcps1's bus traces**: long ADD/SUB/AND/OR/ADDA/SUBA from a
   register or an immediate take their 8 clocks (they took 6), EOR into a register its 4 (it took 8), a MOVE to `-(An)`
   what one to `(An)` does (it took 2 more), and the waits the board takes for the 68000's hidden accesses (its
