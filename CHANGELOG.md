@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Online Tag team and Ball battle: both players choose while the game is paused**: the host's Esc menu now pauses
+  the game for both players and opens the other player's, so each chooses their fighters there. The other player
+  then says **Ready**, and the host's **Start** waits until they have (changing a fighter takes Ready back). The other
+  player no longer has to choose before the host starts.
+
 ## 1.6.0-beta.3
 
 **Online matches get the in-game menu, with the host starting Tag team or Ball battle from it; the game can record

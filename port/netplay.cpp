@@ -2022,9 +2022,12 @@ void Netplay::Run(Port &port, uint64_t at, bool drawing) {
         if (event != events[machine].end()) port.OnlineEvent(machine, event->second, at);
     }
     const bool versus = set.Target() && battle::TwoPeopleNow();
-    port.machine->drawing = drawing;
-    port.Step(players);
-    port.machine->drawing = true;
+    // (the host's pause for choosing, Port::onlineSetupLog: the game stands still for both)
+    if (!port.OnlinePausedAt(at)) {
+        port.machine->drawing = drawing;
+        port.Step(players);
+        port.machine->drawing = true;
+    }
     if (set.Target()) {
         k.result = {battle::RoundResultNow(), battle::RoundsToWin(), versus};
     }
