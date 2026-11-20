@@ -182,6 +182,49 @@ FF bytes and the movie's coins at 903 and 953.
 its stack and two bytes that flip with where the frame's end catches a routine; SFA2's are
 `--skip 043C --skip 7C00-7FFF --skip DF63`).
 
+## The Street Fighter II family: the same fight on both sides
+
+Comparing a fight's speed means comparing the same fight. Three things made earlier fight comparisons compare
+different fights, and are now part of the method:
+
+- **The boot offset, exact.** The core boots later than the port (a full `-load` ROM download: 520 frames for Super
+  Turbo, 164 for World Warrior, 174 for Champion Edition; Hyper Fighting's preloaded run 14 the other way). Measured
+  as the offset at which work RAM is the same byte for byte before any input, not estimated: a movie shifted by an
+  estimate a few frames out puts the coins into another moment of the attract mode, and the two runs then play
+  different fights.
+- **The inputs on the same game frames.** The port's movie is the core's shifted by that offset, so each press lands
+  on the same frame of the game on both sides.
+- **The same random state.** Super Turbo stirs its random number (FF82D0) with everything it does, so the attract
+  mode's few frames of difference leave the two sides different seeds, and a different stage and fight. For a speed
+  comparison the core's work RAM at the frame before the first press of the character select is copied into the port
+  (`CPS2RECOMP_POKE=FRAME:ADDR=BYTE,...`, the bytes that differ); from there both play the same fight.
+
+Then the round clock's frames (FF8DCE in Super Turbo, FF8ACE in World Warrior, FF8ABE in Champion Edition and Hyper
+Fighting) and the game's tick counter (FF801D) side by side:
+
+| Game (core) | Settings | Same game state | Speed in the fight |
+| --- | --- | --- | --- |
+| Super Turbo (jtcps2) | Turbo 1 | to the round and 150 frames in | 32.118 frames a clock second, the core's 32.118 |
+| | Turbo 2 | likewise | 31.474 against 31.579 (the last tick 2 frames sooner over 19 seconds) |
+| | Turbo 3 | likewise | 30.923, the core's 30.923 |
+| | Turbo 4 | likewise | 30.600 against 30.067 (8 frames later over 15 seconds, after the fights part) |
+| Hyper Fighting (jtcps1, 10 MHz) | | to the fight | 34.88 against 34.96 |
+| World Warrior (jtcps1) | | to frame 2,169 | the tick gap +3, the same through the fight (no drift) |
+| Champion Edition (jtcps1) | | to frame 2,148 | the tick gap +2, the same for 1,000 frames of fight |
+| Alpha 2 (jtcps2), attract | | 5,705 of 5,710 frames | in step to the end (3,760 and frame 4,785 before) |
+
+Where the two parted (after 100 to 150 frames of a Super Turbo fight) it is by one tick landing a frame apart where a
+frame's spare time is at the turbo's threshold; the scripted fight then goes another way, and the speeds after that
+differ either way, not one way. World Warrior and Champion Edition run 2 or 3 more catch-up ticks than the core while
+they set up a screen (after Start, at the VS screen), so their fight starts that many ticks sooner and then keeps the
+core's pace.
+
+What the runs found (TIMING.md, "The 68000's own clocks" and "A CPS-1's video RAM"): long ALU operations from a
+register or an immediate 2 clocks short, EOR into a register 4 long, MOVE to `-(An)` 2 long, the refetch after a
+change of SR or CCR and the read before a CLR or Scc not waited for, and the CPS-1's video RAM writes a clock short.
+They were found by tracing every bus access of the core (the harness's `PCTRACE=from:to`) and every block of the
+port (an experiment build's) over the same frames, from a saved state of the simulation just before them.
+
 ## Where it stands
 
 For Street Fighter Alpha 2's game logic, the arcade timing matches a cycle-level model of the board frame for
@@ -192,8 +235,12 @@ Savior) diverges after about 2,000 frames.
 Hyper Fighting's speed in a fight is jtcps1's within 0.2%, and its game state keeps step with jtcps1's, a few
 slowdown frames apart over its attract mode (above).
 
-So the accurate claim is **"matches jtcps2's 68000 timing on SFA2, and jtcps1's speed on Hyper Fighting"**, not
-"arcade perfect". It is the default for every game.
+The Street Fighter II family (above) runs at its core's speed in a fight: Super Turbo at every turbo setting,
+Hyper Fighting, World Warrior and Champion Edition, the same fight on both sides.
+
+So the accurate claim is **"the Street Fighter II family and Alpha 2 run at the speed of jotego's FPGA cores, the
+same fight frame for frame"**, not "arcade perfect": the cores are models of the boards, not the boards. It is the
+default for every game.
 
 ## The path to arcade perfect
 

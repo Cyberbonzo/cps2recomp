@@ -22,6 +22,16 @@ sooner). The shoot-'em-ups have their own Slowdown row, the same choice with Non
   first two words). The interpreter counts them as it goes; translated code adds them up over each run of
   instructions and charges them before one that may go elsewhere (`tools/recomp.py`), so the two stay alike cycle
   for cycle (`make check-blocks`).
+- **The 68000's own clocks.** Each instruction takes what the 68000's manual gives it, and the rules that are easy to
+  get wrong are kept (both the interpreter, `machine/m68k.cpp`, and the translator, `tools/m68k.py`; found against
+  jtcps2's bus trace, 2026-11-20): a long ADD, SUB, AND, OR, ADDA or SUBA from a register or an immediate takes 8 and
+  not 6 before its operand; EOR into a data register 4 (8 long), not the memory form's 8 (12); a MOVE's `-(An)`
+  destination what `(An)` does (its 2 is a source's only); and the bus accesses the timings hide: the 68000 fetches
+  its next word again after a change of SR or CCR (`move` to SR, `andi`/`ori`/`eori` to SR or CCR), and reads what
+  CLR and Scc write to memory before it writes it, each a wait more on the board.
+- **A CPS-1's video RAM.** A write to it (900000-92FFFF) takes a clock more than the PAL's wait, as jtcps1 has it
+  (`M68K::WriteWait`). Hyper Fighting's catch-up ticks while it sets up a screen run as the core's only with it. The
+  core keeps video RAM in SDRAM, so whether a board has the same clock is not settled by it.
 - **The video chip's DMA.** The CPS-A takes the bus to copy what it draws from into its own memory, a word every
   four steps of its 16 MHz (`Machine::LineDma`): at every line, the row scroll's word (if row scroll is on); when the
   line reaches a new row of a scroll layer's tiles (every 8 lines for the first layer, 16 for the others, by their

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **The 68000's own timing, checked against jtcps2's and jtcps1's bus traces**: long ADD/SUB/AND/OR/ADDA/SUBA from a
+  register or an immediate take their 8 clocks (they took 6), EOR into a register its 4 (it took 8), a MOVE to `-(An)`
+  what one to `(An)` does (it took 2 more), and the waits the board takes for the 68000's hidden accesses (its
+  refetch after a change of SR or CCR, its read before a CLR or Scc); and a CPS-1's video RAM writes a clock more, as
+  jtcps1 has it. With them the Street Fighter II family plays the same fight as its FPGA core at the core's speed:
+  Super Turbo at every turbo setting, Hyper Fighting, World Warrior, Champion Edition (docs/ARCADE_ACCURACY.md, the
+  table); Alpha 2's attract mode keeps step with its core for 5,705 of 5,710 frames (3,760 before).
 - **Every game runs at the board's speed** (testers: Hyper Fighting and Super Turbo too fast): the board's timing is
   now the default for every game, the CPS-1 games included. Street Fighter II's turbo speeds (Hyper Fighting's, Super
   Turbo's) fit in more of the game's work wherever a frame has time to spare, so with every clock the port ran them

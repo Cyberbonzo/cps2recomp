@@ -50,6 +50,9 @@ Machine::Machine(const RomSet &roms)
     if (roms.board.cps1) {
         cpu.unwaitedLow = roms.board.qsound ? 0xF00000 : 0x400000;
         cpu.unwaitedHigh = roms.board.qsound ? 0xFF0000 : 0x800000;
+        // (and a write to its video RAM, 900000-92FFFF, a clock more: jtcps1, docs/TIMING.md)
+        cpu.slowWriteLow = 0x900000;
+        cpu.slowWriteHigh = 0x930000;
     }
     Video::Sources sources;
     sources.graphics = roms.graphics.data();
@@ -239,6 +242,29 @@ void Machine::RunLine() {
     m_rasterCounter[2] = m_rasterReload[2];
 
     if (m_line == kBlankingLine) {
+        {   // (CPS2RECOMP_POKE=FRAME:ADDR=BYTE,ADDR=BYTE...: work RAM bytes set at that frame's vertical blank, to give
+            // the port the reference's state for a comparison, docs/ARCADE_ACCURACY.md)
+            static long at = -2;
+            static std::vector<std::pair<uint32_t, uint8_t>> pokes;
+            if (at == -2) {
+                at = -1;
+                if (const char *e = getenv("CPS2RECOMP_POKE")) {
+                    char *q = nullptr;
+                    at = strtol(e, &q, 10);
+                    while (*q == ':' || *q == ',') {
+                        const uint32_t address = static_cast<uint32_t>(strtoul(q + 1, &q, 16));
+                        if (*q == '=') {
+                            pokes.push_back({address & 0xFFFF, static_cast<uint8_t>(strtoul(q + 1, &q, 16))});
+                        }
+                    }
+                }
+            }
+            if (static_cast<long>(frame) == at) {
+                for (const auto &[address, value] : pokes) {
+                    ram[address] = value;
+                }
+            }
+        }
         if (ramLog) { // (--ram-log: where the reference harness logs the board's, docs/ARCADE_ACCURACY.md)
             fwrite(ram.data(), 1, ram.size(), ramLog);
         }
