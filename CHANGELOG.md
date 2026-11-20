@@ -13,7 +13,8 @@
   all 256 from the line after the game sets the table's base, as well as the row scroll, the tile rows and the palette.
   The DMA's time is counted in its own 16 MHz and turned into the 68000's clock (16, 12 or 10 MHz), with the step its
   scheduler takes at each of its eleven tasks' places up to the last one in use (jtcps1_dma.v). Checked against jtcps1
-  simulated: the DMA within 0.05% a frame. On CPS-2 the same rule leaves Street Fighter Alpha 2 the reference's at
+  simulated (docs/ARCADE_ACCURACY.md): the DMA within 0.05% a frame, and Hyper Fighting's fight at the core's speed
+  within 0.2% (34.90 frames a round-clock second against 34.96; every clock: 30.89, 11.6% fast). On CPS-2 the same rule leaves Street Fighter Alpha 2 the reference's at
   5,634 of 5,671 frames (5,639 before; single frames in the fight), its DMA within 0.16% a frame (0.3% before).
 - `--check-rewrites` runs the readable rewrites with the board's timing on too (a plain run takes the game's own code
   in their place). Save states are version 13 (the object table's copy and the DMA's part clock).
