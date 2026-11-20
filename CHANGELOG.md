@@ -8,6 +8,40 @@
   does; the desktop's mode comes back when the game ends. And synced to the screen, each frame's controls are read
   and its picture made as late before the screen's refresh as it can be (a frame delay, worked out by itself), which
   takes most of the wait for the refresh out of the controls' lag. The log says the mode made and the delay.
+- **The 68000's own timing, checked against jtcps2's and jtcps1's bus traces**: long ADD/SUB/AND/OR/ADDA/SUBA from a
+  register or an immediate take their 8 clocks (they took 6), EOR into a register its 4 (it took 8), a MOVE to `-(An)`
+  what one to `(An)` does (it took 2 more), and the waits the board takes for the 68000's hidden accesses (its
+  refetch after a change of SR or CCR, its read before a CLR or Scc); and a CPS-1's video RAM writes a clock more, as
+  jtcps1 has it. With them the Street Fighter II family plays the same fight as its FPGA core at the core's speed:
+  Super Turbo at every turbo setting, Hyper Fighting, World Warrior, Champion Edition (docs/ARCADE_ACCURACY.md, the
+  table); Alpha 2's attract mode keeps step with its core for 5,705 of 5,710 frames (3,760 before).
+- **Every game runs at the board's speed** (testers: Hyper Fighting and Super Turbo too fast): the board's timing is
+  now the default for every game, the CPS-1 games included. Street Fighter II's turbo speeds (Hyper Fighting's, Super
+  Turbo's) fit in more of the game's work wherever a frame has time to spare, so with every clock the port ran them
+  faster than the board: in a fight Super Turbo's round clock ticked every 27.3 frames, and every 31 with the board's
+  timing; Hyper Fighting's every 29, and every 33.5 with the board's timing. **Slowdown** (Game page, every game but the shoot-'em-ups, which
+  have their own) replaces Arcade timing, off unless chosen: **Arcade perfect** (the default) or **None** (every clock).
+- **The CPS-1's board timing**: its PAL's wait on every access outside 400000-7FFFFF (F00000-FEFFFF on the QSound
+  board), and the CPS-A's DMA as on the CPS-1, where the objects are in video RAM: one entry of the object table a line,
+  all 256 from the line after the game sets the table's base, as well as the row scroll, the tile rows and the palette.
+  The DMA's time is counted in its own 16 MHz and turned into the 68000's clock (16, 12 or 10 MHz), with the step its
+  scheduler takes at each of its eleven tasks' places up to the last one in use (jtcps1_dma.v). Checked against jtcps1
+  simulated (docs/ARCADE_ACCURACY.md): the DMA within 0.05% a frame, and Hyper Fighting's fight at the core's speed
+  within 0.2% (34.90 frames a round-clock second against 34.96; every clock: 30.89, 11.6% fast). On CPS-2 the same rule leaves Street Fighter Alpha 2 the reference's at
+  5,634 of 5,671 frames (5,639 before; single frames in the fight), its DMA within 0.16% a frame (0.3% before).
+- **The evidence**, in `docs/ARCADE_ACCURACY.md`: Hyper Fighting's fight side by side with jtcps1 (a video, a GIF and a still in `docs/evidence/`),
+  how to repeat the comparison, and `tools/reference/compare.py` (the frame-by-frame match and a fight's speed).
+  `--ram-log FILE` writes work RAM at every vertical blank as the reference harness logs the board's, and
+  `--cpu-clock 10|12` runs a CPS-1's 68000 at another board's clock.
+- `--check-rewrites` runs the readable rewrites with the board's timing on too (a plain run takes the game's own code
+  in their place). Save states are version 13 (the object table's copy and the DMA's part clock).
+
+## 1.6.0-beta.3
+
+**Online matches get the in-game menu, with the host starting Tag team or Ball battle from it; the game can record
+video and save the last 30 seconds as a replay; scenes export as layers, SVG and 3D models; and arcade monitors get
+their own resolutions.** Pre-release, as 1.6.0-beta.2 was.
+
 - **Arcade monitor: synced to the screen**: in full screen at an arcade resolution, the game now runs one frame for
   each of the screen's refreshes instead of on the board's own 59.64 Hz clock, so a mode that isn't exactly that rate
   (most CRT Emudriver modes run at 59.98 or 60 Hz) no longer shows a frame twice every few seconds or tears. **Keep

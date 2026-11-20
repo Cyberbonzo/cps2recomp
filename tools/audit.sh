@@ -26,7 +26,8 @@ check "entries files hold addresses only (6 hex digits a line; .z80: 4)" "$(grep
     grep -E '^games/[a-z0-9_]+/entries\.txt\.z80$' "$LIST" | while read -r f; do grep -vnE '^(#.*|[0-9A-F]{4})$' "$f" | sed "s|^|$f:|"; done)"
 check "movies only in a game's movies folder, and as text" "$(grep -E '(^|/)movies/' "$LIST" | grep -vE '^games/[a-z0-9_]+/movies/[a-z0-9_]+\.txt$' || true)"
 check "every game has its game.cfg" "$(grep -E '^games/[^/]+/' "$LIST" | cut -d/ -f2 | sort -u | while read -r g; do [ -f "games/$g/game.cfg" ] || echo "games/$g"; done)"
-check "no pictures but the README's, no sound or video" "$(grep -iE '\.(png|jpe?g|gif|bmp|ppm|webp|mp4|mov|webm|wav|ogg|mp3|flac)$' "$LIST" | grep -vE '^docs/screenshots/([a-z0-9_]+/)?[a-z0-9-]+\.(png|jpg|gif)$' | grep -vx 'recomp-common/launcher/flags\.png' || true)"
+# (docs/evidence/: the comparisons with the boards' models, docs/ARCADE_ACCURACY.md, video included)
+check "no pictures but the README's and the evidence's, no sound, no video but the evidence's" "$(grep -iE '\.(png|jpe?g|gif|bmp|ppm|webp|mp4|mov|webm|wav|ogg|mp3|flac)$' "$LIST" | grep -vE '^docs/screenshots/([a-z0-9_]+/)?[a-z0-9-]+\.(png|jpg|gif)$' | grep -vE '^docs/evidence/[a-z0-9-]+\.(png|gif|mp4)$' | grep -vx 'recomp-common/launcher/flags\.png' || true)"
 # (the published checksums of the libraries the builds download, the commits they are pinned to, and the hashes of
 # the copied files, are not keys)
 check "no key-like hex strings (32 digits or more)" "$(grep_files '(^|[^0-9a-fA-F.])[0-9a-fA-F]{32,}([^0-9a-fA-F]|$)' | grep -vE 'URL_HASH SHA256=[0-9a-f]{64}|SHA256=[0-9a-f]{64}|_COMMIT=[0-9a-f]{40}$|= [0-9a-f]{64} \]|^recomp-common/COMMIT:|^\.github/workflows/' || true)"
@@ -37,7 +38,8 @@ check "no home folder paths" "$(grep_files -e '/Users/[a-z]' -e '/home/[a-z]+/' 
 check "no private session links or private network addresses" "$(grep_files -e 'claude\.ai/code/session' -e '\b192\.168\.[0-9]+\.[0-9]+' -e '\b10\.[0-9]+\.[0-9]+\.[0-9]+\b' || true)"
 # (the README's pictures may be larger: a moving picture is a few megabytes)
 # (the sound file decoders in third_party/ are kept as their projects publish them: dr_flac is a little over)
-check "no file over 512 KB (the README's pictures: 6 MB; third_party/'s decoders: 1 MB)" "$( (grep -v -e '^docs/screenshots/' -e '^third_party/' "$LIST" | tr '\n' '\0' | xargs -0 find 2>/dev/null -prune -type f -size +512k; \
+check "no file over 512 KB (the README's pictures: 6 MB; the evidence's: 50 MB, GitHub's own warning; third_party/'s decoders: 1 MB)" "$( (grep -v -e '^docs/screenshots/' -e '^docs/evidence/' -e '^third_party/' "$LIST" | tr '\n' '\0' | xargs -0 find 2>/dev/null -prune -type f -size +512k; \
+    grep '^docs/evidence/' "$LIST" | tr '\n' '\0' | xargs -0 find 2>/dev/null -prune -type f -size +51200k; \
     grep '^third_party/' "$LIST" | tr '\n' '\0' | xargs -0 find 2>/dev/null -prune -type f -size +1024k; \
     grep '^docs/screenshots/' "$LIST" | tr '\n' '\0' | xargs -0 find 2>/dev/null -prune -type f -size +6144k) || true)"
 # (ports that are not public yet are not named here)

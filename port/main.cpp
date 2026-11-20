@@ -127,11 +127,12 @@ namespace {
 } // namespace
 
 namespace {
-    constexpr uint32_t kStateVersion = 12; // (5: the 68000's wait kept; 6: the custom soundtrack's place; 7: the board timing's palette copy;
+    constexpr uint32_t kStateVersion = 13; // (5: the 68000's wait kept; 6: the custom soundtrack's place; 7: the board timing's palette copy;
                                           // 8: widescreen's camera a frame ago; 9: a guest board's, runtime/guest.h;
                                           // 10: classic CPS-1 sound, machine/cps1_sound.h; 11: live tag swaps (upstream),
                                           // or MVC starting order/Cross Fever clock (the four-player preview);
-                                          // 12: both branches combined; legacy MVC 11 parts are identified by their marks)
+                                          // 12: both branches combined; legacy MVC 11 parts are identified by their marks;
+                                          // 13: the board timing's CPS-1 object table copy and the DMA's part clock)
 
     // (a path is UTF-8 text: by its wide name on Windows, where a folder with an accent is not in the system's code page)
     FILE *OpenFile(const std::string &path, const wchar_t *wideMode, const char *mode) {
@@ -530,9 +531,10 @@ bool ReadDeclaredFeatures(std::string& error) {
 
 // Every game's features that come from the port itself (after the game's own: RegisterGame), for the game and
 // for the list the launcher asks for (--list-features)
-// The board's timing: the port's arcade_timing feature, or what the game's sources say (Game::boardTiming)
+// The board's timing: the port's slowdown feature ("Arcade perfect", the first choice, unless another is chosen), or
+// what the game's sources say (Game::boardTiming)
 bool BoardTimingWanted() {
-    return TheGame().boardTiming ? TheGame().boardTiming() : FeatureOn("arcade_timing");
+    return TheGame().boardTiming ? TheGame().boardTiming() : FeatureValue("slowdown") == 0;
 }
 
 void RegisterPortFeatures() {
@@ -562,16 +564,19 @@ void RegisterPortFeatures() {
                                   "on the board (input lag taken away). The game runs as it does without it; it takes two or three "
                                   "times the processor. Off by itself in the game's own modes beyond fights and training.",
                                   0, {"Off", "1 frame", "2 frames"}});
-    // (arcade_timing: machine.h, SetBoardTiming; docs/TIMING.md. Not for a game whose sources decide it: Game::boardTiming)
+    // (slowdown: machine.h, SetBoardTiming; docs/TIMING.md. Not for a game whose sources decide it: Game::boardTiming,
+    // a shooting game's own Slowdown row)
     if (!TheGame().boardTiming) {
-        TheGame().features.push_back({"arcade_timing", "Game", "Arcade timing",
-                                      "The processor runs as on the arcade board, waiting for its memory and giving the bus to the "
-                                      "video chip, so the game slows down where and as much as the board does (big supers, busy "
-                                      "screens). Off: it has every clock, and the game seldom slows. Checked frame by frame against "
-                                      "a cycle-exact model of the board. In training mode, the game's other modes, widescreen and "
-                                      "with cheats on, the port's own code for some routines runs, and the timing there is close "
-                                      "but not exact.",
-                                      0});
+        TheGame().features.push_back({"slowdown", "Game", "Slowdown",
+                                      "Arcade perfect: the processor runs as on the arcade board, waiting for its memory and giving "
+                                      "the bus to the video chip, so the game runs at the board's speed and slows down where and as "
+                                      "much as the board does (big supers, busy screens); checked frame by frame against a "
+                                      "cycle-exact model of the board. None: the processor has every clock, so the game seldom "
+                                      "slows, and a game that fits in more of its work when it has time (Street Fighter II's turbo "
+                                      "speeds) runs faster than on the board. In training mode, the game's other modes, widescreen "
+                                      "and with cheats on, the port's own code for some routines runs, and the timing there is "
+                                      "close but not exact.",
+                                      0, {"Arcade perfect", "None"}});
     }
     // (rapid_fire: Port::RapidFire)
     TheGame().features.push_back({"rapid_fire", "Game", "Rapid fire",
@@ -897,6 +902,9 @@ bool Port::Init(std::string &error) {
         return false;
     }
 #endif
+    if (opt.cpuClock) { // (--cpu-clock: another board's 68000, for comparing with a model of the board that has it)
+        list.board.cpuClock = opt.cpuClock;
+    }
 #ifdef GAME_DIP
     {
         unsigned a, b, c;
@@ -978,6 +986,13 @@ bool Port::Init(std::string &error) {
 #endif
     machine = std::make_unique<Machine>(roms);
     machine->cpuSpeed = opt.cpuSpeed > 0 ? opt.cpuSpeed : 1;
+    if (!opt.ramLog.empty()) {
+        machine->ramLog = OpenFile(opt.ramLog, L"wb", "wb");
+        if (!machine->ramLog) {
+            error = "cannot write " + opt.ramLog;
+            return false;
+        }
+    }
     SetRam(machine->ram.data(), machine->videoRam.data());
     SetProgram(roms.program.data(), static_cast<uint32_t>(roms.program.size()));
     SetProgramOpcodes(roms.opcodes.data());
@@ -4072,6 +4087,11 @@ void Usage() {
             "  --soundtrack-dump FILE (with --headless) write what the custom soundtrack plays to a WAV file\n"
             "  --poke A=B,...         write byte B at RAM (or video memory) address A after every frame (hex)\n"
             "  --dump-ram F:FILE      write work RAM after frame F (and FILE.video, .objects, .regs); more than once\n"
+            "  --ram-log FILE         write work RAM (64 KB) at the start of every vertical blank, one after another\n"
+            "                         (docs/ARCADE_ACCURACY.md: as the reference harness logs the board's; without\n"
+            "                         run-ahead or online play, whose frames run again would be written too)\n"
+            "  --cpu-clock MHZ        a CPS-1's 68000 at 10 or 12 MHz in place of game.cfg's (to compare with a model\n"
+            "                         of the board at that clock)\n"
             "  --check-rewrites       run every rewritten routine and its original, and report differences\n"
             "  --no-rewrites          run the game's own routines where the sources have rewrites\n"
             "  --trace LOW-HIGH:FILE  those bytes of work RAM (or video memory) after every frame, appended to FILE\n"
@@ -4301,6 +4321,14 @@ bool ParseArgs(int argc, char **argv, port::Options &o) {
             o.layerLog = next();
         } else if (a == "--dump-ram") {
             o.dumpRam.push_back(next());
+        } else if (a == "--ram-log") {
+            o.ramLog = next();
+        } else if (a == "--cpu-clock") {
+            o.cpuClock = atoi(next());
+            if (o.cpuClock != 10 && o.cpuClock != 12) {
+                Usage();
+                return false;
+            }
         } else if (a == "--poke") {
             o.poke = next();
         } else if (a == "--keys") {

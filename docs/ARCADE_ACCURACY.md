@@ -59,6 +59,11 @@ real coins (no free play), Start, character select, a whole fight against the CP
     each one, a routine's saved registers or the stack area was caught at a slightly different point when the
     vertical blank began. The next frame matches again.
   - The DMA per frame comes within 0.3% of the reference's (33,554 clocks against 33,650).
+  - With the DMA's scheduler counted (a step at each of its tasks' places, found on the CPS-1, below; 2026-11-20), the
+    DMA comes within 0.16% (33,680 clocks against 33,735 over the run), and the work RAM is the reference's at 5,634
+    of the 5,671 frames: five more single frames in the fight, the same fixed offset, no drift. The input for this
+    run is the `versus` movie with real coins at 903 and 953 and a blank settings memory (all FF), as the
+    reference's.
 
 The run also turned up several bugs, which are now fixed and part of the rules:
 
@@ -88,8 +93,137 @@ The run also turned up several bugs, which are now fixed and part of the rules:
 - **Not with the port's additions.** Training mode, widescreen, the sources' own modes, and cheats that work
   inside a rewrite keep the readable rewrites, and those don't take the board's waits. The timing there is close,
   not exact.
-- **Not reproducible from this repository.** The harness, its patches, the input scripts and the comparison
-  scripts live on one machine.
+- **Partly reproducible from this repository.** The comparison (`tools/reference/compare.py`) and the port's side
+  (`--ram-log`, `--cpu-clock`) are here, and the harness's changes are described below ([Repeating
+  it](#repeating-it)); the harness itself, a jtcores checkout with those changes, is not.
+
+## The CPS-1: Hyper Fighting against jtcps1
+
+**The reference.** jtcps1 (jotego's CPS-1 core, the same jtcores checkout), simulated with Verilator. Its DMA is the
+same engine as jtcps2's with the object table's copy on (`jtcps1_dma.v`), and its 68000 waits a clock on every bus
+access to the ROM, work RAM and video RAM, as the board's PAL does. This jtcps1 clocks the 68000 at 10 MHz for every
+game, where Hyper Fighting's board has 12 MHz (MAME: "verified on pcb"), so the port was run at 10 MHz for the
+comparison (a test build only) and plays at 12 MHz. The rules are in time, per access and per word, so they carry
+to 12 MHz unchanged.
+
+**The harness.** As for CPS-2, with three more changes: the work RAM dump reads a CPS-1's place in the SDRAM (words
+from 0x300000, in order), a bus log for the CPS-1 (the 68000's clocks and the DMA's each frame), and `RAWFRAMES=1`
+writing each frame's picture as it is (the stock dump converts in a forked process from one shared file and loses
+or mixes frames under load).
+
+**The runs.** Hyper Fighting (`sf2hf`), with the board's DIP switches (FF FC 9F): from power-on with no input (the
+board's tests, the warning, the title, the attract mode's demo fight), 4,203 frames; and from power-on with the
+`versus` movie and two real coins (the select screen and a two-player fight), 2,606 frames.
+
+| | Board timing (now the default) | Every clock (before) |
+|---|---|---|
+| DMA a frame (median, at 10 MHz) | 23,754 clocks against 23,767 | none counted |
+| Ahead of the core after the boot tests (frame 154) | 14 frames | 48 frames |
+| Ahead of the core at the demo fight's start | 17 frames (3 more over 2,826 frames: 0.1%) | 106 frames (58 more: 2.1%) |
+| Player fight: frames a round-clock second (core: 34.96) | **34.90** | 30.89 (11.6% fast) |
+
+- In a fight, Hyper Fighting's turbo speed fits in more of the game's work wherever a frame has time to spare, so
+  the speed of the game itself follows the CPU's time: with every clock it ran 11.6% fast, with the board's
+  timing within 0.2% of the core.
+- After the boot tests the game state is the core's, frame for frame, at a fixed offset, until a frame where the
+  core slows down and the port doesn't (frame 986, the title's start; three such frames before the demo fight).
+  Two bytes flip with where the frame's end catches a routine (`FF0380`, `FF084F`, as `FF043C` and `FFDF63` on
+  SFA2) and the stack (`FFFE00`-) are left out.
+- A fight with inputs can't be compared press for press: a random number the game advances while it waits for the
+  next frame (`FF02BE`) comes out one apart at the second player's Start, and the fights go their own ways from
+  there. Its speed can be, as above.
+
+### The evidence
+
+The same input to the same frame, the 68000 at the core's 10 MHz: the FPGA core (jtcps1), the port with the
+board's timing (the default), the port with every clock (as before). The core and the port tick the round clock
+together; with every clock the fight runs ahead (90, 90, 86 here).
+
+![Hyper Fighting's fight: jtcps1, the port with the board's timing, the port with every clock](evidence/sf2hf-timing-vs-jtcps1.gif)
+
+![The same at 6.3 seconds into the fight, with the numbers](evidence/sf2hf-timing-vs-jtcps1.png)
+
+The whole fight, 18 seconds, the three stacked at three times the size:
+[evidence/sf2hf-timing-vs-jtcps1.mp4](evidence/sf2hf-timing-vs-jtcps1.mp4).
+
+### Repeating it
+
+**The reference.** [jtcores](https://github.com/jotego/jtcores) at `bfced64` (its `jt51` and `jt6295` submodules
+too), Verilator 5, and jtframe's `setprj.sh` in a bash with GNU's tools first on the path. `jtframe mra cps1
+--setname sf2hf --path <folder of MAME zips>` makes `rom/sf2hf.rom` and its DIP file. In
+`modules/jtframe/verilator/test.cpp`:
+
+- `WRAMLOG=1`: at the start of each vertical blank, append the 68000's 64 KB of work RAM, big-endian, to
+  `wram.bin`: SDRAM bank 0 from word 0x300000 in order on a CPS-1 (`WRAM_OFFSET`); on a CPS-2 from word 0x600000,
+  bits 9 and up of the word index one place up.
+- `BUSLOG=1`: each frame's 68000 clocks (`u_dtack` `emit && phase`) and those with `BGACKn` low (the DMA's) to
+  `buslog.txt`; on a CPS-2 also those with `board_wait` high.
+- `MOVIE=file`: a cps2recomp input movie (`frame p1 p2`, the port's bits: joystick and buttons in the low ten,
+  Start 0x400, coin 0x800) played into the cabinet inputs.
+- `RAWFRAMES=1` (with `-video N`): each frame's picture as 384x224 RGBA to `frames/frame_NNNNN.rgba`, written in
+  the simulation's own process.
+- For a CPS-2: `jtframe_68kdtack_cen.v`'s wait counter 16 bits wide, and the QSound DSP always ready
+  (`jtcps15_sound.v`); a blank settings memory (all FF).
+
+Run from `cores/cps1/ver/sf2hf` (or `cps2/ver/sfa2u`): once `jtsim -verilator -load -time 200`, which writes the
+loaded SDRAM to `sdram_bank*.bin` (keep a copy: a later `SDRAMAT` dump overwrites them); then
+`WRAMLOG=1 BUSLOG=1 MOVIE=$PWD/versus_coins.txt jtsim -verilator -time 43700` (2,606 frames), with `-video 2606`
+and `RAWFRAMES=1` for the pictures. `versus_coins.txt` is `games/sf2hf/movies/versus.txt` with a coin for each
+player at 900 and 950, each held 6 frames as the movie's other presses are. About 70 frames a minute on an
+M-series Mac with nothing else running.
+
+**The port.** `build/sf2hf/sf2hf --rom rom/sf2hf --headless --frames 2606 --movie versus_coins.txt --cpu-clock 10
+--ram-log new.bin`, and the same with `--features slowdown=1` for every clock. For SFA2, `--eeprom` a file of 128
+FF bytes and the movie's coins at 903 and 953.
+
+**The numbers.**
+`tools/reference/compare.py clock core.bin new.bin old.bin` (frames a round-clock second);
+`tools/reference/compare.py track core.bin new.bin --skip 0380 --skip 084F --skip FE00-FFFF` (Hyper Fighting:
+its stack and two bytes that flip with where the frame's end catches a routine; SFA2's are
+`--skip 043C --skip 7C00-7FFF --skip DF63`).
+
+## The Street Fighter II family: the same fight on both sides
+
+Comparing a fight's speed means comparing the same fight. Three things made earlier fight comparisons compare
+different fights, and are now part of the method:
+
+- **The boot offset, exact.** The core boots later than the port (a full `-load` ROM download: 520 frames for Super
+  Turbo, 164 for World Warrior, 174 for Champion Edition; Hyper Fighting's preloaded run 14 the other way). Measured
+  as the offset at which work RAM is the same byte for byte before any input, not estimated: a movie shifted by an
+  estimate a few frames out puts the coins into another moment of the attract mode, and the two runs then play
+  different fights.
+- **The inputs on the same game frames.** The port's movie is the core's shifted by that offset, so each press lands
+  on the same frame of the game on both sides.
+- **The same random state.** Super Turbo stirs its random number (FF82D0) with everything it does, so the attract
+  mode's few frames of difference leave the two sides different seeds, and a different stage and fight. For a speed
+  comparison the core's work RAM at the frame before the first press of the character select is copied into the port
+  (`CPS2RECOMP_POKE=FRAME:ADDR=BYTE,...`, the bytes that differ); from there both play the same fight.
+
+Then the round clock's frames (FF8DCE in Super Turbo, FF8ACE in World Warrior, FF8ABE in Champion Edition and Hyper
+Fighting) and the game's tick counter (FF801D) side by side:
+
+| Game (core) | Settings | Same game state | Speed in the fight |
+| --- | --- | --- | --- |
+| Super Turbo (jtcps2) | Turbo 1 | to the round and 150 frames in | 32.118 frames a clock second, the core's 32.118 |
+| | Turbo 2 | likewise | 31.474 against 31.579 (the last tick 2 frames sooner over 19 seconds) |
+| | Turbo 3 | likewise | 30.923, the core's 30.923 |
+| | Turbo 4 | likewise | 30.600 against 30.067 (8 frames later over 15 seconds, after the fights part) |
+| Hyper Fighting (jtcps1, 10 MHz) | | to the fight | 34.88 against 34.96 |
+| World Warrior (jtcps1) | | to frame 2,169 | the tick gap +3, the same through the fight (no drift) |
+| Champion Edition (jtcps1) | | to frame 2,148 | the tick gap +2, the same for 1,000 frames of fight |
+| Alpha 2 (jtcps2), attract | | 5,705 of 5,710 frames | in step to the end (3,760 and frame 4,785 before) |
+
+Where the two parted (after 100 to 150 frames of a Super Turbo fight) it is by one tick landing a frame apart where a
+frame's spare time is at the turbo's threshold; the scripted fight then goes another way, and the speeds after that
+differ either way, not one way. World Warrior and Champion Edition run 2 or 3 more catch-up ticks than the core while
+they set up a screen (after Start, at the VS screen), so their fight starts that many ticks sooner and then keeps the
+core's pace.
+
+What the runs found (TIMING.md, "The 68000's own clocks" and "A CPS-1's video RAM"): long ALU operations from a
+register or an immediate 2 clocks short, EOR into a register 4 long, MOVE to `-(An)` 2 long, the refetch after a
+change of SR or CCR and the read before a CLR or Scc not waited for, and the CPS-1's video RAM writes a clock short.
+They were found by tracing every bus access of the core (the harness's `PCTRACE=from:to`) and every block of the
+port (an experiment build's) over the same frames, from a saved state of the simulation just before them.
 
 ## Where it stands
 
@@ -98,7 +232,15 @@ frame. That covers a whole credit, with no drift beyond a fixed 11-frame offset 
 for the other games, the picture, the sound, or against real hardware, and the one other game tried (Vampire
 Savior) diverges after about 2,000 frames.
 
-So the accurate claim is **"matches jtcps2's 68000 timing on SFA2"**, not "arcade perfect".
+Hyper Fighting's speed in a fight is jtcps1's within 0.2%, and its game state keeps step with jtcps1's, a few
+slowdown frames apart over its attract mode (above).
+
+The Street Fighter II family (above) runs at its core's speed in a fight: Super Turbo at every turbo setting,
+Hyper Fighting, World Warrior and Champion Edition, the same fight on both sides.
+
+So the accurate claim is **"the Street Fighter II family and Alpha 2 run at the speed of jotego's FPGA cores, the
+same fight frame for frame"**, not "arcade perfect": the cores are models of the boards, not the boards. It is the
+default for every game.
 
 ## The path to arcade perfect
 
@@ -130,8 +272,10 @@ In rough order. Each step makes the next one's results mean more.
 9. **Ground truth from a real board.** ([#49](https://github.com/tmcleroy/cps2recomp/issues/49)) Use a board, or published logic-analyser captures, for the cases a model
    can't settle: slowdown lengths in known scenes (a frame-counted video of a board, for example), the 93C46's busy
    time, and the DL-1827's wait in corner cases.
-10. **The CPS-1 with QSound (Cadillacs and Dinosaurs).** ([#50](https://github.com/tmcleroy/cps2recomp/issues/50)) Its timing isn't modelled at all, and `SetBoardTiming`
-    leaves it off. It needs its own rules and its own reference (jtcps15).
+10. **The CPS-1 with QSound (Cadillacs and Dinosaurs, The Punisher).** ([#50](https://github.com/tmcleroy/cps2recomp/issues/50)) It has the CPS-1's rules
+    (its PAL's waits outside F00000-FEFFFF, the CPS-1's DMA), but not the wait for the QSound side's shared memory,
+    and was not compared with its reference (jtcps15). The classic CPS-1's few slowdown frames the core has and the
+    port doesn't (three in 2,826 frames of Hyper Fighting's attract mode) are to be found too.
 11. **Frame rate and latency on the player's screen.** ([#51](https://github.com/tmcleroy/cps2recomp/issues/51)) The game runs at the board's 59.637 Hz, paced by a timer.
     On a 60 Hz display that means a repeated frame about every 2.75 seconds. Use variable refresh where the display
     has it, and measure input-to-picture delay against a board's.

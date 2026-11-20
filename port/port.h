@@ -71,6 +71,8 @@ struct Options {
     bool hashNoSound = false;   // --hash-no-sound: ... without the sound side (as online play's)
     bool hashGame = false;     // --hash-game: the state hash without the Z80 and its own memory (to compare --sound driver and z80)
     int cpuSpeed = 1;         // --cpu-speed
+    int cpuClock = 0;         // --cpu-clock (0: game.cfg's)
+    std::string ramLog;       // --ram-log
     std::string renderer;     // --renderer sdl|gpu (gpu unless said)
     std::string shader;       // --shader FILE.slangp: that shader preset, whatever the Display page's Shader says (shading.h)
     std::string presentTest;  // --present-test FILE.png: the last picture drawn by the GPU path with no window
