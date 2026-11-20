@@ -93,8 +93,9 @@ The run also turned up several bugs, which are now fixed and part of the rules:
 - **Not with the port's additions.** Training mode, widescreen, the sources' own modes, and cheats that work
   inside a rewrite keep the readable rewrites, and those don't take the board's waits. The timing there is close,
   not exact.
-- **Not reproducible from this repository.** The harness, its patches, the input scripts and the comparison
-  scripts live on one machine.
+- **Partly reproducible from this repository.** The comparison (`tools/reference/compare.py`) and the port's side
+  (`--ram-log`, `--cpu-clock`) are here, and the harness's changes are described below ([Repeating
+  it](#repeating-it)); the harness itself, a jtcores checkout with those changes, is not.
 
 ## The CPS-1: Hyper Fighting against jtcps1
 
@@ -131,6 +132,55 @@ board's tests, the warning, the title, the attract mode's demo fight), 4,203 fra
 - A fight with inputs can't be compared press for press: a random number the game advances while it waits for the
   next frame (`FF02BE`) comes out one apart at the second player's Start, and the fights go their own ways from
   there. Its speed can be, as above.
+
+### The evidence
+
+The same input to the same frame, the 68000 at the core's 10 MHz: the FPGA core (jtcps1), the port with the
+board's timing (the default), the port with every clock (as before). The core and the port tick the round clock
+together; with every clock the fight runs ahead (90, 90, 86 here).
+
+![Hyper Fighting's fight: jtcps1, the port with the board's timing, the port with every clock](evidence/sf2hf-timing-vs-jtcps1.gif)
+
+![The same at 6.3 seconds into the fight, with the numbers](evidence/sf2hf-timing-vs-jtcps1.png)
+
+The whole fight, 18 seconds, the three stacked at three times the size:
+[evidence/sf2hf-timing-vs-jtcps1.mp4](evidence/sf2hf-timing-vs-jtcps1.mp4).
+
+### Repeating it
+
+**The reference.** [jtcores](https://github.com/jotego/jtcores) at `bfced64` (its `jt51` and `jt6295` submodules
+too), Verilator 5, and jtframe's `setprj.sh` in a bash with GNU's tools first on the path. `jtframe mra cps1
+--setname sf2hf --path <folder of MAME zips>` makes `rom/sf2hf.rom` and its DIP file. In
+`modules/jtframe/verilator/test.cpp`:
+
+- `WRAMLOG=1`: at the start of each vertical blank, append the 68000's 64 KB of work RAM, big-endian, to
+  `wram.bin`: SDRAM bank 0 from word 0x300000 in order on a CPS-1 (`WRAM_OFFSET`); on a CPS-2 from word 0x600000,
+  bits 9 and up of the word index one place up.
+- `BUSLOG=1`: each frame's 68000 clocks (`u_dtack` `emit && phase`) and those with `BGACKn` low (the DMA's) to
+  `buslog.txt`; on a CPS-2 also those with `board_wait` high.
+- `MOVIE=file`: a cps2recomp input movie (`frame p1 p2`, the port's bits: joystick and buttons in the low ten,
+  Start 0x400, coin 0x800) played into the cabinet inputs.
+- `RAWFRAMES=1` (with `-video N`): each frame's picture as 384x224 RGBA to `frames/frame_NNNNN.rgba`, written in
+  the simulation's own process.
+- For a CPS-2: `jtframe_68kdtack_cen.v`'s wait counter 16 bits wide, and the QSound DSP always ready
+  (`jtcps15_sound.v`); a blank settings memory (all FF).
+
+Run from `cores/cps1/ver/sf2hf` (or `cps2/ver/sfa2u`): once `jtsim -verilator -load -time 200`, which writes the
+loaded SDRAM to `sdram_bank*.bin` (keep a copy: a later `SDRAMAT` dump overwrites them); then
+`WRAMLOG=1 BUSLOG=1 MOVIE=$PWD/versus_coins.txt jtsim -verilator -time 43700` (2,606 frames), with `-video 2606`
+and `RAWFRAMES=1` for the pictures. `versus_coins.txt` is `games/sf2hf/movies/versus.txt` with a coin for each
+player at 900 and 950, each held 6 frames as the movie's other presses are. About 70 frames a minute on an
+M-series Mac with nothing else running.
+
+**The port.** `build/sf2hf/sf2hf --rom rom/sf2hf --headless --frames 2606 --movie versus_coins.txt --cpu-clock 10
+--ram-log new.bin`, and the same with `--features slowdown=1` for every clock. For SFA2, `--eeprom` a file of 128
+FF bytes and the movie's coins at 903 and 953.
+
+**The numbers.**
+`tools/reference/compare.py clock core.bin new.bin old.bin` (frames a round-clock second);
+`tools/reference/compare.py track core.bin new.bin --skip 0380 --skip 084F --skip FE00-FFFF` (Hyper Fighting:
+its stack and two bytes that flip with where the frame's end catches a routine; SFA2's are
+`--skip 043C --skip 7C00-7FFF --skip DF63`).
 
 ## Where it stands
 

@@ -239,6 +239,9 @@ void Machine::RunLine() {
     m_rasterCounter[2] = m_rasterReload[2];
 
     if (m_line == kBlankingLine) {
+        if (ramLog) { // (--ram-log: where the reference harness logs the board's, docs/ARCADE_ACCURACY.md)
+            fwrite(ram.data(), 1, ram.size(), ramLog);
+        }
         m_blankInterrupt = true;
         UpdateInterruptLevel();
         if (m_cps1) {

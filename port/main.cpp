@@ -874,6 +874,9 @@ bool Port::Init(std::string &error) {
         return false;
     }
 #endif
+    if (opt.cpuClock) { // (--cpu-clock: another board's 68000, for comparing with a model of the board that has it)
+        list.board.cpuClock = opt.cpuClock;
+    }
 #ifdef GAME_DIP
     {
         unsigned a, b, c;
@@ -955,6 +958,13 @@ bool Port::Init(std::string &error) {
 #endif
     machine = std::make_unique<Machine>(roms);
     machine->cpuSpeed = opt.cpuSpeed > 0 ? opt.cpuSpeed : 1;
+    if (!opt.ramLog.empty()) {
+        machine->ramLog = OpenFile(opt.ramLog, L"wb", "wb");
+        if (!machine->ramLog) {
+            error = "cannot write " + opt.ramLog;
+            return false;
+        }
+    }
     SetRam(machine->ram.data(), machine->videoRam.data());
     SetProgram(roms.program.data(), static_cast<uint32_t>(roms.program.size()));
     SetProgramOpcodes(roms.opcodes.data());
@@ -4049,6 +4059,11 @@ void Usage() {
             "  --soundtrack-dump FILE (with --headless) write what the custom soundtrack plays to a WAV file\n"
             "  --poke A=B,...         write byte B at RAM (or video memory) address A after every frame (hex)\n"
             "  --dump-ram F:FILE      write work RAM after frame F (and FILE.video, .objects, .regs); more than once\n"
+            "  --ram-log FILE         write work RAM (64 KB) at the start of every vertical blank, one after another\n"
+            "                         (docs/ARCADE_ACCURACY.md: as the reference harness logs the board's; without\n"
+            "                         run-ahead or online play, whose frames run again would be written too)\n"
+            "  --cpu-clock MHZ        a CPS-1's 68000 at 10 or 12 MHz in place of game.cfg's (to compare with a model\n"
+            "                         of the board at that clock)\n"
             "  --check-rewrites       run every rewritten routine and its original, and report differences\n"
             "  --no-rewrites          run the game's own routines where the sources have rewrites\n"
             "  --trace LOW-HIGH:FILE  those bytes of work RAM (or video memory) after every frame, appended to FILE\n"
@@ -4278,6 +4293,14 @@ bool ParseArgs(int argc, char **argv, port::Options &o) {
             o.layerLog = next();
         } else if (a == "--dump-ram") {
             o.dumpRam.push_back(next());
+        } else if (a == "--ram-log") {
+            o.ramLog = next();
+        } else if (a == "--cpu-clock") {
+            o.cpuClock = atoi(next());
+            if (o.cpuClock != 10 && o.cpuClock != 12) {
+                Usage();
+                return false;
+            }
         } else if (a == "--poke") {
             o.poke = next();
         } else if (a == "--keys") {
