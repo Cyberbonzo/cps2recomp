@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Arcade monitor: modes at the board's exact rate, and a frame delay**: on Windows, **Make the mode at the board's
+  rate** (Arcade monitor page) has Switchres make the 384 x 224 or super resolution mode at exactly 59.637 Hz and
+  switch the screen to it, for the **Monitor** chosen (Arcade 15 kHz, a TV, the tri-sync monitors...), as GroovyMAME
+  does; the desktop's mode comes back when the game ends. And synced to the screen, each frame's controls are read
+  and its picture made as late before the screen's refresh as it can be (a frame delay, worked out by itself), which
+  takes most of the wait for the refresh out of the controls' lag. The log says the mode made and the delay.
 - **Online Tag team and Ball battle: both players choose while the game is paused**: the host's Esc menu now pauses
   the game for both players and opens the other player's, so each chooses their fighters there. The other player
   then says **Ready**, and the host's **Start** waits until they have (changing a fighter takes Ready back). The other

@@ -23,6 +23,7 @@
 #include "../runtime/spare.h"
 #include "../runtime/guest.h"
 #include "port.h"
+#include "arcade_screen.h"
 #include "../recomp-common/folders.h"
 #include "../recomp-common/menu.h"
 #include "../recomp-common/proxy.h"
@@ -737,6 +738,26 @@ void RegisterPortFeatures() {
                                   "one or another, in the order the system lists them. One that isn't connected: the main. "
                                   "Set on the launcher; the in-game menu can only put it back to the main one.",
                                   kFeatureLauncherOnly, {"Main", "Second", "Third", "Fourth"}});
+    // (crt_switchres, crt_monitor: frontend_sdl.cpp's SetFullscreenMode with arcade_screen.h; only in a build with
+    // Switchres, Windows. Set on the launcher, as the resolution is: the monitor's ranges decide what modes it makes)
+    if (SwitchresBuilt()) {
+        TheGame().features.push_back({"crt_switchres", "Arcade monitor", "Make the mode at the board's rate",
+                                      "With 384 x 224 or Super resolution: full screen makes that mode at exactly the board's "
+                                      "59.637 Hz with Switchres (CRT Emudriver, as GroovyMAME does) and switches the screen to it, "
+                                      "so a game on the board's pace never shows a frame twice, and synced to the screen it plays "
+                                      "at the board's own speed. Back to the desktop's mode when the game ends. If it can't, a mode "
+                                      "the system lists, as without it. Set on the launcher.",
+                                      kFeatureLauncherOnly});
+        TheGame().features.push_back({"crt_monitor", "Arcade monitor", "Monitor",
+                                      "The monitor whose ranges Switchres keeps to in making a mode (its presets): Arcade 15 kHz "
+                                      "for a standard-resolution arcade monitor; Generic 15 kHz for a TV or a consumer CRT; NTSC "
+                                      "and PAL TVs; the 15/25 kHz and 15/25/31 kHz tri-sync arcade monitors; 31 kHz VGA arcade "
+                                      "monitors. Choose the one the monitor is: a mode outside its ranges can harm it. Set on the "
+                                      "launcher.",
+                                      kFeatureLauncherOnly,
+                                      {"Arcade 15 kHz", "Generic 15 kHz", "NTSC TV", "PAL TV", "Arcade 15/25 kHz", "Arcade 15/25/31 kHz",
+                                       "Arcade 31 kHz"}});
+    }
     // (crt_board_pace: frontend_sdl.cpp. Off, the default: in an arcade mode the frames are paced by the screen's refresh,
     // as a mode the system lists is seldom exactly the board's rate; on: by the board's clock, as in a window)
     TheGame().features.push_back({"crt_board_pace", "Arcade monitor", "Keep the board's pace",
@@ -785,6 +806,13 @@ ArcadeMode ArcadeResolution() {
 }
 int DisplayScreen() {
     return std::clamp(FeatureValue("crt_screen"), 0, 3);
+}
+bool SwitchresChosen() {
+    return SwitchresBuilt() && FeatureValue("crt_switchres") != 0;
+}
+const char *ArcadeMonitorPreset() {
+    static const char *const kPresets[] = {"arcade_15", "generic_15", "ntsc", "pal", "arcade_15_25", "arcade_15_25_31", "arcade_31"};
+    return kPresets[std::clamp(FeatureValue("crt_monitor"), 0, 6)];
 }
 bool ArcadeSyncChosen() {
     return FeatureValue("crt_board_pace") == 0;

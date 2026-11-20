@@ -444,6 +444,10 @@ enum class ArcadeMode { Off, Board, Super };
 ArcadeMode ArcadeResolution();
 // In an arcade mode, frames paced by the screen's refresh: unless the Arcade monitor page's Keep the board's pace is on
 bool ArcadeSyncChosen();
+// The Arcade monitor page's Make the mode at the board's rate (Switchres: arcade_screen.h), and its Monitor, as
+// Switchres's preset's name
+bool SwitchresChosen();
+const char *ArcadeMonitorPreset();
 int DisplayScreen();
 bool CompactMenuChosen();
 // A vertical game's picture shown upright (Game::vertical, the Display page's "Picture turned"): the board's picture,

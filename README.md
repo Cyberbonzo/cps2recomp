@@ -140,8 +140,8 @@ Linux, the Steam Deck and Windows can play each other.
   xBRZ and more, or your own preset). A camera zoom follows either fighter, keeps both in view, or closes in
   and out with the fighters' distance while the health bars stay put ([more](docs/PICTURE.md)).
 - **Arcade monitors**: a CRT (CRT Emudriver or a custom resolution) gets the board's own 384 x 224 in full screen, or a
-  super resolution such as 2560 x 224, on the screen you choose, with a compact menu that suits its 224 lines: set up on
-  the launcher's Features page.
+  super resolution such as 2560 x 224, on the screen you choose, synced to the screen with a frame delay, and on Windows
+  made at the board's exact 59.637 Hz with Switchres, as GroovyMAME does: set up on the launcher's Features page.
 - **Controls**: keyboard, gamepad or arcade stick, every button changeable per player and per game.
 - **An in-game menu**: save states, speed and pause, frame advance, cheats and every option.
 - **English, Brazilian Portuguese or Spanish** in the launcher and every game's menu: chosen once in the launcher (or
@@ -252,6 +252,8 @@ from any game, ever, and never a key). Security reports go by [SECURITY.md](SECU
   arelkair (GPL-3.0-or-later), in `recomp-common/launcher/`.
 - The programs use SDL 3 (zlib), Dear ImGui (MIT) and the Inter font (SIL OFL 1.1); the release archives carry their
   licenses.
+- The Windows programs make arcade-monitor modes with [Switchres](https://github.com/antonioginer/switchres) (Chris
+  Kennedy, Antonio Giner, Alexandre Wodarczyk, Gil Delescluse; GPL-2.0-or-later), downloaded at build time.
 
 The repository holds no game data and nothing derived from it.
 
