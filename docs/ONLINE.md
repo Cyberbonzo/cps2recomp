@@ -3,7 +3,7 @@
 Two players, each on their own machine, play a match with **rollback** netcode; in the tag-team games, four players on
 up to four machines. Any mix of macOS, Linux, the Steam Deck and Windows can play each other.
 
-![The launcher's Online page: open matches, joining with a code, and hosting](screenshots/launcher-online.png)
+![The launcher's Online page: the Discord link, open matches, and hosting with the set format](screenshots/launcher-online.png)
 
 ## Starting a match
 
