@@ -28,9 +28,10 @@ sooner). The shoot-'em-ups have their own Slowdown row, the same choice with Non
   not 6 before its operand; EOR into a data register 4 (8 long), not the memory form's 8 (12); a MOVE's `-(An)`
   destination what `(An)` does (its 2 is a source's only); and the bus accesses the timings hide: the 68000 fetches
   its next word again after a change of SR or CCR (`move` to SR, `andi`/`ori`/`eori` to SR or CCR), and reads what
-  CLR and Scc write to memory before it writes it, each a wait more on the board.
-- **A CPS-1's video RAM.** A write to it (900000-92FFFF) takes a clock more than the PAL's wait, as jtcps1 has it
-  (`M68K::WriteWait`). Hyper Fighting's catch-up ticks while it sets up a screen run as the core's only with it. The
+  CLR and Scc write to memory before it writes it, each a wait more on the board; and a DBcc whose count runs out
+  reads a word more (14 clocks and 3 reads, against 12 and 2 when its condition ends it): a wait more.
+- **A CPS-1's video RAM and work RAM.** A write to either (900000-92FFFF, FF0000-FFFFFF) takes a clock more than the
+  PAL's wait, as jtcps1 has it (`M68K::WriteWait`); work RAM's found by World Warrior's loading screens (2026-11-21). Hyper Fighting's catch-up ticks while it sets up a screen run as the core's only with it. The
   core keeps video RAM in SDRAM, so whether a board has the same clock is not settled by it.
 - **The video chip's DMA.** The CPS-A takes the bus to copy what it draws from into its own memory, a word every
   four steps of its 16 MHz (`Machine::LineDma`): at every line, the row scroll's word (if row scroll is on); when the

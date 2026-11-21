@@ -297,7 +297,8 @@ def emit_routine(out, head, members, blocks, mem, hooks=(), watches=()):
                 out.append("            c.cycles += 10;")
                 out.append("            %s" % go(insn.target))
                 out.append("        }")
-                out.append("        c.cycles += 14;")
+                # (the count run out: the 68000 reads a word more, its prefetch again, 14(3/0): a wait more)
+                out.append("        c.cycles += 14 + c.busWait;")
                 out.append("    }")
                 continue
             out.append("    {")

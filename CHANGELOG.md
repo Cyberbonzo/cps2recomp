@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Two more of the board's clocks**, found against the FPGA cores' bus traces: a `dbra` (DBcc) loop's last pass reads
+  a word more, a wait more on the board (every game); and a CPS-1's work RAM writes a clock more, as its video RAM does
+  (jtcps1). Super Turbo's attract mode keeps step with jtcps2 tick for tick 205 frames longer; World Warrior's
+  loading screens run 2 catch-up ticks more than jtcps1's instead of 8.
 - **Windows: fewer antivirus false alarms.** Windows Defender quarantined a game (`sf2.exe`) as
   `Program:Win32/Wacapew.A!ml`, its machine learning's guess about new, unsigned programs. Every program now says
   what it is (name, version, publisher and a manifest, in its Properties), the launcher and the games make their
