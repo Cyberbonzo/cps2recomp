@@ -9,10 +9,14 @@
   update every 3 seconds (were 10), and a match that starts is shown to watch at once.
 - **Online sets in every fighting game**, and **FT3** (Casual, FT3, FT5, FT10; the setting is now `online_first_to`, so
   an earlier choice is back to Casual). In Casual the strip at the top keeps the score too: the games each side has
-  won. A game's rounds count across the few frames between them (Super Street Fighter II Turbo's).
+  won. A game's rounds count across the few frames between them (Super Street Fighter II Turbo's, and Vampire Savior's six seconds).
 - **Online → Network stats**: at the top right, in small letters, the ping and its jitter, each player's input delay
   and run-ahead, and the last second's rollbacks (protocol 16: the hello says the machine's run-ahead).
 - **Online defaults**: input delay 0 (was 2) and Allow spectators on.
+- **Two more of the board's clocks**, found against the FPGA cores' bus traces: a `dbra` (DBcc) loop's last pass reads
+  a word more, a wait more on the board (every game); and a CPS-1's work RAM writes a clock more, as its video RAM does
+  (jtcps1). Super Turbo's attract mode keeps step with jtcps2 tick for tick 205 frames longer; World Warrior's
+  loading screens run 2 catch-up ticks more than jtcps1's instead of 8.
 - **Windows: fewer antivirus false alarms.** Windows Defender quarantined a game (`sf2.exe`) as
   `Program:Win32/Wacapew.A!ml`, its machine learning's guess about new, unsigned programs. Every program now says
   what it is (name, version, publisher and a manifest, in its Properties), the launcher and the games make their
@@ -29,6 +33,9 @@
 - recomp-common synced to 44bc583 (the Online page's new order, its community link, `online_host_features`,
   `spectators_default`, `delay_default`; before it 641c65d: the smaller font, `delay_own`, the arcade monitor's modes header, the menu's compact
   layout and Reset all options' question).
+- **The proof of the speed, in one page** (docs/ACCURACY.md, linked from the README): the Street Fighter II games against
+  jotego's FPGA cores, the same fight on both sides, with the numbers and the side-by-side videos; Hyper Fighting now
+  also against jtcps1 at the board's 12 MHz. `tools/reference/emulators/` runs FinalBurn Neo the same way, for context.
 
 ## 1.6.0-beta.4
 

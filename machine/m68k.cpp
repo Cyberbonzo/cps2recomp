@@ -725,6 +725,7 @@ void M68K::Execute(uint16_t op) {
                         m_cycles += 10;
                     } else {
                         m_cycles += 14;
+                        BusWait(pc); // (the count run out: the 68000 reads a word more, 14(3/0))
                     }
                 }
             } else { // Scc
