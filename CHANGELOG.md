@@ -17,6 +17,9 @@
   smaller font (recomp-common's `kSmallFont`).
 - recomp-common synced to 641c65d (the smaller font, `delay_own`, the arcade monitor's modes header, the menu's compact
   layout and Reset all options' question).
+- **The proof of the speed, in one page** (docs/ACCURACY.md, linked from the README): the Street Fighter II games against
+  jotego's FPGA cores, the same fight on both sides, with the numbers and the side-by-side videos; Hyper Fighting now
+  also against jtcps1 at the board's 12 MHz. `tools/reference/emulators/` runs FinalBurn Neo the same way, for context.
 
 ## 1.6.0-beta.4
 
