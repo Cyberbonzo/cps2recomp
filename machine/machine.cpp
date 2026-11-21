@@ -53,6 +53,7 @@ Machine::Machine(const RomSet &roms)
         // (and a write to its video RAM, 900000-92FFFF, a clock more: jtcps1, docs/TIMING.md)
         cpu.slowWriteLow = 0x900000;
         cpu.slowWriteHigh = 0x930000;
+        cpu.slowWriteFrom = 0xFF0000; // (its work RAM's writes too: the same SDRAM path in jtcps1, docs/TIMING.md)
     }
     Video::Sources sources;
     sources.graphics = roms.graphics.data();
