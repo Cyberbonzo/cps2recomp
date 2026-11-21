@@ -59,12 +59,13 @@ cps2recomp-launcher --play mvsc -- --join CODE --net-people 1   # run on each of
 Your nickname still appears to the players you invite. Share the code or host address with them. The code admits anyone
 who has it. Direct address hosting with `--net-service off` bypasses the service altogether.
 
-**Host input delay.** From the launcher, the game's Host match command or a direct `--host` launch, the same delay
-applies to everyone. An explicit `--net-delay N` wins, including zero. Next comes the game's **Online → Host input delay**
-choice (0–8 frames). **Use launcher setting** uses the launcher's saved **Input delay**, or two frames if none was saved.
-The launcher's Online card shows the global setting. A numeric choice for this game overrides it.
-The host chooses before the match. A larger value adds local response time and gives remote inputs more time to
-arrive before simulation. For a distant group, compare the same route and match with two delay settings and record
+**Your input delay.** Each player chooses their own, as on Fightcade: it holds back that player's own controls, in
+every match they host or join, and the other player's choice is theirs. An explicit `--net-delay N` wins, including
+zero. Next comes the game's **Online → Your input delay** choice (0–8 frames). **Use launcher setting** uses the
+launcher's saved **Input delay**, or two frames if none was saved. The launcher's Online card shows the global
+setting. A numeric choice for this game overrides it. Each machine says its delay as it joins, and it holds for the
+whole match. A larger value adds your own response time and gives the other machines more time to receive your
+inputs: fewer of your moves are corrected on their screens. For a distant group, compare the same route and match with two delay settings and record
 the ping, correction count and waiting ticks. A single ping reading cannot identify jitter or the slow peer.
 
 **Input during network waits.** In the game's **Online** settings or the in-match menu, each player can choose
@@ -72,8 +73,8 @@ how this machine samples its controllers. **Retain short taps** (default) keeps 
 the simulation is waiting. When the simulation advances, it takes one saved controller state per new frame, in
 order. A button can therefore register after you have let it go, even if the fighter's facing or ability to act
 has changed. **Current state** uses the controls held at the instant each new frame advances. A tap entirely
-inside the wait can disappear. Both choices apply the host's normal input delay. A saved replay uses the inputs
-that were actually submitted. During a playtest, record the local choice alongside the host delay.
+inside the wait can disappear. Both choices apply your normal input delay. A saved replay uses the inputs
+that were actually submitted. During a playtest, record the local choice alongside each player's delay.
 
 ## Choosing the MVC team layout
 
@@ -128,10 +129,10 @@ the other player a short sequence to repeat. If a mapper such as JoyToKey sends 
 only** lets you test those bindings on their own. Leave it off for a native gamepad. A gameplay binding for left
 or right Alt uses that physical key, so you can hold it together with a direction or another attack.
 
-For the online trial, have everyone use the same build. Record who hosted, the host delay in frames, the local
+For the online trial, have everyone use the same build. Record who hosted, each player's delay in frames, the local
 **Input during network waits** choice, the controller or keyboard, and the mapper profile if one is active. Keep
 those settings fixed for the first comparison. If a direction sticks only online, repeat once with the other wait
-setting, or try a different host delay in a new match. A short clip with the failed input and the time it happened
+setting, or try a different delay in a new match. A short clip with the failed input and the time it happened
 helps distinguish the first missed direction from the Hyper that later failed. An input movie (`--record FILE`)
 also shows what the simulation received. It begins after physical-device sampling.
 
@@ -235,8 +236,8 @@ build/mvsc/mvsc --rom rom/mvsc --join 127.0.0.1:7845 --net-service off   # (the 
   the match's, and so are the modes made for it (Marvel vs. Capcom's Cross Fever). With **Co-op vs. computer** the two
   players are one team against the computer, one at each machine. The rest is as for two: rollback, the checks, the
   names (each of a side's people under its life bar).
-- **Rollback**: each machine runs the game with every player's controls, its own players' held back 2 frames (as a
-  board's game might be; `--net-delay N` on the host, 0 to 8), and the others' guessed until they come. When a guess
+- **Rollback**: each machine runs the game with every player's controls, its own players' held back by its own delay
+  (2 frames unless chosen; `--net-delay N`, 0 to 8), and the others' guessed until they come. When a guess
   was wrong, the game goes back to that frame and runs on again with the real ones, unseen and unheard, in the time of
   one frame. Up to 8 frames are guessed; past that the game waits for the others. With more than two machines the host
   is between them: each machine sends the host its controls, and the host sends each the others' with its own.
@@ -246,7 +247,7 @@ build/mvsc/mvsc --rom rom/mvsc --join 127.0.0.1:7845 --net-service off   # (the 
 - **Ping** at the bottom of the screen estimates the longest route to another player. A guest's estimate includes
   its link to the host and the host's longest link to another guest. **Show direct link RTT** adds the measured
   packet round trip for each connected machine, labelled by its players. Hosts see one reading per guest. Guests
-  see their host connection. The input delay can appear beside the ping ("DELAY 2"). Use **Online → Ping** and **Input delay**,
+  see their host connection. The input delay can appear beside the ping ("DELAY 2"; "DELAY 0 (2)" when the other player's is not yours). Use **Online → Ping** and **Input delay**,
   or open the online match menu with Esc to change those readouts while playing. **Hide names** hides the names and streaks together. **Hide online win streak** leaves the names visible. **Names shown → At the top** moves the labels above the life bars. In MVC the names sit below the helper count and the
   connection readouts sit above the TIME and Hyper gauges.
   **Online HUD opacity** is available under Online and in the match menu. **Soft** is the default, **Faint** shows
@@ -273,9 +274,14 @@ build/mvsc/mvsc --rom rom/mvsc --join 127.0.0.1:7845 --net-service off   # (the 
   how to send or put away the line you're typing. Chat goes straight from one game to the other, as the
   controls do (through the host's to the others, with more machines): nothing of it passes through our service. While you type, the keyboard is the chat's, so a keyboard
   player's fighter stands still; a gamepad still plays.
+- **Run-ahead** works online, each player's own (Game page): it shows the frames after the one played with your
+  controls as they are and the others' as guessed, then puts the game back, so the match itself is the same for
+  everyone. A guess the frames ahead got wrong is put right on the next frame, as any rollback is. The **Input lag
+  readout** (Display page) adds up what a press takes to show: the game's own frames, your delay, less run-ahead,
+  and the port's time to the screen.
 - **Leaving a match**: Esc, or the gamepad's menu button, opens the in-game menu over the game (which goes on): its
   first page's **Leave the match** leaves. Watching, Esc asks **Stop watching?**: Confirm leaves, Back stays.
-- **Off during a match**: the cheats (on both sides, for a fair match), the in-game menu's other pages, save states, pause, the speed, run-ahead, the training mode and the
+- **Off during a match**: the cheats (on both sides, for a fair match), the in-game menu's other pages, save states, pause, the speed, the training mode and the
   other modes (endless battle, ring out, the viewers); in two-person matches, Ball battle and the tag team battle
   can be started from the menu's Online match page (above). A match ends when any player closes their game.
 

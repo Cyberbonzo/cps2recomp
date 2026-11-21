@@ -26,7 +26,8 @@
 # two (players 1 and 3) and one at each of the others (2, then 4).
 # PEOPLE lists the people at each machine in arrival order, host first (1,2,1 or 1,1,2 also test a joining pair).
 # With three people use PEOPLE=1,1,1, 2,1 or 1,2 and TAG_TEAM=3 (2 vs 1) or 4 (1 vs 2).
-# NET_PROFILES lists one outgoing MS:JITTER:LOSS profile per machine, host first. NET_DELAY chooses host delay.
+# NET_PROFILES lists one outgoing MS:JITTER:LOSS profile per machine, host first. NET_DELAY chooses the host's delay;
+# each joining machine takes its own, the next one up (each machine's delay is its own: port/netplay.cpp, Delays).
 # MVC_TEAM_ORDER=0|1 tests Dreamcast or adjacent teammates with four MVC players. Guests start with the opposite preference.
 # MVC_GAUGE=0|1 tests fighting-only or passive meter against opposite guest settings.
 # SLOWDOWN=0|1 checks the host's board timing choice against the opposite guest setting.
@@ -193,7 +194,7 @@ n=0
 for name in $joiners; do
     n=$((n + 1))
     joinPeople=${counts[$n]}
-    side "$name" --auto "$((11 + n)):0:$joinPeople" --join "127.0.0.1:$port" --net-people "$joinPeople" --net-name "$(named "$name")" \
+    side "$name" --net-delay "$(( (host_delay + n) % 9 ))" --auto "$((11 + n)):0:$joinPeople" --join "127.0.0.1:$port" --net-people "$joinPeople" --net-name "$(named "$name")" \
         --features "$guest_set" --net-say "$((90 + 30 * n)):good luck from $(named "$name")!" &
     pids="$pids $!"
     # (each once the one before has come, their players going by it)
@@ -310,9 +311,15 @@ case "$layout" in
         done
         players="player 1 ${seat_names[1]}, player 2 ${seat_names[2]}, player 3 ${seat_names[3]}, player 4 ${seat_names[4]}" ;;
 esac
+n=0
 for name in host $joiners; do
-    if ! grep -Eq "^online: the match is on: .* \($host_delay frames? of delay\)$" "$work/online-$name.err"; then
-        echo "FAILED: $name did not take host delay $host_delay"; status=1
+    own=$(( (host_delay + n) % 9 ))
+    n=$((n + 1))
+    if ! grep -Eq "^online: the match is on: .* \($own frames? of delay; the others' [0-9, ]+\)$" "$work/online-$name.err"; then
+        echo "FAILED: $name did not keep its own delay $own"; status=1
+    fi
+    if [ "$name" != host ] && ! grep -Eq "^online: the match is on: .*the others' ([0-9]+, )*$host_delay(, [0-9]+)*\)$" "$work/online-$name.err"; then
+        echo "FAILED: $name was not told the host's delay $host_delay"; status=1
     fi
     if [ "${MVC_CUSTOM:-0}" = 1 ]; then
         rules=$(sed -n 's/^online: settled match rules //p' "$work/online-$name.err" | head -1)

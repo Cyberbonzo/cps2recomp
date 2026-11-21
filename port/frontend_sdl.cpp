@@ -637,6 +637,9 @@ int RunWindowed(Port &port) {
                 }
                 continue; // (every other key the line's, as text)
             }
+            if ((ev.type == SDL_EVENT_KEY_DOWN && !ev.key.repeat) || ev.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
+                port.LagPressed(ev.common.timestamp); // (the input lag readout: Port::Lag)
+            }
             // The mouse in the menu: over a row chooses it, a click confirms, the right button goes back, the wheel
             // goes up and down (a touch is the touch controls': touch.h)
             if (Menu::Action action; port.menu.Mouse(ev, window, menuPlace, action)) {
@@ -1211,6 +1214,7 @@ int RunWindowed(Port &port) {
                 presenter.Show(shown.data(), port.ShownWidth(), Video::kHeight, where, isZoomed ? &zoomed : nullptr);
             }
         }
+        port.LagShown(ran, SDL_GetTicksNS()); // (the input lag readout: Port::Lag)
 
         if (syncScreen && !port.opt.unthrottled && !FastForward()) {
             // (paced by the screen: the picture just shown waited for its refresh. A frame never sooner than nine

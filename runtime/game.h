@@ -135,6 +135,9 @@ struct Game {
     // Not to run ahead now (the port's run-ahead): a mode whose own workings a save state does not wholly hold,
     // so that frames run and taken back would change it. Not given: run-ahead whenever it is on.
     bool (*noRunAhead)() = nullptr;
+    // A round is being fought now (the port's input lag readout measures the game's own lag only then: Port::LagMeasure).
+    // Not given: never (the readout gives the port's part alone).
+    bool (*fighting)() = nullptr;
     // A training session is on (the game's own idea of one): the training aids (kFeatureTraining) work only then.
     // Not given: they work everywhere.
     bool (*inTraining)() = nullptr;

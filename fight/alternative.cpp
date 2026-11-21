@@ -571,6 +571,9 @@ void State(Archive &ar) {
 
 void Register(const Description &description) {
     d = description;
+    if (!TheGame().fighting) {
+        TheGame().fighting = RoundFought; // (the input lag readout's: Port::LagMeasure)
+    }
     // (what is wanted of the machine that is running is kept around a spare's frame, and fresh for it)
     static MatchWanted kept;
     static CameraWanted keptCamera;

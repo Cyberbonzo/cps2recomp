@@ -7,6 +7,16 @@
   what it is (name, version, publisher and a manifest, in its Properties), the launcher and the games make their
   internet requests themselves (WinHTTP) instead of starting a hidden `curl.exe`, and the release build signs the
   programs when it is given a certificate (docs/RELEASING.md).
+- **Online: each player's own input delay** (protocol 15). Each machine holds back its own controls by its own delay,
+  chosen on the launcher's Online page (now passed on Join too) or the game's **Online → Your input delay**; it was
+  the host's for everyone. The DELAY readout shows the other player's when it differs ("DELAY 0 (2)").
+- **Online: run-ahead, each player's own.** Its frames are put back, so only the picture this machine shows
+  changes; the other player's moves in them are guessed and put right with the next rollback.
+- **The input lag readout** (Display page), from sf3comp: the game's own frames to show a press (measured in a fight),
+  online the player's delay, less run-ahead, plus the port's time from the press to the screen. Online too. In a
+  smaller font (recomp-common's `kSmallFont`).
+- recomp-common synced to 641c65d (the smaller font, `delay_own`, the arcade monitor's modes header, the menu's compact
+  layout and Reset all options' question).
 
 ## 1.6.0-beta.4
 
