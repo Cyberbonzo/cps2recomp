@@ -22,9 +22,10 @@ out=$work/rewrites; mkdir -p $out
 run() { # layer's name, movie, frames, features, rewrites to leave out
     CPS2RECOMP_SKIP_REWRITES="$5" $port --rom "${ROM:-rom/$GAME}" --headless --frames "$3" --movie "$movies/$2.txt" --features "$4" --check-rewrites > $out/$1_$2.txt 2>&1 || touch $out/failed
 }
-whole() { # movie, frames, features
-    $port --rom "${ROM:-rom/$GAME}" --headless --frames "$2" --movie "$movies/$1.txt" --features "$3" --cpu-speed 4 --hash-picture --hash-log $work/hash_rewrites.txt > /dev/null 2>&1
-    $port --rom "${ROM:-rom/$GAME}" --headless --frames "$2" --movie "$movies/$1.txt" --features "$3" --cpu-speed 4 --hash-picture --hash-log $work/hash_own.txt --no-rewrites > /dev/null 2>&1
+whole() { # movie, frames, features (and every clock: the board's timing's waits would bring back the difference the
+    # four times as fast takes away)
+    $port --rom "${ROM:-rom/$GAME}" --headless --frames "$2" --movie "$movies/$1.txt" --features "$3,slowdown=1" --cpu-speed 4 --hash-picture --hash-log $work/hash_rewrites.txt > /dev/null 2>&1
+    $port --rom "${ROM:-rom/$GAME}" --headless --frames "$2" --movie "$movies/$1.txt" --features "$3,slowdown=1" --cpu-speed 4 --hash-picture --hash-log $work/hash_own.txt --no-rewrites > /dev/null 2>&1
     # (A frame or two may differ in passing: the picture is taken at a fixed moment, and where the game is
     # changing the screen just then, a rewrite's time being an average shows for that one frame. Anything a
     # rewrite does wrong stays wrong, so more than kPassing frames, or a different end, fails.)
