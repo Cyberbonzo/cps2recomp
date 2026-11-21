@@ -42,10 +42,10 @@ done
 The merged online features can be combined with each layout. For example:
 
 ```sh
-WATCH=1 FIRST_TO=1 PEOPLE=1,1,1,1 GAME=mvsc tools/check_online.sh 3000
+WATCH=1 FIRST_TO=5 PEOPLE=1,1,1,1 GAME=mvsc tools/check_online.sh 3000
 ```
 
-`FIRST_TO=0|1|2` checks Casual/FT5/FT10 negotiation: every joining machine asks for a different format, and every
+`FIRST_TO=0|3|5|10` checks Casual/FT5/FT10 negotiation: every joining machine asks for a different format, and every
 playing machine must use the host's and agree on any set-score events through the shared confirmed frame. A short
 run may contain no scored game; it does not establish completion of a whole FT5/FT10 set. `WATCH=1` joins a viewer
 after play begins, compares at least 100 of its absolute frame hashes against the host, and verifies its attempted
@@ -95,7 +95,7 @@ The four-player build includes the board-speed default from upstream #425. All p
 
 Both matches used four processes, two frames of configured input delay and 50 ms simulated delay with 25 ms jitter and 5% packet loss on each sending process. Guests began with the opposite slowdown and gauge preferences. The offline input movie matched every shared frame in each run. These hashes measure simulation agreement. They do not measure physical input latency.
 
-To repeat the first run, use `GAME=mvsc MACHINES=4 SLOWDOWN=0 MVC_TEAM_ORDER=0 MVC_GAUGE=0 FIRST_TO=1 WATCH=1 bash tools/check_online.sh 1500` with the built game and its ROM. Set `SLOWDOWN=1 MVC_TEAM_ORDER=1` for the second run. The fresh board-timing gameplay test also probes all four controller owners during simultaneous Duo in `tools/check_mvc_gauges.py`.
+To repeat the first run, use `GAME=mvsc MACHINES=4 SLOWDOWN=0 MVC_TEAM_ORDER=0 MVC_GAUGE=0 FIRST_TO=5 WATCH=1 bash tools/check_online.sh 1500` with the built game and its ROM. Set `SLOWDOWN=1 MVC_TEAM_ORDER=1` for the second run. The fresh board-timing gameplay test also probes all four controller owners during simultaneous Duo in `tools/check_mvc_gauges.py`.
 
 Version 14 disk saves combine the DMA progress added in upstream v13 with the partner-tag input history from preview v13. Seven original saves across MVC and Vampire Savior loaded. Each matched its equivalent v14 save for 90 simulation frames and produced a byte-identical re-save, including an MVC preview with both bench tag chords held.
 
@@ -124,7 +124,7 @@ Run the protocol, controller ownership and movie checks with the commands below.
 make check-netplay check-crossfever-reset check-movie check-online-service
 python3 tools/check_mvc_gauges.py --rom rom/mvsc
 python3 tools/check_mvc_bench_ownership.py --rom rom/mvsc
-PEOPLE=1,1,1,1 GAME=mvsc MVC_TEAM_ORDER=1 MVC_CUSTOM=1 FIRST_TO=1 WATCH=1 tools/check_online.sh 1200
+PEOPLE=1,1,1,1 GAME=mvsc MVC_TEAM_ORDER=1 MVC_CUSTOM=1 FIRST_TO=5 WATCH=1 tools/check_online.sh 1200
 ```
 
 ### Compatibility with upstream main
@@ -220,7 +220,7 @@ taunt and rematch choices. Display preferences remained per machine. The short W
 rule negotiation; the separate gameplay tests exercise the mechanics.
 
 To exercise custom choices in a longer direct-UDP replay test, use `MVC_CUSTOM=1` with a three- or four-human
-layout. `FIRST_TO=1` requests FT5. `WATCH=1` adds a spectator whose input cannot reach the match.
+layout. `FIRST_TO=5` requests FT5. `WATCH=1` adds a spectator whose input cannot reach the match.
 
 For an uneven-route test, the profile for each machine is its *outgoing* simulated delay in ms, jitter in ms and
 loss in percent, host first. These are synthetic values. They do not model a particular city or ISP.
@@ -288,7 +288,7 @@ equivalence between every CPU configuration. Physical controllers and a four-mac
 
 ```sh
 python3 tools/check_mvc_team_order.py --program build/mvsc/mvsc --rom rom/mvsc
-MVC_TEAM_ORDER=1 PEOPLE=1,1,1,1 GAME=mvsc FIRST_TO=1 MVC_CUSTOM=1 WATCH=1 tools/check_online.sh 1500
+MVC_TEAM_ORDER=1 PEOPLE=1,1,1,1 GAME=mvsc FIRST_TO=5 MVC_CUSTOM=1 WATCH=1 tools/check_online.sh 1500
 ```
 
 ### Choosing a host for four distant players
@@ -537,7 +537,7 @@ SDL 3.4.20 and Node 25.9.0. The combined wire protocol is 10; new save states us
 - The Cross Fever reset/state suite passed. It also checks the marked MVC parts of both version-11 layouts,
   preserves the next section when legacy parts are absent, and rejects missing required version-12 parts. These
   focused section tests do not promise that arbitrary old whole-game saves load across different builds.
-- All six layouts passed 3,000-frame runs with `WATCH=1 FIRST_TO=1`, 50 ms simulated delay, 25 ms jitter and 5%
+- All six layouts passed 3,000-frame runs with `WATCH=1 FIRST_TO=5`, 50 ms simulated delay, 25 ms jitter and 5%
   packet loss. Assignments, names, chat, host-selected FT5 and offline replay passed. The four-person runs enabled
   Cross Fever. Counts below are common confirmed hashes, not total frames requested:
 

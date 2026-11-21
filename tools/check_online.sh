@@ -32,10 +32,10 @@
 # MVC_GAUGE=0|1 tests fighting-only or passive meter against opposite guest settings.
 # SLOWDOWN=0|1 checks the host's board timing choice against the opposite guest setting.
 # MVC_CUSTOM=1 exercises the alternative Cross Fever rules on the host and in the offline replay.
-# FIRST_TO=0|1|2 checks the host's Casual/FT5/FT10 choice against different choices on all joining machines.
+# FIRST_TO=0|3|5|10 checks the host's Casual/FT3/FT5/FT10 choice against different choices on all joining machines.
 # WATCH=1 adds a viewer after play starts and compares its confirmed frame hashes with the host's.
 #
-#   [ARCADE=1] [FOUR=1 | MACHINES=3|4 | PEOPLE=1,2,1] [FIRST_TO=0|1|2] [WATCH=1] [JOIN_ROM=<set>]
+#   [ARCADE=1] [FOUR=1 | MACHINES=3|4 | PEOPLE=1,2,1] [FIRST_TO=0|3|5|10] [WATCH=1] [JOIN_ROM=<set>]
 #     GAME=<id> check_online.sh [FRAMES]
 set -eu
 GAME=${GAME:?which game: GAME=<id>}
@@ -81,14 +81,16 @@ fi
 host_delay=${NET_DELAY:-2}
 case "$host_delay" in [0-8]) ;; *) echo "NET_DELAY must be 0 through 8"; exit 1 ;; esac
 first_to=${FIRST_TO:-}
-case "$first_to" in ""|0|1|2) ;; *) echo "FIRST_TO must be 0, 1 or 2"; exit 1 ;; esac
+case "$first_to" in ""|0|3|5|10) ;; *) echo "FIRST_TO must be 0 (Casual), 3, 5 or 10"; exit 1 ;; esac
 guest_set=""
 if [ -n "$first_to" ]; then
-    if ! "build/$GAME/$GAME" --list-features | grep -q '^online_set'; then
+    if ! "build/$GAME/$GAME" --list-features | grep -q '^online_first_to'; then
         echo "FAILED: this game has not opted in to online sets"
         exit 1
     fi
-    guest_set="online_set=$(( (first_to + 1) % 3 ))"
+    # (online_first_to's choices: 0 Casual, 1 FT3, 2 FT5, 3 FT10; the guest asks for another)
+    case "$first_to" in 0) first_to=0 ;; 3) first_to=1 ;; 5) first_to=2 ;; 10) first_to=3 ;; esac
+    guest_set="online_first_to=$(( (first_to + 1) % 4 ))"
 fi
 watch=${WATCH:-0}
 case "$watch" in 0|1) ;; *) echo "WATCH must be 0 or 1"; exit 1 ;; esac
@@ -127,7 +129,7 @@ fi
 if "build/$GAME/$GAME" --list-features 2>&1 | awk -F'\t' '$1=="stage" && $2=="Stage" {found=1} END {exit !found}'; then
     play="$play,stage=2"
 fi
-if [ -n "$first_to" ]; then play="$play,online_set=$first_to"; fi
+if [ -n "$first_to" ]; then play="$play,online_first_to=$first_to"; fi
 # (the people at each machine, and the made-up play's players)
 if [ -n "$tag_mode" ]; then
     # (the on-or-off features marked for matches: kFeatureMatch, 512 in --list-features's flags)
@@ -220,7 +222,7 @@ for pid in $pids; do
 done
 pids=
 if [ -n "$first_to" ]; then
-    case "$first_to" in 0) format=Casual ;; 1) format=FT5 ;; 2) format=FT10 ;; esac
+    case "$first_to" in 0) format=Casual ;; 1) format=FT3 ;; 2) format=FT5 ;; 3) format=FT10 ;; esac
     for name in host $joiners; do
         if ! grep -qx "online: set format $format" "$work/online-$name.err"; then
             echo "FAILED: $name did not take the host's $format choice"

@@ -88,7 +88,9 @@ struct Description {
     // ... or, for a game that keeps it some other way, the same worked out from its memory (nullptr: the byte)
     uint8_t (*resultNow)() = nullptr;
     int roundsToWin = 2;            // rounds a player wins a match with (the board's usual: online play's win streaks)
-    bool onlineSets = false;        // opted in after checking the result and human-player records for online sets
+    // Online sets (Casual's score, FT3, FT5, FT10): every fighting game's, from the round's result and the players' records
+    // as the win streaks have them (false: none)
+    bool onlineSets = true;
     uint32_t cameraX = 0, cameraY = 0; // words: where the camera is (the picture's left edge and bottom)
     int cameraLeft = 256, cameraRight = 640; // the camera's ends across on every stage (the board's picture)
     // A camera whose words move (with the stage, say): their addresses now; and stages whose camera's ends differ:

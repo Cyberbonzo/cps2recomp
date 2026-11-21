@@ -313,6 +313,8 @@ struct NetplayTest {
                     }
                     Require(reader.Text() == host.roster[machine].name, "serialized machine name differs");
                     Require(reader.U8() == host.DelayOf(machine), "serialized machine delay differs");
+                    const int ahead = reader.U8();
+                    Require((ahead == 255 ? -1 : ahead) == host.AheadOf(machine), "serialized machine run-ahead differs");
                 }
                 Require(reader.ok && reader.at == reader.end, "malformed start roster");
             }

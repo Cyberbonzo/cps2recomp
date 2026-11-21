@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Online page, from players' feedback** (Kevin62 on the Discord): the Discord link at the top; Host a match comes
+  right after the open matches, with **Set format** in it; the waiting room lists you first, saying whether the
+  others see you, ready to play; your name, country and invitations are in a **You** card at the bottom, and Join with
+  a code is folded under it (it is only for unlisted matches: a listed one joins with its Join button). The lists
+  update every 3 seconds (were 10), and a match that starts is shown to watch at once.
+- **Online sets in every fighting game**, and **FT3** (Casual, FT3, FT5, FT10; the setting is now `online_first_to`, so
+  an earlier choice is back to Casual). In Casual the strip at the top keeps the score too: the games each side has
+  won. A game's rounds count across the few frames between them (Super Street Fighter II Turbo's).
+- **Online → Network stats**: at the top right, in small letters, the ping and its jitter, each player's input delay
+  and run-ahead, and the last second's rollbacks (protocol 16: the hello says the machine's run-ahead).
+- **Online defaults**: input delay 0 (was 2) and Allow spectators on.
 - **Windows: fewer antivirus false alarms.** Windows Defender quarantined a game (`sf2.exe`) as
   `Program:Win32/Wacapew.A!ml`, its machine learning's guess about new, unsigned programs. Every program now says
   what it is (name, version, publisher and a manifest, in its Properties), the launcher and the games make their
@@ -15,7 +26,8 @@
 - **The input lag readout** (Display page), from sf3comp: the game's own frames to show a press (measured in a fight),
   online the player's delay, less run-ahead, plus the port's time from the press to the screen. Online too. In a
   smaller font (recomp-common's `kSmallFont`).
-- recomp-common synced to 641c65d (the smaller font, `delay_own`, the arcade monitor's modes header, the menu's compact
+- recomp-common synced to 1ea4adf (the Online page's new order, its community link, `online_host_features`,
+  `spectators_default`, `delay_default`; before it 641c65d: the smaller font, `delay_own`, the arcade monitor's modes header, the menu's compact
   layout and Reset all options' question).
 
 ## 1.6.0-beta.4

@@ -102,12 +102,12 @@ Linux, the Steam Deck and Windows can play each other.
 - **Your own input delay and run-ahead**: each player chooses their own, as on Fightcade (the launcher's Online page,
   or the game's menu); the match is the same for everyone. The **input lag readout** (Display page) shows what a
   press takes to show, online too.
-- **On screen:** the players' **names**, the ping (and the input delay, if you like), and the **win streak** of a
-  player who keeps winning.
-- **FT5 / FT10:** in Marvel vs. Capcom and X-Men vs. Street Fighter, the host can choose **Set format** on the
-  **Online** page before connecting. Everyone sees the team score and the first side to reach the target wins
-  the set. After the participating machines agree on the result, it is shown for two seconds and they return to
-  the launcher.
+- **On screen:** the players' **names** and the **score** at the top, the **win streak** of a player who keeps winning,
+  and, if you like, **network stats** at the top right as on Fightcade: ping, jitter, each player's delay and
+  run-ahead, and rollbacks.
+- **FT3 / FT5 / FT10:** in every fighting game, the host chooses **Set format** under Host on the **Online** page.
+  Everyone sees the score, and the first side to reach the target wins the set; after the machines agree on the
+  result it is shown for two seconds and they return to the launcher. Casual keeps the score with no end.
 - **Watch** a match: a host who allows spectators has **Watch** on its lobby entry once the match is under way. Up to
   eight viewers follow it, a moment behind, without touching it.
 - **Chat** with the other players during a match: press T (or a gamepad's right stick, or the touch screen's Chat) and

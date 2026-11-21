@@ -608,6 +608,11 @@ void RegisterPortFeatures() {
     TheGame().features.push_back({"online_hud_opacity", "Online", "Online HUD opacity",
                                   "Fade the names, point markers, streak, set score and network readings on your screen.",
                                   0, {"Soft", "Faint", "High contrast"}});
+    TheGame().features.push_back({"online_stats", "Online", "Network stats",
+                                  "During an online match, in small letters at the top right of the picture: the ping and its "
+                                  "jitter (how much it wavers), each player's input delay and run-ahead, and the rollbacks of the "
+                                  "last second (how many, and the most frames one went back).",
+                                  kFeatureEnhanced});
     TheGame().features.push_back({"online_link_rtt", "Online", "Show direct link RTT",
                                   "Show the measured round-trip time to each directly connected machine, labelled by player number. Guests see their link to the host.",
                                   0});
@@ -681,7 +686,8 @@ void RegisterPortFeatures() {
     TheGame().features.push_back({"online_names_place", "Online", "Names shown",
                                   "Where the players' names and win streaks are during an online match: under each side's "
                                   "life bar, or along the very top of the picture, each side's on one line, out of the way "
-                                  "of the bars and the score.",
+                                  "of the bars and the score. In a fighting game's match of two the names are in the "
+                                  "score's strip at the top either way.",
                                   0, {"Under the life bars", "At the top"}});
     TheGame().features.push_back({"online_delay", "Online", "Input delay",
                                   "During an online match, how many frames your own controls are held back, at the bottom of the "
@@ -695,7 +701,7 @@ void RegisterPortFeatures() {
     TheGame().features.push_back({"online_host_delay", "Online", "Your input delay",
                                   "Frames your own controls wait before they count, in every match you host or join; the other player "
                                   "chooses theirs. Fewer feel quicker, but the other player sees more of your moves corrected on a "
-                                  "slow connection. Use launcher setting follows the launcher's (2 unless chosen). From the next match.",
+                                  "slow connection. Use launcher setting follows the launcher's (0 unless chosen). From the next match.",
                                   0, {"Use launcher setting", "0 frames", "1 frame", "2 frames", "3 frames", "4 frames",
                                       "5 frames", "6 frames", "7 frames", "8 frames"}});
     TheGame().features.push_back({"online_unlisted", "Online", "Unlisted match",
@@ -1921,7 +1927,9 @@ void Port::Overlays(uint32_t *px, int W, int H, std::vector<SDL_Rect> *panels, b
         const bool teams = tag::Chosen() != tag::kOff;
         const bool hidden = FeatureOn("online_hide_names");
         int room[2] = {W / 2, W - W / 2};
-        if (net->Set().Target()) {
+        // (the score: a set's, or in Casual the games each side has won, in a fighting game: FirstTo::Counting)
+        const bool strip = net->Set().Counting();
+        if (strip) {
             // Keep the score centred even when the players' names have different lengths.
             constexpr float size = 1;
             // Whole font dots stay sharp; compact padding keeps the strip clear of the life bars.
@@ -1930,7 +1938,7 @@ void Port::Overlays(uint32_t *px, int W, int H, std::vector<SDL_Rect> *panels, b
                 canvas.Text(std::floor(x), 2, size, 0, colour, text.c_str());
             };
             const std::string left = std::to_string(net->Set().Score(0));
-            const std::string format = "FT" + std::to_string(net->Set().Target());
+            const std::string format = net->Set().Target() ? "FT" + std::to_string(net->Set().Target()) : "-";
             const std::string right = std::to_string(net->Set().Score(1));
             const float leftWidth = recomp::text::TextWidth(left.c_str(), size);
             const float formatWidth = recomp::text::TextWidth(format.c_str(), size);
@@ -1968,13 +1976,14 @@ void Port::Overlays(uint32_t *px, int W, int H, std::vector<SDL_Rect> *panels, b
             if (panels) panels->push_back({x0, 0, x1 - x0, 11});
         }
         const bool atTop = FeatureValue("online_names_place") == 1;
-        for (int side = 0; side < 2 && (!net->Set().Target() || teams) && !hidden; side++) {
+        // (each side's names, where the score's strip hasn't them, and its win streak)
+        for (int side = 0; side < 2 && !hidden; side++) {
             float y = static_cast<float>(TheGame().onlineNamesY);
             const bool showStreak = streak[side] >= 2 && !FeatureOn("online_hide_streak");
             std::vector<std::pair<std::string, bool>> lines; // (each line, and whether it is drawn bright)
             bool named = false;
             const int point = tag::OnPoint(side);
-            for (int player = 0; player < Machine::kMaxPlayers; player++) {
+            for (int player = 0; player < Machine::kMaxPlayers && (!strip || teams); player++) {
                 if (ScreenSide(player) != side || net->MachineOf(player) < 0) {
                     continue;
                 }
@@ -2028,6 +2037,35 @@ void Port::Overlays(uint32_t *px, int W, int H, std::vector<SDL_Rect> *panels, b
                                                : lines[n].second ? recomp::text::Color{255, 255, 255, 255}
                                                                  : recomp::text::Color{150, 150, 160, 255});
                 y += 12;
+            }
+        }
+        // The network readout (online_stats), at the top right under the score's strip, in the small letters: the ping and
+        // its jitter, each machine's players with its input delay and run-ahead, and the last second's rollbacks
+        if (notices && FeatureOn("online_stats") && !net->Watching() && !waiting) {
+            std::vector<std::string> lines;
+            lines.push_back("PING " + std::to_string(net->Ping()) + " MS  JITTER " + std::to_string(net->Jitter()) + " MS");
+            for (int m = 0; m < net->Machines(); ++m) {
+                std::string who;
+                for (int person = 0; person < net->People(m); ++person) {
+                    who += (person ? "+P" : "P") + std::to_string(net->Player(m, person) + 1);
+                }
+                const int ahead = net->AheadOf(m);
+                lines.push_back(who + (m == net->Local() ? " YOU" : "") + "  DELAY " + std::to_string(net->DelayOf(m)) + "  AHEAD " +
+                                (ahead < 0 ? std::string("?") : std::to_string(ahead)));
+            }
+            int count = 0, most = 0;
+            net->Rollbacks(count, most);
+            lines.push_back("ROLLBACK " + std::to_string(most) + "F  " + std::to_string(count) + "/S");
+            float y = strip ? 12.0f : 1.0f;
+            for (const std::string &text : lines) {
+                const float width = recomp::text::SmallTextWidth(text.c_str(), 1) - 1;
+                const float x = W - 3 - width;
+                canvas.Fill(x - 2, y, width + 4, 7, {20, 22, 30, onlineOpacity.panel});
+                canvas.SmallText(x, y + 1, 1, {255, 255, 255, onlineOpacity.ink}, text.c_str());
+                if (panels) {
+                    panels->push_back({static_cast<int>(x) - 2, static_cast<int>(y), static_cast<int>(width) + 5, 7});
+                }
+                y += 7;
             }
         }
         // The chat: its lines at the left, above the super gauges, the newest lowest, and the line being typed under them
@@ -3396,7 +3434,7 @@ namespace {
                 prefs.load();
                 if (fromMenu) {
                     settings.name = prefs.get("online", "name");
-                    settings.spectators = settings.spectators || prefs.get("online", "spectators") == "1";
+                    settings.spectators = settings.spectators || prefs.get("online", "spectators") != "0"; // (on unless switched off)
                 }
                 const std::string saved = prefs.get("online", "delay");
                 if (global < 0 && saved.size() == 1 && saved[0] >= '0' && saved[0] <= '8') global = saved[0] - '0';
@@ -3406,6 +3444,7 @@ namespace {
         settings.delay = global >= 0 ? global : Netplay::kDefaultDelay;
         if (chosen > 0) settings.delay = chosen - 1;
         if (options.netDelayOverride >= 0) settings.delay = options.netDelayOverride;
+        settings.runAhead = std::max(0, FeatureValue("run_ahead")); // (said to the others, for their network readout)
         if (hosting && FeatureOn("online_unlisted")) settings.listed = false;
     }
 }
@@ -3714,7 +3753,7 @@ void Port::OpenOnlineMenu() {
         }
     }
     const size_t localBegin = onlineRows.size();
-    for (const char *key : {"online_wait_input", "keyboard_only", "online_hud_opacity", "online_ping", "online_link_rtt",
+    for (const char *key : {"online_wait_input", "keyboard_only", "online_hud_opacity", "online_stats", "online_ping", "online_link_rtt",
                             "online_delay", "online_hide_names", "online_hide_streak", "online_names_place"}) {
         if (const Feature *feature = FindFeature(key)) pick(key, feature->title, feature->description);
     }

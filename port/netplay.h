@@ -76,7 +76,7 @@ public:
     static constexpr int kDefaultPort = 7845;
     // The packets' layout (2: the host's state sent at the start); two copies must have the same to play, and the
     // lobby shows only matches of this one (the launcher asks with it too)
-    static constexpr int kProtocol = 15; // (3: the version said in the hello and to the service; 4: the welcome's flags;
+    static constexpr int kProtocol = 16; // (3: the version said in the hello and to the service; 4: the welcome's flags;
                                         // 5: the welcome's program words, so two regions' sets play together;
                                         // 6: each player's name in the hello and the welcome, and the chat;
                                         // 7: two players at each machine, as the welcome says, and each one's controls;
@@ -88,14 +88,15 @@ public:
                                         // 12: updated deterministic tag/Cross Fever controller routing;
                                         // 13: revised tag requests, taunt ownership and the common feature negotiation;
                                         // 14: board timing by default and the board DMA state in rollback snapshots;
-                                        // 15: each machine's own input delay, in the hello and the start)
+                                        // 15: each machine's own input delay, in the hello and the start;
+                                        // 16: each machine's run-ahead too, and Casual's score counted)
     static constexpr int kMostSeats = 2;    // players at one machine
     static constexpr int kMostMachines = 4; // machines in a match: the host's, and up to three joining
     static constexpr int kMostAhead = 8;    // frames run on guessed controls at most
     static constexpr int kKept = 16;        // states kept (more than the most a rollback goes back)
     static constexpr int kInputs = 128;     // controls kept, each machine's
     static constexpr int kHashEvery = 60;   // frames between the hashes compared
-    static constexpr int kDefaultDelay = 2; // frames a player's own controls are held back (fewer rollbacks)
+    static constexpr int kDefaultDelay = 0; // frames a player's own controls are held back (more: fewer rollbacks)
     // The introduction service (online/): a host gets a code from it, and a player joining by the code is told where
     // the host is, and the host where they are; the two then reach each other directly
     static constexpr const char *kService = "https://cps2recomp-online.tmcleroy.workers.dev";
@@ -112,6 +113,7 @@ public:
         std::string address; // (joining: the host's)
         int port = kDefaultPort;
         int delay = kDefaultDelay;
+        int runAhead = 0; // (this machine's run-ahead, as the others' network readout shows it: its own)
         std::string service = Service(); // (--net-service URL; "off": none, the host's address only)
         std::string renewCode, renewSecret; // (hosting again after a player left: the code they know, kept)
         bool listed = false;  // (--net-list) the match in the lobby: on the Online card's list of open matches
@@ -187,6 +189,15 @@ public:
     int DelayOf(int machine) const {
         return machine >= 0 && machine < kMostMachines ? delays[machine] : delay;
     }
+    // ... and a machine's run-ahead, as it said as the match began (-1: not known)
+    int AheadOf(int machine) const {
+        return machine >= 0 && machine < kMostMachines ? aheads[machine] : -1;
+    }
+    // How steady the packets' time there and back is (ms: how far each differs from the usual, on average; the most of
+    // any machine this one plays with); and the rollbacks of the last whole second: how many, and the most frames one
+    // went back
+    int Jitter() const;
+    void Rollbacks(int &count, int &most);
     // The frame just run as the one shown (not run again in a rollback): the controls it was run with, every player's
     // (this machine's own, the others' as they came or as guessed); false when it did not run (the host's pause for
     // choosing) or this machine is watching. Run-ahead and the input lag readout run on from it (Port::RunFrame).
@@ -344,6 +355,11 @@ private:
     std::vector<uint8_t> Start(int machine) const; // (hosting: the start, for a joining machine)
     int delay = kDefaultDelay;
     std::array<int, kMostMachines> delays{}; // (each machine's input delay: DelayOf)
+    std::array<int, kMostMachines> aheads{}; // (each machine's run-ahead: AheadOf)
+    uint64_t rollbackSecond = 0;              // (Rollbacks: the second counted, its rollbacks and their most frames,
+    int rollbackCount = 0, rollbackMost = 0;  //  and the last whole second's)
+    int rollbackLastCount = 0, rollbackLastMost = 0;
+    void RollbackSecond(uint64_t now);
     void Delays(); // (the match begins: each machine's controls known from its own delay on)
     // A machine's controls for a frame: each of its players'
     using Controls = std::array<uint16_t, kMostSeats>;
@@ -363,6 +379,7 @@ private:
         int people = 1;
         uint32_t ticket = 0;
         int delay = kDefaultDelay; // (its input delay, as its hello said)
+        int runAhead = -1;         // (... and its run-ahead)
         uint64_t lastHeard = 0, greeted = 0;
         uint32_t chunksHad = 0;  // (hosting: the pieces of the state it has)
         int setTarget = 0;
@@ -376,6 +393,7 @@ private:
         uint32_t echo = 0;       // its time on its last packet
         uint64_t echoAt = 0;     // ... and when it came, ours
         double ping = -1;
+        double jitter = 0;       // (how far its times there and back differ from `ping`, on average)
         int farthest = 0;        // (from the host) the longest ping of the other joining machines to it, ms
         // (the chat to it: the lines it hasn't said it has, and when they were last sent; and the lines from it, all
         // those before this number)

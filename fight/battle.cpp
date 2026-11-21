@@ -2316,11 +2316,13 @@ void battle::Register(const Description &description) {
     g_described = true;
     Game &game = TheGame();
     if (d.onlineSets) {
-        game.features.push_back({"online_set", "Online", "Set format",
-                                 "The host chooses Casual, first to 5 games or first to 10 games before connecting. "
-                                 "Both players see the score. After both confirm the winner, the result is shown briefly, "
-                                 "then both return to the launcher. Offline play is unchanged.",
-                                 0, {"Casual", "FT5", "FT10"}});
+        // (online_first_to: it was online_set, Casual, FT5 and FT10, until FT3 came first)
+        game.features.push_back({"online_first_to", "Online", "Set format",
+                                 "The host chooses Casual, or a set of first to 3, 5 or 10 games, before connecting. Both "
+                                 "players see the score at the top of the picture (in Casual, the games each has won). After "
+                                 "both confirm the winner of a set, the result is shown briefly, then both return to the "
+                                 "launcher. Offline play is unchanged.",
+                                 0, {"Casual", "FT3", "FT5", "FT10"}});
     }
     // (the zoom that keeps the panel where it is: port/zoom.h)
     game.panel = d.thePanel;
