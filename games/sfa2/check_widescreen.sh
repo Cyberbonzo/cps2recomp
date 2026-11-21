@@ -104,7 +104,9 @@ done
 differ=0
 for frame in 4000 8000 12000 16000 20000 24000 28000; do
     for run in off walls; do
-        features=free_play,no_damage,one_hit
+        # (every clock: the port's widescreen code does not take the board's time, so with the board's timing the two
+        # runs would part for that alone; this compares the game's logic)
+        features=free_play,no_damage,one_hit,slowdown=1
         [ $run = walls ] && features=$features,widescreen,widescreen_walls
         env $HOME_VAR=$dir/home_$run$frame $port --rom "${ROM:-rom/$GAME}" --headless --frames $((frame + 2)) --movie games/sfa2/movies/ladder.txt \
             --features $features --dump-ram $frame:$dir/$run$frame.bin > /dev/null 2>&1 &

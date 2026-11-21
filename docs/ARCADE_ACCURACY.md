@@ -219,6 +219,12 @@ differ either way, not one way. World Warrior and Champion Edition run 2 or 3 mo
 they set up a screen (after Start, at the VS screen), so their fight starts that many ticks sooner and then keeps the
 core's pace.
 
+The same fight side by side (the core's pictures from its saved state at the round's start, the port's from the
+same frames; left to right the core, this release, and 1.6.0-beta.3 with every clock), Turbo 4 and Turbo 1:
+[evidence/ssf2t-turbo4-vs-jtcps2.gif](evidence/ssf2t-turbo4-vs-jtcps2.gif) (and `.mp4`, at the board's 59.64 Hz; the
+GIF plays at 50), [evidence/ssf2t-turbo1-vs-jtcps2.gif](evidence/ssf2t-turbo1-vs-jtcps2.gif), and a still,
+[evidence/ssf2t-turbo4-vs-jtcps2.png](evidence/ssf2t-turbo4-vs-jtcps2.png).
+
 What the runs found (TIMING.md, "The 68000's own clocks" and "A CPS-1's video RAM"): long ALU operations from a
 register or an immediate 2 clocks short, EOR into a register 4 long, MOVE to `-(An)` 2 long, the refetch after a
 change of SR or CCR and the read before a CLR or Scc not waited for, and the CPS-1's video RAM writes a clock short.

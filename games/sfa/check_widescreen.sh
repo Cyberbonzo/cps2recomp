@@ -72,7 +72,9 @@ PY
 done
 # Invisible walls: the game as the board plays it
 for run in walls none; do
-    features=free_play,no_damage,one_hit
+    # (every clock: the port's widescreen code does not take the board's time, so with the board's timing the two
+    # runs would part for that alone; this compares the game's logic)
+    features=free_play,no_damage,one_hit,slowdown=1
     [ $run = walls ] && features=$features,widescreen,widescreen_walls
     dumps=""
     for f in 4000 8000 12000 16000 20000 24000 28000 32000 36000; do dumps="$dumps --dump-ram $f:$dir/${run}_$f"; done
