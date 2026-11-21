@@ -3,27 +3,32 @@
 Two players, each on their own machine, play a match with **rollback** netcode; in the tag-team games, four players on
 up to four machines. Any mix of macOS, Linux, the Steam Deck and Windows can play each other.
 
-![The launcher's Online page: open matches, joining with a code, and hosting](screenshots/launcher-online.png)
+![The launcher's Online page: the Discord link, open matches, and hosting with the set format](screenshots/launcher-online.png)
 
 ## Starting a match
 
-Each player needs the game and its ROM set. The launcher's **Online** page (in the sidebar) has it all:
+Each player needs the game and its ROM set. The launcher's **Online** page (in the sidebar) has it all, from the top
+(its lists update every 3 seconds):
 
+- **Discord**: where the players meet, find matches and tell us what to fix.
 - **Online matches**: the matches other players are hosting in the lobby, in every game, each with **Join** (or
-  **Watch**, for one under way: [watching a match](#watching-a-match)). A match in a
+  **Watch**, for one under way: [watching a match](#watching-a-match)). No code is needed. A match in a
   game whose ROM set you haven't added is greyed, with **Add…** to add it.
-- **Join with a code**: type the code a host gave you and press **Join**. The launcher starts the game the match is in.
-- **Host a match**: choose a game and press **Host**. The game shows the match's code to give the other player (the
+- **Host a match**: choose a game and press **Host**, with the match's **Set format** (Casual, FT3, FT5, FT10) under it. The game shows the match's code to give the other player (the
   other three, in a match of four: they all join with it). If you've set **Your name**, the match is also listed in
   the lobby under it while places remain (and watchable after it starts, if spectators are allowed); without a name,
   only those you give the code to can join.
-- **Waiting room**: the other players whose Online page is open now, under their names. Choose a game and press
+- **Waiting room**: you first, saying whether the others see you (ready to play, once you have a name), then the other
+  players whose Online page is open now, under their names. Choose a game and press
   **Invite** next to someone: your game starts and hosts a match, and they see the invitation on their Online page,
   naming you and the game, with **Accept** and **Decline** (and **Add…** if they haven't that game's ROM set). Accept
   starts their game and joins yours; your game's wait says if they declined. You're in the waiting room while your
   Online page is open and you've set **Your name**, unless you switch off **Let others invite me**. An invitation never
   interrupts a game: it waits on the Online page. **Block** (on a player or an invitation) hides the two of you from
   each other; **Unblock all** undoes it. Nobody's address is shown, only names.
+- **You** (at the bottom): your name, your country's flag, Let others invite me, and the players you blocked.
+- **Join with a code** (folded under it: *Have a code for an unlisted match?*): only for a match its host kept out of
+  the lobby. Type the code and press **Join**; the launcher starts the game the match is in.
 - **Host from the game**: playing a game on your own, open its menu (Esc), go to **Online** and choose **Host a
   match**. Your game stays exactly your own while you wait: modes, training, cheats, the menu, save states, pause. The
   bottom of the screen says HOSTING with the match's code, and with a name set on the launcher's Online page the match
@@ -35,7 +40,7 @@ Each player needs the game and its ROM set. The launcher's **Online** page (in t
   into your game as it is and press Start to challenge you. Esc asks whether to stop hosting.
 
 All players and viewers need the **same version and build** of CPS-2 Recomp; the launcher shows its version at the
-top of the sidebar. This branch uses protocol 14 for board timing and the current roster, tag and Cross Fever rules. All playing
+top of the sidebar. This version uses protocol 16 (each player's run-ahead said for the network stats, and Casual's score). All playing
 machines and viewers need the same build even when two downloads display the same release number.
 A match on another version is greyed in Online matches, and a code for one says so. Your ROM sets can be different
 regions of the same game (`mvscj` against `mvsc`, say): the match is played as the host's region. That is best
@@ -184,23 +189,32 @@ controller owners.
 `--net-command FRAME:TEXT` (tests) makes an event at that frame: `mode=1:7` the ball battle with seed 7, `mode=2:7` the
 tag team battle, `mode=0:1` Versus, `court_one=3` (the host) or `court_two=3` (the other player) a fighter.
 
-## First to five or ten
+## Sets: first to three, five or ten
 
-Marvel vs. Capcom and X-Men vs. Street Fighter have **Online > Set format**: **Casual** (the default, and in Pure),
-**FT5** or **FT10**. The host's choice is the match's, as with its other settings.
+Every fighting game has **Online > Set format**, also under Host on the launcher's Online page: **Casual** (the
+default, and in Pure), **FT3**, **FT5** or **FT10**. The host's choice is the match's, as with its other settings.
 
-A strip at the top shows the two sides around the score (`2 FT5 1`). A game counts when one side wins it from the other:
-not a draw, not a fight with the computer, and only once the games have the real controls for it (a guess that a
-rollback replaced never counts). When a side reaches five (or ten), the playing machines agree on the score, show
-the winner for two seconds and close, back to the launcher; host again there for a new set. A dropped connection ends the set
-unfinished, and coming back starts the score over. In a four-person match each side keeps one score for its two teammates under either team order. Nothing is kept or ranked.
+A strip at the top shows the two players' names around the score (`2 FT5 1`); in Casual, the games each side has won
+(`2 - 1`), with no end to it. A game counts when one side wins it from the other: not a draw, not a fight with the
+computer, and only once the games have the real controls for it (a guess that a rollback replaced never counts). The
+rounds won so far survive the few frames between a game's rounds when its players' records are put back; thirty seconds
+out of versus play let them go. When a side reaches the target, the playing machines agree on the score, show the
+winner for two seconds and close, back to the launcher; host again there for a new set. A dropped connection ends the
+set unfinished, and coming back starts the score over. In a four-person match each side keeps one score for its two
+teammates under either team order. Nothing is kept or ranked.
 
-From a terminal, `--features online_set=1` is FT5 and `online_set=2` FT10, on the host:
+From a terminal, `--features online_first_to=1` is FT3, `2` FT5 and `3` FT10, on the host (it was `online_set`, with
+1 FT5 and 2 FT10, before FT3):
 
 ```sh
-build/mvsc/mvsc --rom rom/mvsc --host 7845 --net-service off --features online_set=1
+build/mvsc/mvsc --rom rom/mvsc --host 7845 --net-service off --features online_first_to=2
 build/mvsc/mvsc --rom rom/mvsc --join 127.0.0.1:7845 --net-service off   # (the other player)
 ```
+
+**Online > Network stats** puts the match's numbers at the top right, under the strip: the ping and its jitter (how far
+each packet's time there and back is from the usual, on average), each machine's players with its input delay and
+run-ahead (said in the hello, protocol 16), and the rollbacks of the last whole second: the most frames one went back,
+and how many.
 
 ## How it connects
 
@@ -237,7 +251,7 @@ build/mvsc/mvsc --rom rom/mvsc --join 127.0.0.1:7845 --net-service off   # (the 
   players are one team against the computer, one at each machine. The rest is as for two: rollback, the checks, the
   names (each of a side's people under its life bar).
 - **Rollback**: each machine runs the game with every player's controls, its own players' held back by its own delay
-  (2 frames unless chosen; `--net-delay N`, 0 to 8), and the others' guessed until they come. When a guess
+  (0 frames unless chosen; `--net-delay N`, 0 to 8), and the others' guessed until they come. When a guess
   was wrong, the game goes back to that frame and runs on again with the real ones, unseen and unheard, in the time of
   one frame. Up to 8 frames are guessed; past that the game waits for the others. With more than two machines the host
   is between them: each machine sends the host its controls, and the host sends each the others' with its own.

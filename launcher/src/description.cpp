@@ -443,6 +443,7 @@ launcher::Description describe_game(const GameInfo& game) {
 #ifdef RECOMP_LAUNCHER_SPECTATORS
     d.online.watch_argument = "--watch";
     d.online.spectators_argument = "--net-spectators";
+    d.online.spectators_default = true; // (players watch each other's matches: on unless switched off)
 #endif
     d.online.name_argument = "--net-name";
     d.online.arcade_argument = "--net-arcade"; // (the host plays alone until the other player comes: port/main.cpp, ArcadeFrame)
@@ -450,6 +451,7 @@ launcher::Description describe_game(const GameInfo& game) {
     d.online.invite_name_argument = "--net-invite-name";
     d.online.delay_argument = "--launcher-net-delay"; // global fallback; an explicit --net-delay still wins
     d.online.delay_own = true; // (each machine its own: Host and Join both pass it, port/netplay.cpp)
+    d.online.delay_default = port::Netplay::kDefaultDelay;
     d.display = {{"fullscreen", "Full screen", "F11 switches while playing.", false, nullptr}};  // (a window unless asked)
     for (const FeatureSwitch& one : switches) {
         d.display.push_back({keep(one.name), keep(one.title), keep(one.detail), false, nullptr});
@@ -561,9 +563,14 @@ const launcher::Collection& launcher::describe_collection() {
                     "in your browser as 3D cut-outs, to turn, pull apart and photograph.",
                     "Open diorama", "diorama.html"}};
         c.online_features = "Online"; // (the ping and the input delay on the screen: port/main.cpp)
+        c.online_host_features = "online_first_to"; // (the set's format, under Host: fight/battle.cpp)
         c.online_intro = "Play someone on another machine: join a match a player is hosting, or host one in any of your games for others to "
-                         "join, or invite someone from the waiting room. A game's own page has its Online card too, for a match with a code only the people "
-                         "you give it to know.";
+                         "join, or invite someone from the waiting room. No code is needed for a match in the list.";
+        // (where the players talk: the README's Discord link)
+        c.community_url = "https://discord.gg/FSC9GZ6nm";
+        c.community_title = "Join us on Discord";
+        c.community_detail = "Find players for a match, tell us what to fix or add, and hear about new versions first.";
+        c.community_button = "Open Discord";
         launcher::MultiMode endless;
         endless.key = "endless";
         endless.title = "Endless battle";

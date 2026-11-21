@@ -22,9 +22,9 @@ struct Match {
 };
 
 int main() {
-    for (int choice : {1, 2}) {
+    for (int choice : {1, 2, 3}) {
         Match match(choice);
-        const int target = choice == 1 ? 5 : 10;
+        const int target = choice == 1 ? 3 : choice == 2 ? 5 : 10;
         assert(match.set.Target() == target);
         // Alternating wins accumulate on both sides, unlike a consecutive-win streak.
         for (int i = 1; i < target; ++i) {
@@ -40,10 +40,15 @@ int main() {
         match.set.Begin(choice);
         assert(match.set.Winner() == -1 && match.set.Score(0) == 0 && match.set.Score(1) == 0);
     }
-    for (int choice : {0, -1, 3, 10}) {
+    for (int choice : {0, -1, 4, 10}) {
+        // Casual (and anything else): the games won counted for the screen, never a winner of the set...
         Match casual(choice);
+        for (int i = 0; i < 12; ++i) casual.Win(0);
+        assert(casual.set.Target() == 0 && casual.set.Score(0) == 12 && casual.set.Winner() == -1);
+        // ... unless nothing is counted (a game without online sets)
+        casual.set.Begin(choice, false);
         casual.Win(0);
-        assert(casual.set.Target() == 0 && casual.set.Score(0) == 0);
+        assert(!casual.set.Counting() && casual.set.Score(0) == 0);
     }
     Match match(1);
     // A result already present on connection, a CPU fight, and a draw never award a game.
@@ -73,8 +78,12 @@ int main() {
     assert(rounds.Win(1, 2) == 1);
     assert(rounds.set.Score(1) == 1);
     assert(rounds.Win(0, 2) == -1);
-    rounds.Step(0, false); // leaving versus play discards partial round wins
+    for (int i = 0; i < 6; ++i) rounds.Step(0, false); // a few frames between rounds keep them
+    assert(rounds.Win(0, 2) == 0);
+    assert(rounds.set.Score(0) == 1);
+    assert(rounds.Win(1, 2) == -1);
+    for (int i = 0; i < FirstTo::kApart; ++i) rounds.Step(0, false); // leaving versus play discards partial round wins
     assert(rounds.Win(0, 2) == -1);
     assert(rounds.Win(0, 2) == 0);
-    puts("ok: FT5/FT10 scoring, draws, CPU exclusion, repeated results, confirmation and session reset");
+    puts("ok: FT3/FT5/FT10 scoring, draws, CPU exclusion, repeated results, confirmation and session reset");
 }

@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (C) 2026 cps2recomp contributors. Part of cps2recomp.
 # A full first-to set: real game results, corrected predictions, and a clean exit on both peers.
-# GAME=mvsc FIRST_TO=1 tools/check_set_finish.sh [maximum frames]
+# GAME=mvsc FIRST_TO=5 tools/check_set_finish.sh [maximum frames]   (FIRST_TO: 3, 5 or 10)
 set -eu
 cd "$(dirname "$0")/.."
 GAME=${GAME:?choose a supported game}
 ROM=${ROM:-rom/$GAME}
-choice=${FIRST_TO:-1}
-case "$choice" in 1) target=5 ;; 2) target=10 ;; *) echo 'FIRST_TO must be 1 or 2'; exit 1 ;; esac
+target=${FIRST_TO:-5}
+case "$target" in 3) choice=1 ;; 5) choice=2 ;; 10) choice=3 ;; *) echo 'FIRST_TO must be 3, 5 or 10'; exit 1 ;; esac
 frames=${1:-150000}
 work=work/$GAME/set-finish-$target
 mkdir -p "$work"
@@ -22,11 +22,11 @@ side() {
         --settings "$work/$name.ini" --eeprom "$work/$name.eeprom" --net-service off --net-fake 5:3:5 \
         --hash-no-picture --hash-no-sound --hash-log "$work/$name.hash" "$@" 2> "$work/$name.log"
 }
-side host --host "$port" --features "online_set=$choice,free_play,skip_intro" --auto 11:0:1 &
+side host --host "$port" --features "online_first_to=$choice,free_play,skip_intro" --auto 11:0:1 &
 host=$!
 trap 'kill "$host" 2>/dev/null || true' EXIT
 sleep 0.5
-side join --join "127.0.0.1:$port" --features online_set=0 --auto 12:0:1
+side join --join "127.0.0.1:$port" --features online_first_to=0 --auto 12:0:1
 wait "$host"
 trap - EXIT
 for name in host join; do

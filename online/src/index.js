@@ -37,10 +37,11 @@
 //
 // A host that asks for it (`listed`, with a `name` and its `protocol`) is in the lobby, a Durable Object (Lobby) that
 // keeps every game's: there while it has room and the host is asking (seen in the last 25 seconds), or while the
-// host reports it active with spectators allowed. A match refreshes its listing at most every 10 seconds.
+// host reports it active with spectators allowed. A match refreshes its listing at most every 3 seconds, and at once
+// when it starts or stops running.
 //
 // The waiting room (Room, a Durable Object) is the players whose launcher has its Online page open, each checking in
-// every 10 to 20 seconds, and gone 30 seconds after the last. A player is shown to the others with a name, and while they
+// every 3 to 10 seconds, and gone 15 seconds after the last. A player is shown to the others with a name, and while they
 // let others invite them; never their addresses. A player is known by an id the service makes from a secret only
 // their launcher has (so nobody can check in as them), and not kept anywhere but the Room's memory. A host may name
 // a player in the room to invite (`invite`, with its own `from` id and `name`): the invitation waits in the room for
@@ -93,8 +94,8 @@ function cleanName(text) {
 }
 
 const kSeen = 25 * 1000; // (a listed host that has not asked for this long is not shown)
-const kTell = 10 * 1000; // (a match's host asking: the lobby told it is still there, at most this often)
-const kHere = 30 * 1000; // (a player in the waiting room, or an invitation, not seen for this long is gone)
+const kTell = 3 * 1000; // (a match's host asking: the lobby told it is still there, at most this often)
+const kHere = 15 * 1000; // (a player in the waiting room, or an invitation, not seen for this long is gone)
 
 // A waiting room id, "3f9a0c1e2b4d": a player's secret's SHA-256, its first 12 hex digits
 async function playerId(secret) {
@@ -350,7 +351,7 @@ export class Match {
         const stats = this.env.STATS.get(this.env.STATS.idFromName("all"));
         await stats.fetch("https://stats/waiting", { method: "POST", body: JSON.stringify({ code: match.code, game: match.game, listed: match.listed }) }).catch(() => {});
       }
-      if ((open || active) && now - this.told > kTell) {
+      if ((open || active) && (now - this.told > kTell || active !== wasActive)) {
         this.told = now;
         await this.lobby(match, "seen", match.code);
       }

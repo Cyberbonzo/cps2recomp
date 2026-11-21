@@ -148,7 +148,7 @@ namespace {
         if (feature.flags & kFeatureMatch) {
             return Share::Host;
         }
-        if (name == "online_set" || name.rfind("widescreen", 0) == 0 || category == "Game" || category == "Board") {
+        if (name == "online_first_to" || name.rfind("widescreen", 0) == 0 || category == "Game" || category == "Board") {
             return Share::Host;
         }
         if (category == "Stage") {
@@ -508,6 +508,7 @@ bool Netplay::MatchDecides(const Feature &feature) {
 void Netplay::StartAt(int frames) {
     delay = std::clamp(frames, 0, kMostAhead); // (the first `delay` frames: nobody's controls)
     delays.fill(delay);
+    aheads.fill(-1);
     upTo.fill(static_cast<uint64_t>(delay));
     for (auto &stream : events) stream.clear();
     eventFrom = UINT64_MAX;
@@ -517,6 +518,7 @@ void Netplay::StartAt(int frames) {
 // controls), so that each is known from its own delay on
 void Netplay::Delays() {
     delays[local] = delay;
+    aheads[local] = settings.watching ? -1 : std::clamp(settings.runAhead, 0, 255);
     for (int machine = 0; machine < kMostMachines; machine++) {
         delays[machine] = std::clamp(delays[machine], 0, kMostAhead);
         upTo[machine] = static_cast<uint64_t>(delays[machine]);
@@ -632,6 +634,7 @@ std::vector<uint8_t> Netplay::Start(int machine) const {
         }
         start.Text(roster[m].name);
         start.U8(static_cast<uint8_t>(delays[m])); // (its input delay)
+        start.U8(static_cast<uint8_t>(aheads[m] < 0 ? 255 : aheads[m])); // (its run-ahead; 255: not known)
     }
     return start.out;
 }
@@ -714,6 +717,7 @@ void Netplay::Hello() {
         hello.U8(static_cast<uint8_t>(PeopleHere()));
         hello.U32(ticket);
         hello.U8(static_cast<uint8_t>(std::clamp(settings.delay, 0, kMostAhead))); // (this machine's input delay: its own)
+        hello.U8(static_cast<uint8_t>(std::clamp(settings.runAhead, 0, 254)));      // (... and its run-ahead)
     }
     greeting = hello.out;
 }
@@ -1115,6 +1119,7 @@ int Netplay::Waiting(Port &port, std::string &error) {
                 const int theirPeople = std::clamp<int>(in.U8(), 1, kMostSeats);
                 const uint32_t theirTicket = in.U32();
                 const int theirDelay = std::clamp<int>(in.U8(), 0, kMostAhead);
+                const int theirRunAhead = in.U8();
                 // (in a match of two, one at each machine, whatever the other machine's People at this machine says)
                 const int bringing = needed > 2 ? theirPeople : 1;
                 std::string why;
@@ -1168,6 +1173,7 @@ int Netplay::Waiting(Port &port, std::string &error) {
                 }
                 link->lastHeard = now;
                 link->delay = theirDelay;
+                link->runAhead = theirRunAhead;
                 if (link->chunksHad == 0) {
                     SendTo(link->address, greeting);
                     link->greeted = now;
@@ -1219,6 +1225,7 @@ int Netplay::Waiting(Port &port, std::string &error) {
             Assign();
             for (const Link &link : links) {
                 delays[link.machine] = link.delay;
+                aheads[link.machine] = link.runAhead;
             }
             Delays();
             for (Link &link : links) {
@@ -1379,6 +1386,8 @@ int Netplay::Waiting(Port &port, std::string &error) {
                 const int count = in.U8(), which = in.U8();
                 std::array<Seats, kMostMachines> seats{};
                 std::array<int, kMostMachines> theirDelays{};
+                std::array<int, kMostMachines> theirAheads{};
+                theirAheads.fill(-1);
                 bool taken[Machine::kMaxPlayers] = {};
                 bool sense = count >= 2 && count <= kMostMachines && which >= 1 && which < count;
                 for (int m = 0; sense && m < count; m++) {
@@ -1395,6 +1404,8 @@ int Netplay::Waiting(Port &port, std::string &error) {
                     seats[m].name = in.Text();
                     theirDelays[m] = in.U8();
                     sense = sense && theirDelays[m] <= kMostAhead;
+                    const int ahead = in.U8();
+                    theirAheads[m] = ahead == 255 ? -1 : ahead;
                 }
                 if (!sense || !in.ok || std::count(std::begin(taken), std::end(taken), true) != needed) {
                     error = "The host's start did not make sense.";
@@ -1404,6 +1415,7 @@ int Netplay::Waiting(Port &port, std::string &error) {
                 local = which;
                 roster = seats;
                 delays = theirDelays;
+                aheads = theirAheads;
                 Delays();
                 code.clear();
                 links[0].lastHeard = now;
@@ -1577,6 +1589,30 @@ int Netplay::DirectRtt(int machine) const {
         if (link.machine == machine) return static_cast<int>(std::lround(link.ping));
     }
     return -1;
+}
+
+int Netplay::Jitter() const {
+    double most = 0;
+    for (const Link &link : links) {
+        most = std::max(most, link.jitter);
+    }
+    return static_cast<int>(std::lround(most));
+}
+
+void Netplay::RollbackSecond(uint64_t now) {
+    const uint64_t second = now / 1000;
+    if (second == rollbackSecond) return;
+    // (the second just over is the last whole one; a second or more with none in between: none)
+    rollbackLastCount = second == rollbackSecond + 1 ? rollbackCount : 0;
+    rollbackLastMost = second == rollbackSecond + 1 ? rollbackMost : 0;
+    rollbackSecond = second;
+    rollbackCount = rollbackMost = 0;
+}
+
+void Netplay::Rollbacks(int &count, int &most) {
+    RollbackSecond(NowMs());
+    count = rollbackLastCount;
+    most = rollbackLastMost;
 }
 
 uint64_t Netplay::Silent() const {
@@ -1895,6 +1931,7 @@ void Netplay::Take(Link &link, const uint8_t *data, size_t size) {
     if (echoed) {
         const double rtt = static_cast<double>(static_cast<uint32_t>(static_cast<uint32_t>(now) - echoed - held));
         if (rtt < 10000) {
+            if (link.ping >= 0) link.jitter = link.jitter * 0.9 + std::abs(rtt - link.ping) * 0.1;
             link.ping = link.ping >= 0 ? link.ping * 0.9 + rtt * 0.1 : rtt;
         }
     }
@@ -2058,7 +2095,7 @@ void Netplay::Run(Port &port, uint64_t at, bool drawing) {
         const auto event = events[machine].find(at);
         if (event != events[machine].end()) port.OnlineEvent(machine, event->second, at);
     }
-    const bool versus = set.Target() && battle::TwoPeopleNow();
+    const bool versus = set.Counting() && battle::TwoPeopleNow();
     // (the host's pause for choosing, Port::onlineSetupLog: the game stands still for both)
     const bool runs = !port.OnlinePausedAt(at);
     if (runs) {
@@ -2070,7 +2107,7 @@ void Netplay::Run(Port &port, uint64_t at, bool drawing) {
         std::copy(std::begin(players), std::end(players), shownWith.begin());
         shownRan = runs;
     }
-    if (set.Target()) {
+    if (set.Counting()) {
         k.result = {battle::RoundResultNow(), battle::RoundsToWin(), versus};
     }
     if ((at + 1) % kHashEvery == 0 || port.hashFile) {
@@ -2084,12 +2121,12 @@ void Netplay::Frame(Port &port, const uint16_t *controls) {
         const WatchInput &f = watchInputs[port.frame % kWatchFrames];
         uint16_t players[Machine::kMaxPlayers] = {};
         std::copy(f.players.begin(), f.players.end(), players);
-        const bool versus = set.Target() && battle::TwoPeopleNow(); // (as Run reads it: before the frame)
+        const bool versus = set.Counting() && battle::TwoPeopleNow(); // (as Run reads it: before the frame)
         port.Step(players);
-        if (set.Target()) {
+        if (set.Counting()) {
             // (the viewer's frames are all confirmed ones: the set's score counted as the players count it)
             if (set.Confirm(port.frame, {battle::RoundResultNow(), battle::RoundsToWin(), versus}) >= 0) {
-                fprintf(stderr, "online: set FT%d frame %llu score %d-%d%s\n", set.Target(),
+                fprintf(stderr, "online: set %s frame %llu score %d-%d%s\n", set.Format().c_str(),
                         static_cast<unsigned long long>(port.frame + 1), set.Score(0), set.Score(1),
                         set.Winner() >= 0 ? " complete" : "");
             }
@@ -2150,6 +2187,9 @@ void Netplay::Frame(Port &port, const uint16_t *controls) {
         }
         port.machine->audio.resize(sound);
         rollbacks++;
+        RollbackSecond(NowMs());
+        rollbackCount++;
+        rollbackMost = std::max(rollbackMost, static_cast<int>(frame - wrong));
         rerun += frame - wrong;
         mostRerun = std::max(mostRerun, static_cast<int>(frame - wrong));
     }
@@ -2167,7 +2207,7 @@ void Netplay::Frame(Port &port, const uint16_t *controls) {
         }
         const int won = set.Confirm(at, k.result);
         if (won >= 0) {
-            fprintf(stderr, "online: set FT%d frame %llu score %d-%d%s\n", set.Target(),
+            fprintf(stderr, "online: set %s frame %llu score %d-%d%s\n", set.Format().c_str(),
                     static_cast<unsigned long long>(at + 1), set.Score(0), set.Score(1),
                     set.Winner() >= 0 ? " complete" : "");
         }
@@ -2240,12 +2280,12 @@ void Netplay::BeginSet() {
     }
     if (!rules.empty()) fprintf(stderr, "online: settled match rules %s\n", rules.c_str());
     if (settings.watching) { // (a viewer has the host's set as of where it came in: Waiting)
-        fprintf(stderr, "online: set format %s, %d-%d\n", set.Target() == 5 ? "FT5" : set.Target() == 10 ? "FT10" : "Casual",
+        fprintf(stderr, "online: set format %s, %d-%d\n", set.Format().c_str(),
                 set.Score(0), set.Score(1));
         return;
     }
-    set.Begin(battle::OnlineSets() ? FeatureSetting("online_set") : 0);
-    fprintf(stderr, "online: set format %s\n", set.Target() == 5 ? "FT5" : set.Target() == 10 ? "FT10" : "Casual");
+    set.Begin(battle::OnlineSets() ? FeatureSetting("online_first_to") : 0, battle::OnlineSets());
+    fprintf(stderr, "online: set format %s\n", set.Format().c_str());
 }
 
 bool Netplay::SetAgrees() const {
