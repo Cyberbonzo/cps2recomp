@@ -136,12 +136,13 @@ namespace {
     // menu's Stage page). Each player's
     // own: how the picture is shown and the sound. Off for both: the cheats (a fair match), and the rest (the
     // alternative modes, training, the viewers: kept apart from the save state, or not worked out for two machines
-    // yet), and run-ahead (rollback does what it does). A mode marked for matches (kFeatureMatch: tag team) is the host's.
+    // yet). Run-ahead is each player's own: its frames are put back, so only the picture this machine shows changes
+    // (Port::RunAhead). A mode marked for matches (kFeatureMatch: tag team) is the host's.
     enum class Share { Host, Own, Off, Keep };
     Share Shared(const Feature &feature) {
         const std::string category = feature.category, name = feature.name;
-        if (name == "keyboard_only") return Share::Own; // (this machine's input devices)
-        if (name == "run_ahead" || name == "custom_colours") {
+        if (name == "keyboard_only" || name == "run_ahead") return Share::Own; // (this machine's input devices; its picture)
+        if (name == "custom_colours") {
             return Share::Off; // (custom colours: each player's own library, which the other side has not)
         }
         if (feature.flags & kFeatureMatch) {
@@ -506,9 +507,31 @@ bool Netplay::MatchDecides(const Feature &feature) {
 
 void Netplay::StartAt(int frames) {
     delay = std::clamp(frames, 0, kMostAhead); // (the first `delay` frames: nobody's controls)
+    delays.fill(delay);
     upTo.fill(static_cast<uint64_t>(delay));
     for (auto &stream : events) stream.clear();
     eventFrom = UINT64_MAX;
+}
+
+// The match begins: each machine's controls are held back by its own delay (the first frames of each, none: no
+// controls), so that each is known from its own delay on
+void Netplay::Delays() {
+    delays[local] = delay;
+    for (int machine = 0; machine < kMostMachines; machine++) {
+        delays[machine] = std::clamp(delays[machine], 0, kMostAhead);
+        upTo[machine] = static_cast<uint64_t>(delays[machine]);
+    }
+}
+
+// The other machines' delays, for the log: "2", or "2, 0, 3"
+static std::string OthersDelays(const Netplay &net) {
+    std::string said;
+    for (int machine = 0; machine < net.Machines(); machine++) {
+        if (machine != net.Local()) {
+            said += (said.empty() ? "" : ", ") + std::to_string(net.DelayOf(machine));
+        }
+    }
+    return said;
 }
 
 // Human seats required by the host's selected layout. Games without a layout selector use two.
@@ -608,6 +631,7 @@ std::vector<uint8_t> Netplay::Start(int machine) const {
             start.U8(static_cast<uint8_t>(roster[m].players[person]));
         }
         start.Text(roster[m].name);
+        start.U8(static_cast<uint8_t>(delays[m])); // (its input delay)
     }
     return start.out;
 }
@@ -689,6 +713,7 @@ void Netplay::Hello() {
     } else {
         hello.U8(static_cast<uint8_t>(PeopleHere()));
         hello.U32(ticket);
+        hello.U8(static_cast<uint8_t>(std::clamp(settings.delay, 0, kMostAhead))); // (this machine's input delay: its own)
     }
     greeting = hello.out;
 }
@@ -1089,6 +1114,7 @@ int Netplay::Waiting(Port &port, std::string &error) {
                 const std::string name = in.Text();
                 const int theirPeople = std::clamp<int>(in.U8(), 1, kMostSeats);
                 const uint32_t theirTicket = in.U32();
+                const int theirDelay = std::clamp<int>(in.U8(), 0, kMostAhead);
                 // (in a match of two, one at each machine, whatever the other machine's People at this machine says)
                 const int bringing = needed > 2 ? theirPeople : 1;
                 std::string why;
@@ -1141,6 +1167,7 @@ int Netplay::Waiting(Port &port, std::string &error) {
                     SayWaiting();
                 }
                 link->lastHeard = now;
+                link->delay = theirDelay;
                 if (link->chunksHad == 0) {
                     SendTo(link->address, greeting);
                     link->greeted = now;
@@ -1190,14 +1217,18 @@ int Netplay::Waiting(Port &port, std::string &error) {
         }
         if (all) {
             Assign();
+            for (const Link &link : links) {
+                delays[link.machine] = link.delay;
+            }
+            Delays();
             for (Link &link : links) {
                 SendTo(link.address, Start(link.machine));
                 link.greeted = now;
                 link.lastHeard = now;
             }
             intro = intro == Intro::Off ? Intro::Off : Intro::Done; // (nobody more to ask about)
-            fprintf(stderr, "online: the match is on: you are %s (%d frame%s of delay)\n", MachinePlayers(*this, local).c_str(), delay,
-                    delay == 1 ? "" : "s");
+            fprintf(stderr, "online: the match is on: you are %s (%d frame%s of delay; the others' %s)\n", MachinePlayers(*this, local).c_str(),
+                    delay, delay == 1 ? "" : "s", OthersDelays(*this).c_str());
             return 1;
         }
         for (Link &link : links) {
@@ -1347,6 +1378,7 @@ int Netplay::Waiting(Port &port, std::string &error) {
                 // The match begins: the machines, each one's players and name, and which this is
                 const int count = in.U8(), which = in.U8();
                 std::array<Seats, kMostMachines> seats{};
+                std::array<int, kMostMachines> theirDelays{};
                 bool taken[Machine::kMaxPlayers] = {};
                 bool sense = count >= 2 && count <= kMostMachines && which >= 1 && which < count;
                 for (int m = 0; sense && m < count; m++) {
@@ -1361,6 +1393,8 @@ int Netplay::Waiting(Port &port, std::string &error) {
                         }
                     }
                     seats[m].name = in.Text();
+                    theirDelays[m] = in.U8();
+                    sense = sense && theirDelays[m] <= kMostAhead;
                 }
                 if (!sense || !in.ok || std::count(std::begin(taken), std::end(taken), true) != needed) {
                     error = "The host's start did not make sense.";
@@ -1369,10 +1403,12 @@ int Netplay::Waiting(Port &port, std::string &error) {
                 machines = count;
                 local = which;
                 roster = seats;
+                delays = theirDelays;
+                Delays();
                 code.clear();
                 links[0].lastHeard = now;
-                fprintf(stderr, "online: the match is on: you are %s (%d frame%s of delay)\n", MachinePlayers(*this, local).c_str(), delay,
-                        delay == 1 ? "" : "s");
+                fprintf(stderr, "online: the match is on: you are %s (%d frame%s of delay; the others' %s)\n", MachinePlayers(*this, local).c_str(),
+                        delay, delay == 1 ? "" : "s", OthersDelays(*this).c_str());
                 return 1;
             }
             continue;
@@ -1387,7 +1423,9 @@ int Netplay::Waiting(Port &port, std::string &error) {
             error = "The two copies of the game are different versions: update both.";
             return -1;
         }
-        StartAt(in.U8());
+        const int hostDelay = in.U8(); // (the host's own: each machine's is its own, the start says them all)
+        StartAt(settings.delay);
+        delays[0] = std::clamp(hostDelay, 0, kMostAhead);
         const size_t words = in.U16();
         if (!in.Has(words) || words != sizeof(port.machine->eeprom.words)) {
             error = "The host's welcome did not make sense.";
@@ -1993,6 +2031,16 @@ bool Netplay::Ready(uint64_t frame) {
     return true;
 }
 
+static_assert(Machine::kMaxPlayers == 4, "Netplay::shownWith");
+
+bool Netplay::ShownFrame(uint16_t *players) const {
+    if (settings.watching || !shownRan) {
+        return false;
+    }
+    std::copy(shownWith.begin(), shownWith.end(), players);
+    return true;
+}
+
 void Netplay::Run(Port &port, uint64_t at, bool drawing) {
     Kept &k = kept[at % kKept];
     uint16_t players[Machine::kMaxPlayers] = {};
@@ -2012,10 +2060,15 @@ void Netplay::Run(Port &port, uint64_t at, bool drawing) {
     }
     const bool versus = set.Target() && battle::TwoPeopleNow();
     // (the host's pause for choosing, Port::onlineSetupLog: the game stands still for both)
-    if (!port.OnlinePausedAt(at)) {
+    const bool runs = !port.OnlinePausedAt(at);
+    if (runs) {
         port.machine->drawing = drawing;
         port.Step(players);
         port.machine->drawing = true;
+    }
+    if (drawing) {
+        std::copy(std::begin(players), std::end(players), shownWith.begin());
+        shownRan = runs;
     }
     if (set.Target()) {
         k.result = {battle::RoundResultNow(), battle::RoundsToWin(), versus};

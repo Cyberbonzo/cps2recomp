@@ -76,7 +76,7 @@ public:
     static constexpr int kDefaultPort = 7845;
     // The packets' layout (2: the host's state sent at the start); two copies must have the same to play, and the
     // lobby shows only matches of this one (the launcher asks with it too)
-    static constexpr int kProtocol = 14; // (3: the version said in the hello and to the service; 4: the welcome's flags;
+    static constexpr int kProtocol = 15; // (3: the version said in the hello and to the service; 4: the welcome's flags;
                                         // 5: the welcome's program words, so two regions' sets play together;
                                         // 6: each player's name in the hello and the welcome, and the chat;
                                         // 7: two players at each machine, as the welcome says, and each one's controls;
@@ -87,7 +87,8 @@ public:
                                         // 11: asymmetric three-person rosters and their shared fighter ownership;
                                         // 12: updated deterministic tag/Cross Fever controller routing;
                                         // 13: revised tag requests, taunt ownership and the common feature negotiation;
-                                        // 14: board timing by default and the board DMA state in rollback snapshots)
+                                        // 14: board timing by default and the board DMA state in rollback snapshots;
+                                        // 15: each machine's own input delay, in the hello and the start)
     static constexpr int kMostSeats = 2;    // players at one machine
     static constexpr int kMostMachines = 4; // machines in a match: the host's, and up to three joining
     static constexpr int kMostAhead = 8;    // frames run on guessed controls at most
@@ -178,9 +179,18 @@ public:
     // others); and how long since a machine this one plays with was last heard (the longest)
     int Ping() const;
     int DirectRtt(int machine) const; // measured direct packet round trip in ms; -1 until sampled or if routed via the host
+    // This machine's input delay: the frames its own players' controls are held back (each machine's own choice)
     int Delay() const {
         return delay;
     }
+    // ... and another machine's, as it said (its own until the match begins)
+    int DelayOf(int machine) const {
+        return machine >= 0 && machine < kMostMachines ? delays[machine] : delay;
+    }
+    // The frame just run as the one shown (not run again in a rollback): the controls it was run with, every player's
+    // (this machine's own, the others' as they came or as guessed); false when it did not run (the host's pause for
+    // choosing) or this machine is watching. Run-ahead and the input lag readout run on from it (Port::RunFrame).
+    bool ShownFrame(uint16_t *players) const;
     uint64_t Silent() const;
     // The machines in the match (2-4), and this one (0: the host's)
     int Machines() const {
@@ -333,6 +343,8 @@ private:
     void Assign(); // (hosting: the players handed out, as the match begins)
     std::vector<uint8_t> Start(int machine) const; // (hosting: the start, for a joining machine)
     int delay = kDefaultDelay;
+    std::array<int, kMostMachines> delays{}; // (each machine's input delay: DelayOf)
+    void Delays(); // (the match begins: each machine's controls known from its own delay on)
     // A machine's controls for a frame: each of its players'
     using Controls = std::array<uint16_t, kMostSeats>;
     std::array<std::array<Controls, kInputs>, kMostMachines> inputs{};
@@ -350,6 +362,7 @@ private:
         std::string name;
         int people = 1;
         uint32_t ticket = 0;
+        int delay = kDefaultDelay; // (its input delay, as its hello said)
         uint64_t lastHeard = 0, greeted = 0;
         uint32_t chunksHad = 0;  // (hosting: the pieces of the state it has)
         int setTarget = 0;
@@ -425,6 +438,8 @@ private:
     void Take(Link &link, const uint8_t *data, size_t size);
     void End(const std::string &why, bool failure, const Link *from);
     void Run(Port &port, uint64_t at, bool drawing);
+    std::array<uint16_t, 4> shownWith{}; // (ShownFrame: Machine::kMaxPlayers, netplay.cpp)
+    bool shownRan = false;
     void Compare();
 };
 

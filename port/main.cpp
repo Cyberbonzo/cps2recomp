@@ -530,7 +530,8 @@ void RegisterPortFeatures() {
     TheGame().features.push_back({"run_ahead", "Game", "Run-ahead",
                                   "Shows the game a frame or two further on than it is, so that what you press is seen sooner than "
                                   "on the board (input lag taken away). The game runs as it does without it; it takes two or three "
-                                  "times the processor. Off by itself in the game's own modes beyond fights and training.",
+                                  "times the processor. Off by itself in the game's own modes beyond fights and training. Online it is each "
+                                  "player's own: the other player's moves in the frames ahead are guessed, and put right as they come.",
                                   0, {"Off", "1 frame", "2 frames"}});
     // (slowdown: machine.h, SetBoardTiming; docs/TIMING.md. Not for a game whose sources decide it: Game::boardTiming,
     // a shooting game's own Slowdown row)
@@ -595,6 +596,11 @@ void RegisterPortFeatures() {
                                       "W, or a touch screen's Zoom button (both).",
                                       kFeatureSession, {"Off", "Player 1", "Player 2", "Both fighters", "By distance"}});
     }
+    TheGame().features.push_back({"input_lag", "Display", "Input lag readout",
+                                  "At the bottom of the picture: how many frames the game itself takes to show a press (found in a "
+                                  "fight, by running the next frames with and without one), online the match's input delay, what "
+                                  "run-ahead takes off, the port's own time from the press to handing that frame to the screen, and "
+                                  "the sum. Your screen's own delay comes on top of it."});
     // (online play's readout, each player's own: Port::Shown)
     TheGame().features.push_back({"online_ping", "Online", "Ping",
                                   "The host sees its highest estimated ping to a guest. A guest sees the estimate to the farthest player through the host.",
@@ -678,17 +684,18 @@ void RegisterPortFeatures() {
                                   "of the bars and the score.",
                                   0, {"Under the life bars", "At the top"}});
     TheGame().features.push_back({"online_delay", "Online", "Input delay",
-                                  "During an online match, how many frames each player's own controls are held back, at the bottom "
-                                  "of the picture (\"DELAY 2\"): the host chooses it.",
+                                  "During an online match, how many frames your own controls are held back, at the bottom of the "
+                                  "picture (\"DELAY 2\"), and the other player's when theirs is not the same: each player chooses their own.",
                                   0});
     TheGame().features.push_back({"online_hide_streak", "Online", "Hide online win streak",
                                   "Hide the win streak under the player names on this screen.", 0});
     TheGame().features.push_back({"online_wait_input", "Online", "Input during network waits",
                                   "Retain short taps plays recent changes in order when frames resume. Current state uses only what you hold when a frame advances. This choice applies to your controllers.",
                                   0, {"Retain short taps", "Current state"}});
-    TheGame().features.push_back({"online_host_delay", "Online", "Host input delay",
-                                  "Frames to wait before applying each person's controls. A larger delay can reduce corrections "
-                                  "on long routes. Use launcher setting follows the global delay (default 2). An explicit --net-delay overrides both.",
+    TheGame().features.push_back({"online_host_delay", "Online", "Your input delay",
+                                  "Frames your own controls wait before they count, in every match you host or join; the other player "
+                                  "chooses theirs. Fewer feel quicker, but the other player sees more of your moves corrected on a "
+                                  "slow connection. Use launcher setting follows the launcher's (2 unless chosen). From the next match.",
                                   0, {"Use launcher setting", "0 frames", "1 frame", "2 frames", "3 frames", "4 frames",
                                       "5 frames", "6 frames", "7 frames", "8 frames"}});
     TheGame().features.push_back({"online_unlisted", "Online", "Unlisted match",
@@ -1755,13 +1762,22 @@ void Port::Overlays(uint32_t *px, int W, int H, std::vector<SDL_Rect> *panels, b
     DrawHud(px, W, H, panels, hudParts, liveOnline ? &onlineOpacity : nullptr);
     const int bottomInset = liveOnline ? TheGame().onlineBottomInset : 0;
     // A line above the native gauges, in the middle (up pixels higher).
-    auto status = [&](const char *text, int up, HudOpacity opacity = {220, 255}) {
+    // (small: the smaller font, kSmallFont, in a lower box at the bottom of the line's place)
+    auto status = [&](const char *text, int up, HudOpacity opacity = {220, 255}, bool small = false) {
         if (!notices) {
             return; // (a video's picture: Port::VideoFrame)
         }
         const recomp::text::Canvas canvas{px, W, H};
-        const float width = recomp::text::TextWidth(text, 1);
+        const float width = small ? recomp::text::SmallTextWidth(text, 1) - 1 : recomp::text::TextWidth(text, 1);
         const float x = (W - width) / 2, y = static_cast<float>(H - 11 - bottomInset - up);
+        if (small) {
+            canvas.Fill(x - 2, y + 3, width + 4, 7, {20, 22, 30, opacity.panel});
+            canvas.SmallText(x, y + 4, 1, {255, 255, 255, opacity.ink}, text);
+            if (panels) {
+                panels->push_back({static_cast<int>(x) - 2, static_cast<int>(y) + 3, static_cast<int>(width) + 5, 7});
+            }
+            return;
+        }
         canvas.Fill(x - 3, y - 2, width + 6, 12, {20, 22, 30, opacity.panel});
         canvas.Text(x, y, 1, 0, {255, 255, 255, opacity.ink}, text);
         if (panels) {
@@ -1791,6 +1807,10 @@ void Port::Overlays(uint32_t *px, int W, int H, std::vector<SDL_Rect> *panels, b
     // (online: the ping and the input delay, as the Display page has them, or that the other side has gone quiet; and
     // above, until this side's player has pressed Start, that it lets them in)
     int said = told ? 1 : 0;
+    if (const std::string line = LagLine(); !line.empty()) {
+        status(line.c_str(), said * 14, {220, 255}, true);
+        said++;
+    }
     // (hosting from the in-game menu, the game the player's own meanwhile: the match's code; or why it stopped)
     if (waitingHost) {
         const std::string code = waitingHost->code;
@@ -1802,12 +1822,25 @@ void Port::Overlays(uint32_t *px, int W, int H, std::vector<SDL_Rect> *panels, b
         char text[64] = "";
         if (waiting) {
             snprintf(text, sizeof(text), net->Machines() > 2 ? "WAITING FOR THE OTHER PLAYERS" : "WAITING FOR THE OTHER PLAYER");
-        } else if (FeatureOn("online_ping") && FeatureOn("online_delay")) {
-            snprintf(text, sizeof(text), "PING %d ms   DELAY %d", net->Ping(), net->Delay());
-        } else if (FeatureOn("online_ping")) {
-            snprintf(text, sizeof(text), "PING %d ms", net->Ping());
-        } else if (FeatureOn("online_delay")) {
-            snprintf(text, sizeof(text), "DELAY %d", net->Delay());
+        } else {
+            // (the delay: this machine's, and the others' after it where any is not the same: "DELAY 0 (2)")
+            std::string delays = "DELAY " + std::to_string(net->Delay());
+            std::string others;
+            bool differ = false;
+            for (int m = 0; m < net->Machines(); m++) {
+                if (m != net->Local()) {
+                    others += (others.empty() ? "" : " ") + std::to_string(net->DelayOf(m));
+                    differ = differ || net->DelayOf(m) != net->Delay();
+                }
+            }
+            if (differ && !net->Watching()) delays += " (" + others + ")";
+            if (FeatureOn("online_ping") && FeatureOn("online_delay")) {
+                snprintf(text, sizeof(text), "PING %d ms   %s", net->Ping(), delays.c_str());
+            } else if (FeatureOn("online_ping")) {
+                snprintf(text, sizeof(text), "PING %d ms", net->Ping());
+            } else if (FeatureOn("online_delay")) {
+                snprintf(text, sizeof(text), "%s", delays.c_str());
+            }
         }
         if (*text) {
             status(text, said++ * 14, waiting ? HudOpacity{220, 255} : onlineOpacity);
@@ -3076,11 +3109,22 @@ void Port::RollbackFrame(const uint16_t *real) {
 // the readout) of the last is the one shown; then the machine and the game's sources are put back as they were
 // after the frame, and its sound is the frame's own. So the game goes on exactly as without it, and the picture
 // shows what a press does a frame or two sooner. Not done for a frame a spare machine ran in (runtime/spare.h).
-void Port::RunAhead() {
+int Port::RunsAhead() const {
     const int ahead = FeatureValue("run_ahead");
-    // (nor while stopped, stepped a frame at a time or slowed: there the frame shown is the frame)
+    // (nor while stopped, stepped a frame at a time or slowed: there the frame shown is the frame; online, nor for a
+    // spectator, whose frames are all the players' real ones, or while the host's pause holds the game)
     if (ahead <= 0 || FastForward() || hurry || SpareRan() || paused || !menu.FullSpeed() ||
-        (TheGame().noRunAhead && TheGame().noRunAhead())) {
+        (TheGame().noRunAhead && TheGame().noRunAhead()) || (net && (connecting || net->Watching()))) {
+        return 0;
+    }
+    return ahead;
+}
+
+// (online: from the frame shown, its controls every player's, the others' as guessed where they have not come;
+// rollback puts right what the frames ahead guessed wrong, the next frame)
+void Port::RunAhead() {
+    const int ahead = RunsAhead();
+    if (!ahead) {
         return;
     }
     static std::vector<uint8_t> kept;
@@ -3105,6 +3149,139 @@ void Port::RunAhead() {
     SetRunningAhead(false);
     machine->audio.resize(sound);
     memcpy(machine->players, held, sizeof(held));
+}
+
+// The input lag readout's game part (Port::Lag): a few times, a few seconds apart, in a fight, the next frames run from
+// the frame just run, with nothing held and then with player 1's light punch held, until the pictures part; then the
+// machine, the game's sources and what a state does not hold (the picture, the controls, the video's switches) put
+// back as they were, as for a spare (runtime/spare.h). Its frames are not the picture shown, nor counted (records,
+// loading's resets: runtime/game.h). Online the frames are this machine's alone, like run-ahead's.
+void Port::LagMeasure() {
+    const bool on = FeatureOn("input_lag") && !opt.rollbackTest && !(net && (connecting || net->Watching()));
+    if (on != lag.wasOn) {
+        lag = {};
+        lag.wasOn = on;
+    }
+    const Game &game = TheGame();
+    if (!on || lag.tries >= Lag::kTries || frame < lag.nextAt || FastForward() || hurry || paused || SpareRan() ||
+        !game.fighting || !game.fighting()) {
+        return;
+    }
+    lag.nextAt = frame + 240;
+    static std::vector<uint8_t> kept;
+    KeepState(kept);
+    uint16_t held[Machine::kMaxPlayers];
+    memcpy(held, machine->players, sizeof(held));
+    const auto hide = machine->video.hideObject;
+    const unsigned layers = machine->video.layerMask, markLayers = machine->video.markLayers;
+    const bool mark = machine->video.markObjects, drawing = machine->drawing;
+    const auto wide = machine->video.wide;
+    const size_t sound = machine->audio.size();
+    const size_t pixels = static_cast<size_t>(Video::kMaxWidth) * Video::kHeight;
+    static std::vector<uint32_t> picture;
+    picture.assign(machine->Picture(), machine->Picture() + pixels);
+    SetRunningAhead(true);
+    NativeVideo::inSpare = true; // (not the picture shown: video/native.h, ShownFrame)
+    machine->drawing = true;
+    uint32_t plain[Lag::kFrames] = {};
+    int found = 0;
+    for (int way = 0; way < 2 && !found; way++) {
+        if (way) {
+            PutBackState(kept);
+        }
+        for (int n = 0; n < Lag::kFrames; n++) {
+            memset(machine->players, 0, sizeof(machine->players));
+            machine->players[0] = way ? kPunch1 : 0;
+            if (game.beforeFrame) {
+                game.beforeFrame(*machine);
+            }
+            machine->RunFrame();
+            if (game.frame) {
+                game.frame(*machine);
+            }
+            const uint32_t at = static_cast<uint32_t>(
+                crc32(0, reinterpret_cast<const Bytef *>(machine->Picture()),
+                      static_cast<uInt>(sizeof(uint32_t) * machine->PictureWidth() * Video::kHeight)));
+            if (!way) {
+                plain[n] = at;
+            } else if (at != plain[n]) {
+                found = n + 1;
+                break;
+            }
+        }
+    }
+    NativeVideo::keepLastFrame = true; // (the frame shown is still the one just run: video/native.h)
+    PutBackState(kept);
+    NativeVideo::keepLastFrame = false;
+    NativeVideo::inSpare = false;
+    SetRunningAhead(false);
+    memcpy(machine->Picture(), picture.data(), pixels * sizeof(uint32_t));
+    memcpy(machine->players, held, sizeof(held));
+    machine->drawing = drawing;
+    machine->video.hideObject = hide;
+    machine->video.layerMask = layers;
+    machine->video.markLayers = markLayers;
+    machine->video.markObjects = mark;
+    machine->video.wide = wide;
+    machine->audio.resize(sound);
+    MarkPictureMade(); // (the window draws the CPU's picture, the port's, this tick: gpu_picture.h)
+    if (found) {
+        lag.game = lag.game ? std::min(lag.game, found) : found;
+        lag.tries++;
+        fprintf(stderr, "input lag: the game shows a press %d frames on (try %d; the least so far %d)\n", found, lag.tries, lag.game);
+    }
+}
+
+void Port::LagPressed(uint64_t ns) {
+    if (!lag.pressedAt && !menu.IsOpen()) {
+        lag.pressedAt = ns;
+    }
+}
+
+void Port::LagShown(bool ran, uint64_t ns) {
+    if (!lag.pressedAt || !ran) {
+        return;
+    }
+    const double ms = static_cast<double>(ns - lag.pressedAt) / 1e6;
+    lag.pressedAt = 0;
+    if (ms < 0 || ms > 250) {
+        return; // (a press while the game was stopped, or the like)
+    }
+    lag.portMs = lag.presses ? lag.portMs * 0.9 + ms * 0.1 : ms;
+    lag.presses++;
+}
+
+std::string Port::LagLine() const {
+    if (!FeatureOn("input_lag") || (net && net->Watching())) {
+        return {};
+    }
+    const int ahead = RunsAhead();
+    const int delay = net && !connecting ? net->Delay() : 0;
+    const double frameMs = 1000.0 / Machine::kFramesPerSecond;
+    const double port = lag.presses ? lag.portMs : frameMs;
+    char text[128];
+    if (!lag.game) {
+        if (!TheGame().fighting) {
+            snprintf(text, sizeof(text), "INPUT LAG  PORT %.0f MS", port);
+        } else if (delay) {
+            snprintf(text, sizeof(text), "INPUT LAG  GAME ? (IN A FIGHT)  DELAY %d  PORT %.0f MS", delay, port);
+        } else {
+            snprintf(text, sizeof(text), "INPUT LAG  GAME ? (IN A FIGHT)  PORT %.0f MS", port);
+        }
+        return text;
+    }
+    // (the frame the press is first in is the port's time; the game's other frames after it and the match's delay,
+    // less run-ahead's)
+    const int after = std::max(0, lag.game - 1 + delay - ahead);
+    std::string line = "INPUT LAG  GAME " + std::to_string(lag.game) + "F";
+    if (delay) {
+        line += "  DELAY " + std::to_string(delay);
+    }
+    if (ahead) {
+        line += "  RUN-AHEAD -" + std::to_string(ahead);
+    }
+    snprintf(text, sizeof(text), "  PORT %.0f MS  = %.0f MS", port, after * frameMs + port);
+    return line + text;
 }
 
 // Online: a round's result, the frame it comes (once: a second's quiet after it before the next, so that a frame run
@@ -3202,10 +3379,16 @@ std::filesystem::path LauncherFolder() {
 }
 
 namespace {
-    void ApplyHostSettings(Netplay::Settings &settings, const Options &options, bool fromMenu) {
+    // The online settings of a match this machine hosts or joins: its own input delay (the in-game menu's Your input
+    // delay, else the launcher's, as said with --launcher-net-delay or kept in launcher.ini; --net-delay over both), and,
+    // hosting, whether it is in the lobby and lets viewers watch (from the in-game menu: the launcher's name and choices)
+    void ApplyOnlineSettings(Netplay::Settings &settings, const Options &options, bool fromMenu) {
         const int chosen = FeatureSetting("online_host_delay");
         int global = options.launcherNetDelay;
-        settings.spectators = options.netSpectatorsRequested;
+        const bool hosting = settings.hosting || fromMenu; // (from the in-game menu: hosting, always)
+        if (hosting) {
+            settings.spectators = options.netSpectatorsRequested;
+        }
         if (fromMenu || (global < 0 && chosen == 0 && options.netDelayOverride < 0)) {
             const std::filesystem::path folder = LauncherFolder();
             if (!folder.empty()) {
@@ -3223,7 +3406,7 @@ namespace {
         settings.delay = global >= 0 ? global : Netplay::kDefaultDelay;
         if (chosen > 0) settings.delay = chosen - 1;
         if (options.netDelayOverride >= 0) settings.delay = options.netDelayOverride;
-        if (FeatureOn("online_unlisted")) settings.listed = false;
+        if (hosting && FeatureOn("online_unlisted")) settings.listed = false;
     }
 }
 
@@ -3241,7 +3424,7 @@ void Port::HostFromMenu() {
     settings.solo = true;
     settings.arcade = false;
     settings.port = Netplay::kDefaultPort;
-    ApplyHostSettings(settings, opt, true);
+    ApplyOnlineSettings(settings, opt, true);
     settings.renewCode.clear();
     settings.renewSecret.clear();
     waitingHost = std::make_unique<Netplay>(settings);
@@ -3330,7 +3513,7 @@ void Port::BackToSolo(bool stillHosting) {
         fprintf(stderr, "online: playing alone again\n");
         return;
     }
-    ApplyHostSettings(settings, opt, true);
+    ApplyOnlineSettings(settings, opt, true);
     settings.invite.clear();
     settings.inviteName.clear();
     waitingHost = std::make_unique<Netplay>(settings);
@@ -3667,7 +3850,7 @@ bool Port::StartOnline(std::string &error) {
         error = "online play: not with --rollback-test, --movie or --state-load";
         return false;
     }
-    if (opt.net.hosting) ApplyHostSettings(opt.net, opt, false);
+    if (!opt.net.watching) ApplyOnlineSettings(opt.net, opt, false);
     net = std::make_unique<Netplay>(opt.net);
     zoom.Forbid(); // (both players see the whole picture, as the board shows it)
     if (opt.headless && !net->Arcade()) {
@@ -4053,6 +4236,11 @@ void Port::RunFrame() {
     }
     if (!net) {
         memcpy(machine->players, pressed, sizeof(pressed));
+        LagMeasure();
+        RunAhead();
+    } else if (uint16_t shown[Machine::kMaxPlayers]; net->ShownFrame(shown)) {
+        memcpy(machine->players, shown, sizeof(shown));
+        LagMeasure();
         RunAhead();
     }
     // (the scene clip's frame: the picture shown, run-ahead's or not, and the records it was drawn from)
@@ -4299,7 +4487,7 @@ void Usage() {
             "  --net-invite TO:FROM   (hosting) the player TO in the launcher's waiting room invited, from FROM (ids;\n"
             "                         --net-name the inviter's name)\n"
             "  --net-invite-name NAME ... TO's name, as the wait says it\n"
-            "  --net-delay N          (hosting) override the game and launcher input delay for everyone (0-8 frames)\n"
+            "  --net-delay N          this machine's own input delay, over the game's and the launcher's (0-8 frames)\n"
             "  --net-fake MS[:JIT[:LOSS]]  (tests) each packet sent MS ms late, give or take JIT, LOSS in 100 lost\n"
             "  --test-switch FROM:TO  the operator's test switch held from frame FROM to TO\n"
             "  --music-test FRAMES    each piece of the game's music in turn on the board, FRAMES each (with the test\n"

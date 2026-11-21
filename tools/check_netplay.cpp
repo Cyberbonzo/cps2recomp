@@ -312,6 +312,7 @@ struct NetplayTest {
                         Require(reader.U8() == host.Player(machine, person), "serialized player ownership differs");
                     }
                     Require(reader.Text() == host.roster[machine].name, "serialized machine name differs");
+                    Require(reader.U8() == host.DelayOf(machine), "serialized machine delay differs");
                 }
                 Require(reader.ok && reader.at == reader.end, "malformed start roster");
             }

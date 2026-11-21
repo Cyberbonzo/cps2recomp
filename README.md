@@ -99,6 +99,9 @@ Linux, the Steam Deck and Windows can play each other.
   own machine or two at a machine (**People at this machine** on the Online page), all joining with the one code.
 - **Ball battle and tag team online**: in two-person matches, the host starts either from the in-game menu (Esc), which
   pauses the match for both players while each picks their own fighters; the host starts once the other says Ready.
+- **Your own input delay and run-ahead**: each player chooses their own, as on Fightcade (the launcher's Online page,
+  or the game's menu); the match is the same for everyone. The **input lag readout** (Display page) shows what a
+  press takes to show, online too.
 - **On screen:** the players' **names**, the ping (and the input delay, if you like), and the **win streak** of a
   player who keeps winning.
 - **FT5 / FT10:** in Marvel vs. Capcom and X-Men vs. Street Fighter, the host can choose **Set format** on the

@@ -449,6 +449,7 @@ launcher::Description describe_game(const GameInfo& game) {
     d.online.invite_argument = "--net-invite"; // (a player in the waiting room invited: online/, Collection::room)
     d.online.invite_name_argument = "--net-invite-name";
     d.online.delay_argument = "--launcher-net-delay"; // global fallback; an explicit --net-delay still wins
+    d.online.delay_own = true; // (each machine its own: Host and Join both pass it, port/netplay.cpp)
     d.display = {{"fullscreen", "Full screen", "F11 switches while playing.", false, nullptr}};  // (a window unless asked)
     for (const FeatureSwitch& one : switches) {
         d.display.push_back({keep(one.name), keep(one.title), keep(one.detail), false, nullptr});
