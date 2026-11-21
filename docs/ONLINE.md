@@ -197,7 +197,7 @@ default, and in Pure), **FT3**, **FT5** or **FT10**. The host's choice is the ma
 A strip at the top shows the two players' names around the score (`2 FT5 1`); in Casual, the games each side has won
 (`2 - 1`), with no end to it. A game counts when one side wins it from the other: not a draw, not a fight with the
 computer, and only once the games have the real controls for it (a guess that a rollback replaced never counts). The
-rounds won so far survive the few frames between a game's rounds when its players' records are put back; five seconds
+rounds won so far survive the few frames between a game's rounds when its players' records are put back; thirty seconds
 out of versus play let them go. When a side reaches the target, the playing machines agree on the score, show the
 winner for two seconds and close, back to the launcher; host again there for a new set. A dropped connection ends the
 set unfinished, and coming back starts the score over. In a four-person match each side keeps one score for its two

@@ -41,7 +41,8 @@ public:
             quiet = 0;
             armed = false;
             // (the rounds won so far are let go only after a while out of versus play: between a game's rounds its
-            // players' records are put back for a few frames, Super Street Fighter II Turbo's for six)
+            // players' records are put back for a while: Super Street Fighter II Turbo's for six frames, Vampire Savior's for six
+            // seconds)
             if (apart < kApart && ++apart == kApart) {
                 rounds = {};
             }
@@ -77,7 +78,7 @@ public:
     }
 
     // The whole counter as numbers, and back: a viewer who comes in mid-set starts from the host's (Netplay::Welcome)
-    static constexpr int kApart = 300; // frames out of versus play that let a game's rounds won so far go
+    static constexpr int kApart = 1800; // frames out of versus play (30 seconds) that let a game's rounds won so far go
     static constexpr int kSaved = 12;
     std::array<uint32_t, kSaved> Saved() const {
         return {uint32_t(target), uint32_t(winner), uint32_t(score[0]), uint32_t(score[1]), uint32_t(rounds[0]),
