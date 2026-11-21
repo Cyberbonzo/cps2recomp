@@ -53,6 +53,13 @@ in_image() {
         -e TRANSLATED="${TRANSLATED:-}"
     [ -z "${CMAKE_BUILD_PARALLEL_LEVEL:-}" ] || set -- "$@" -e CMAKE_BUILD_PARALLEL_LEVEL="$CMAKE_BUILD_PARALLEL_LEVEL"
     [ -z "${CCACHE_BASE:-}" ] || set -- "$@" -v "$CCACHE_BASE":/ccache -e CCACHE_BASE=/ccache
+    # (Windows' signing, docs/RELEASING.md: the certificate's folder read-only, its password passed on from this
+    # environment and never written on the command line)
+    if [ -n "${WINDOWS_SIGN_PFX:-}" ]; then
+        set -- "$@" -v "$(cd "$(dirname "$WINDOWS_SIGN_PFX")" && pwd)":/sign:ro -e WINDOWS_SIGN_PFX="/sign/$(basename "$WINDOWS_SIGN_PFX")" \
+            -e WINDOWS_SIGN_PASSWORD -e WINDOWS_SIGN_TIMESTAMP
+    fi
+    [ -z "${WINDOWS_SIGN:-}" ] || set -- "$@" -e WINDOWS_SIGN
     "$@" -v "$ROOT":/src -w /src "$image" "$script"
 }
 

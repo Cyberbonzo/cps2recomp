@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Windows: fewer antivirus false alarms.** Windows Defender quarantined a game (`sf2.exe`) as
+  `Program:Win32/Wacapew.A!ml`, its machine learning's guess about new, unsigned programs. Every program now says
+  what it is (name, version, publisher and a manifest, in its Properties), the launcher and the games make their
+  internet requests themselves (WinHTTP) instead of starting a hidden `curl.exe`, and the release build signs the
+  programs when it is given a certificate (docs/RELEASING.md).
+
 ## 1.6.0-beta.4
 
 **Every game now runs at its arcade board's speed by default, and the Street Fighter II family is proven to.**

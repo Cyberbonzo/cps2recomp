@@ -82,6 +82,25 @@ The APK is always part of a release. `tools/release/all.sh` builds it with `RELE
 (`~/.config/cps2recomp/android-signing.env`): a published APK has to carry the same key every time or it won't
 install over the one before, so keep that key and its backup safe.
 
+## Signing the Windows programs
+
+Unsigned programs that nobody has run before are what antivirus programs' machine learning takes for malware:
+Windows Defender has quarantined a game (`sf2.exe`) as `Program:Win32/Wacapew.A!ml`. Each program says what it is
+(version information and a manifest, `port/windows/`) and makes its requests with WinHTTP rather than a hidden
+`curl.exe` (recomp-common's `winhttp_curl.h`); a signature is what carries the publisher's reputation from one release
+to the next. `tools/release/windows.sh` signs every `.exe` and `librashader.dll` (with a timestamp, before the archive
+and its update manifest are made) when it is given a certificate, and checks that each one carries a signature:
+
+- `WINDOWS_SIGN_PFX=<file.pfx> WINDOWS_SIGN_PASSWORD=<password> tools/release/all.sh`: a certificate with its key
+  (PKCS#12), signed with osslsigncode in the build image (`all.sh` mounts the certificate's folder read-only and
+  passes the password from the environment). `WINDOWS_SIGN_TIMESTAMP` changes the timestamp server (DigiCert's).
+- `WINDOWS_SIGN="<command>"`: a command given the files to sign in place, run in the build image (a signing service
+  whose key never leaves it, such as Azure Trusted Signing through jsign).
+
+With neither, nothing is signed, as before. When Defender flags a release's program anyway, send the file to
+Microsoft as a false positive (microsoft.com/wdsi/filesubmission, as a software developer): it is cleared for that
+file within days.
+
 ## A new game
 
 A game is a folder in `games/` (the toolkit's [TOOLKIT.md](TOOLKIT.md) says what goes in it, and what online play

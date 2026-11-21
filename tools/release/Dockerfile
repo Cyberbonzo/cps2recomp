@@ -21,3 +21,5 @@ ENV RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo PATH=/opt/cargo/bin:$PATH
 RUN apt-get update && apt-get install -y --no-install-recommends rustup \
     && rm -rf /var/lib/apt/lists/* && rustup toolchain install 1.99.1 --profile minimal --no-self-update && rustup default 1.99.1 \
     && rustup target add x86_64-pc-windows-gnu
+# (osslsigncode: the Windows programs' signatures, when a release is signed: windows.sh)
+RUN apt-get update && apt-get install -y --no-install-recommends osslsigncode && rm -rf /var/lib/apt/lists/*

@@ -57,7 +57,9 @@ itself; you don't need them.
 1. Right-click the zip, choose **Extract All…**, and extract it to a folder of your own (for example
    \`Documents\\Games\`), not Program Files: the launcher updates itself and needs to write there.
 2. In the \`CPS2Recomp\` folder, open **cps2recomp-launcher.exe**. The programs are not signed, so the first time
-   Windows may say it protected your PC: press **More info**, then **Run anyway**.
+   Windows may say it protected your PC: press **More info**, then **Run anyway**. If Windows Security takes a game
+   away as \`Program:Win32/Wacapew.A!ml\` (its guess about new programs, not something it found in it), restore it
+   from **Protection history**; the programs are built in public from this repository.
 3. On the **Games** page, press **Choose folder…** and pick the folder with your ROM sets. Press **Play** beside a
    game.
 
