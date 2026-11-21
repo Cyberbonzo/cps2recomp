@@ -53,7 +53,11 @@ frame 2,169, Champion Edition for 1,000 frames of fighting).
 **Street Fighter Alpha 2** (CPS-2), the attract mode from power-on: the board's game state at 5,705 of 5,710 frames.
 
 Super Turbo at Turbo 1: [evidence/ssf2t-turbo1-vs-jtcps2.gif](evidence/ssf2t-turbo1-vs-jtcps2.gif) (and `.mp4`).
-Hyper Fighting: [evidence/sf2hf-timing-vs-jtcps1.gif](evidence/sf2hf-timing-vs-jtcps1.gif).
+Hyper Fighting at the board's 12 MHz, the same fight from the round's start (the board, CPS-2 Recomp, 1.6.0-beta.3):
+
+![Hyper Fighting at 12 MHz: the FPGA core, CPS-2 Recomp, 1.6.0-beta.3](evidence/sf2hf-12mhz-vs-jtcps1.gif)
+
+(and `.mp4`; the earlier comparison at 10 MHz: [evidence/sf2hf-timing-vs-jtcps1.gif](evidence/sf2hf-timing-vs-jtcps1.gif).)
 
 ## What the measuring found
 
