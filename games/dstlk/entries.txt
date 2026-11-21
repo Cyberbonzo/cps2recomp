@@ -1,4 +1,5 @@
 # Places the game's code was seen to reach in ways the translator cannot follow
+000000
 0000E8
 000150
 000158
@@ -1419,6 +1420,7 @@
 038B96
 038BAA
 038BBA
+038BC4
 038BF2
 038C08
 038C0A
