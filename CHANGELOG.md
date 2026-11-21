@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 1.6.0-beta.5
+
+**Online play from players' feedback, closer arcade timing, and fewer antivirus false alarms on Windows.** Online,
+every fighting game now plays sets (first to 3 and more), the Online page and the match's display show the network's
+numbers, the lobby starts in 3 seconds, and each player chooses their own input delay and run-ahead, with a readout of
+what each press costs. Two more of the board's clocks are counted (a `dbra` loop's last pass in every game, and a
+CPS-1's work RAM writes), found against the FPGA cores; the proof of the Street Fighter II games' speed is now one
+page, [docs/ACCURACY.md](https://github.com/tmcleroy/cps2recomp/blob/main/docs/ACCURACY.md). On Windows the programs
+say what they are and no longer start a hidden `curl.exe`, which Windows Defender took for malware. Pre-release, as
+1.6.0-beta.4 was.
+
 - **Online page, from players' feedback** (Kevin62 on the Discord): the Discord link at the top; Host a match comes
   right after the open matches, with **Set format** in it; the waiting room lists you first, saying whether the
   others see you, ready to play; your name, country and invitations are in a **You** card at the bottom, and Join with
