@@ -26,7 +26,7 @@
 - **The input lag readout** (Display page), from sf3comp: the game's own frames to show a press (measured in a fight),
   online the player's delay, less run-ahead, plus the port's time from the press to the screen. Online too. In a
   smaller font (recomp-common's `kSmallFont`).
-- recomp-common synced to 1ea4adf (the Online page's new order, its community link, `online_host_features`,
+- recomp-common synced to 44bc583 (the Online page's new order, its community link, `online_host_features`,
   `spectators_default`, `delay_default`; before it 641c65d: the smaller font, `delay_own`, the arcade monitor's modes header, the menu's compact
   layout and Reset all options' question).
 
