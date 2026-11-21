@@ -1,8 +1,8 @@
 # The FPGA cores as the reference
 
 The board timing (docs/TIMING.md) is checked against jotego's [jtcores](https://github.com/jotego/jtcores)
-(GPL-3.0-or-later) simulated with Verilator. `jtcores-bfced64.patch` is what the comparison changes in it, applied
-to commit `bfced64` (`git apply`):
+(GPL-3.0-or-later) simulated with Verilator, at commit `bfced64`. What the comparison changes in it (kept as a patch
+outside this repository, which holds no patch files):
 
 - `modules/jtframe/verilator/test.cpp` (the harness):
   - `WRAMLOG=1`: the 68000's work RAM (64 KB) appended to `wram.bin` at each vertical blank;

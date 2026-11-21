@@ -235,7 +235,7 @@ port (an experiment build's) over the same frames, from a saved state of the sim
 
 For context, the same Super Turbo fights (the same inputs, the core's state copied in at character select) were run
 on FinalBurn Neo, upstream's libretro core and Fightcade 2's own build of it (`fightcadeorg/fightcade-fbneo`, its
-Capcom driver and 68000 built into upstream's libretro front end: `tools/reference/fbneo/README.md`). FinalBurn
+Capcom driver and 68000 built into upstream's libretro front end: `tools/reference/emulators/README.md`). FinalBurn
 Neo takes a different approach to the boards' timing: rather than counting the waits and the DMA, it sets each game's
 68000 clock (Super Turbo's 10.8675 MHz, Hyper Fighting's 8.5) to match recordings of real boards. Frames a second of
 the round clock:
