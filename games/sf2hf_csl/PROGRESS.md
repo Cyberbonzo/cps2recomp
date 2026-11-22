@@ -11,8 +11,10 @@ Comparing the CSL ROM set byte for byte against `sf2hf` (World 921209):
 - **Board & audio**: Identical classic CPS-1 board (`cps1-classic`), PALs, Z80 sound program (`s92_09.11a`) and OKI
   MSM6295 samples (`s92_18.11c`, `s92_19.12c`).
 - **Program ROMs**: `s2te_23.8f` has 400 bytes patched (mostly hooks jumping into custom code at `0x0F0000..0x0FFFFF` in
-  `s2te_22.7f`, which return to the original routines such as `0x013A32`), plus updated data/tables/palettes in
-  `s2te_22.7f` (`0x0F0000..0x0FFFFF`) and `s2te_21.6f` (`0x100000..0x10FFFF`, `0x160000..0x16FFFF`).
+  `s2te_22.7f` for ~20 colours per fighter, 2P stage select, 40s select timer, built-in free play, skipped bonus
+  stages, STUN/REVERSAL callouts, human M. Bison cape entrance, and Vega no-cage-climb, returning to the original
+  routines such as `0x013A32`), plus updated data/tables/palettes in `s2te_22.7f` (`0x0F0000..0x0FFFFF`) and
+  `s2te_21.6f` (`0x100000..0x10FFFF`, `0x160000..0x16FFFF`).
 - **Graphics ROMs**: All twelve `s92-*.3a..6c` chips have small custom edits (0.01%–0.22% per chip, including the title
   screen and sprite/font tweaks).
 - **Compatibility with `sf2hf`**: All 47 `video_writes` and every code/RAM address in `family.h` match `sf2hf`.

@@ -8,16 +8,17 @@ An unofficial native PC port of *Street Fighter II′: Hyper Fighting — Corner
 mod based on *Street Fighter II′: Hyper Fighting* World 921209, CPS-1 board) for macOS, Linux (Steam Deck included)
 and Windows, made by static recompilation.
 
-Corner Store Legends Edition builds on Hyper Fighting (World 921209) with custom colours, graphics edits, and gameplay
-additions. Because its program and RAM layout stay aligned with Hyper Fighting, this port builds the same
-[Super Street Fighter II Turbo](../ssf2t/README.md) sources with `sf2hf`'s `family.h` mapping and its own translated
-68000 code.
+The fighting itself plays the same as *Hyper Fighting* (World 921209), with quality-of-life additions built into the
+ROM: about twenty colours per character, 2-player stage select, on-screen stun and reversal callouts, no bonus stages,
+and cleaned-up, recoloured stages. Because its program and RAM layout stay aligned with Hyper Fighting, this port
+builds the same [Super Street Fighter II Turbo](../ssf2t/README.md) sources with `sf2hf`'s `family.h` mapping and its
+own translated 68000 code.
 
-It has a full **training mode** (hit boxes, frame data and a frame meter, input display, combo and stun readouts, a
-dummy that records, replays and guards), the **alternative modes** (attract mode, the stage and model viewers,
-survival, endless battle, ring out, a tag team battle), **widescreen**, **custom colours** with a colour editor, and
-the features every game shares: free play, straight to the title, the board's DIP switches, cheats, save states,
-run-ahead, arcade timing, a custom soundtrack.
+On top of CSL Edition's own features, the port adds a full **training mode** (hit boxes, frame data and a frame meter,
+input display, combo and stun readouts, a dummy that records, replays and guards), the **alternative modes** (attract
+mode, the stage and model viewers, survival, endless battle, ring out, a tag team battle), **widescreen**, **online
+play** with rollback, **custom colours** with a colour editor, save states, run-ahead, arcade timing, and a custom
+soundtrack.
 
 > **Beta.** The game plays from start to ending and its code is checked instruction by instruction, but nobody has
 > played it by hand yet. Expect rough edges, and please [report what you find](#feedback-and-contributing).
@@ -32,7 +33,30 @@ Co., Ltd.
 
 ![Ryu against Chun-Li in Chun-Li's market (CSL colours)](../../docs/screenshots/sf2hf_csl/fight.png)
 
-## What it is
+## What CSL Edition adds
+
+- **Character colours (~20 per fighter, plus Random):** after picking a fighter with any punch or kick button, a
+  `COLOR 01` label appears under the grid. Press Left or Right to preview colours on the portrait (`COLOR 01` is the
+  original, `COLOR 02` the original alternate, `RANDOM` wraps to the left of `COLOR 01`), and press any punch or kick
+  again to lock it in (about 12 seconds in 2-player, 1 second in 1-player).
+- **Stage select (2-player matches):** before picking your fighter, move the cursor over the character whose home stage
+  you want and press Start (confirmed by a sound), then pick your fighter as usual. Player 1 chooses on a fresh
+  2-player game; when a challenger joins or a player continues after a loss, the player choosing sets the stage.
+- **Longer character select timer:** 40 seconds instead of 20.
+- **Free play built in:** no coins needed; press Start to begin, join mid-fight, or continue.
+- **No bonus stages:** the car, barrel and drum stages are skipped in 1-player arcade.
+- **STUN and REVERSAL callouts:** `STUN` appears under a fighter's name when they are close to dizzy; `REVERSAL`
+  appears when a special move or throw is performed on the first possible frame after hitstun, blockstun, knockdown or
+  a throw.
+- **M. Bison's cape entrance:** human players now get M. Bison's round-one cape entrance too.
+- **Vega's stage — no cage climbing:** Vega's wall-jump moves bounce off the screen edge as on every other stage
+  instead of climbing the background fence.
+- **Cleaner, recoloured stages:** Zangief's foreground fence and exit signs are removed; Dhalsim's elephants are
+  silenced; Sagat's stage uses night-time colours; M. Bison's fence colours by the towers are matched; and every stage
+  except Balrog's has refreshed colours.
+- **New title screen:** *CORNER STORE LEGENDS* under the Street Fighter II′ logo on a black background.
+
+## What the port adds
 
 The game's 68000 program is translated ahead of time into C++ and compiled into the port, and so is its sound CPU's.
 The board is the toolkit's classic CPS-1 (no QSound): the Z80 drives a YM2151 ([ymfm](https://github.com/aaronsgiles/ymfm))
@@ -43,10 +67,10 @@ Training mode, the alternative modes, widescreen and its invisible walls, the co
 and the rest work as on the [Hyper Fighting page](../sf2hf/README.md):
 
 - No super combo gauge, no hidden characters (all twelve are on the select screen), no game speed.
-- **Free play** is the board's own DIP switch, set by the feature.
-- **The Board page** is the board's DIP switches: difficulty, continue, demo sound, two coins to start.
-- **Custom colours**: each character has two sets, Normal and Other, of one palette. PalMod's file for it is
-  `s2te_22.7f`.
+- **The Board page** exposes the board's DIP switches: difficulty, continue, demo sound (free play is built into CSL
+  Edition itself).
+- **Custom colours**: the port's colour editor and `palettes/` overrides apply to `COLOR 01` (Normal) and `COLOR 02`
+  (Other); PalMod's file is `s2te_22.7f`.
 - **Other games' stages**: the training mode, the viewers and the battles can be fought on the other fighting games'
   stages, Super Turbo's redrawn ones among them (their sets needed beside this one's).
 - **A custom soundtrack**: on the classic board too. [The list of its songs](../../docs/SONGS.md#street-fighter-ii-hyper-fighting)
