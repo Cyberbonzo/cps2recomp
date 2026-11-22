@@ -241,4 +241,7 @@ inline bool IsStagePiece(uint16_t attributes) {
 inline constexpr unsigned kShadowSet = 0x0A, kSparkSet = 0x0E;
 inline constexpr uint32_t kPlayerSets[2] = {1u << 1, 1u << 2};
 
+#define SSF2T_FAMILY_OWN_SOURCES 1
+void RegisterOwnSources();
+
 } // namespace ssf2t::family

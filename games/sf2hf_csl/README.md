@@ -38,7 +38,8 @@ Co., Ltd.
 - **Character colours (~20 per fighter, plus Random):** after picking a fighter with any punch or kick button, a
   `COLOR 01` label appears under the grid. Press Left or Right to preview colours on the portrait (`COLOR 01` is the
   original, `COLOR 02` the original alternate, `RANDOM` wraps to the left of `COLOR 01`), and press any punch or kick
-  again to lock it in (about 12 seconds in 2-player, 1 second in 1-player).
+  again to lock it in (about 12 seconds in 2-player, 1.5 seconds in 1-player — enable **1P colour select time** under
+  **Game** for the full ~12 seconds in 1-player too).
 - **Stage select (2-player matches):** before picking your fighter, move the cursor over the character whose home stage
   you want and press Start (confirmed by a sound), then pick your fighter as usual. Player 1 chooses on a fresh
   2-player game; when a challenger joins or a player continues after a loss, the player choosing sets the stage.
