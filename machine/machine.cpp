@@ -290,7 +290,10 @@ void Machine::RunLine() {
 
     // (the board's timing: the video chip's DMA holds the 68000's bus at the start of the line)
     if (boardTiming) {
-        const uint32_t dma = LineDma();
+        uint32_t dma = LineDma();
+        if (dma && m_cps1) {
+            dma += 1; // (a CPS-1's 68000 and its DMA run on different clocks: handing the bus over and back costs a clock)
+        }
         cpu.cycles += dma;
         dmaCounted += dma;
     }

@@ -48,7 +48,9 @@ clock: the board 32.867 frames a second, CPS-2 Recomp 32.933, its last tick one 
 
 **Street Fighter II: The World Warrior** and **Champion Edition** (CPS-1): the same game state as the board through
 the character select and into the fight, and the board's pace through the fight with no drift (World Warrior to
-frame 2,169, Champion Edition for 1,000 frames of fighting).
+frame 2,169, Champion Edition for 1,000 frames of fighting). From power-on, the same inputs as the board: the game's tick counter the board's,
+tick for tick, through the attract, the coins, the character select and the loading screens (World Warrior 2,300
+frames, Champion Edition 3,000, its work RAM the board's byte for byte at 2,521 of 2,970 frames).
 
 **Street Fighter Alpha 2** (CPS-2), the attract mode from power-on: the board's game state at 5,705 of 5,710 frames.
 
@@ -69,7 +71,10 @@ tracing every bus access of the FPGA core and every block of CPS-2 Recomp over t
 - the video chip's DMA taking the bus for the palette, the tile rows, the row scroll and, on the CPS-1, the objects;
 - the 68000's cycle counts where they're easy to get wrong: long ADD, SUB, AND, OR, ADDA and SUBA from a register
   or an immediate (8, not 6), EOR into a register (4, not 8), MOVE to `-(An)` (as `(An)`);
-- a CPS-1's video RAM writes taking a clock more (as jtcps1 has them).
+- a CPS-1's video RAM and work RAM writes taking a clock more (as jtcps1 has them);
+- a `dbra` loop's last pass reading a word more, waited for like any other;
+- on the CPS-1, whose 68000 and video DMA run on different clocks, a clock to hand the bus over and back each time
+  the DMA takes it.
 
 All of it is on by default (**Game → Slowdown → Arcade perfect**). **None** gives the processor every clock instead,
 for anyone who wants a game without its slowdown.
