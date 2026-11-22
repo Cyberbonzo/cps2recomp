@@ -5,6 +5,9 @@
 - **Street Fighter II: Hyper Fighting CSL Edition** (`games/sf2hf_csl`): support for the Corner Store Legends Edition
   community mod based on `sf2hf` (World 921209), with training mode, widescreen, alternative modes, online play and the
   classic CPS-1 board (#440).
+- **Fix: the launcher froze on Windows with "Only the games you have" on** (Games page). The Features page did
+  thousands of file lookups each frame and the launcher stopped answering; it now looks once and stays responsive
+  (recomp-common #86).
 
 ## 1.6.0-beta.5
 
