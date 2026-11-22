@@ -13,6 +13,12 @@
 - **Fix: the launcher froze on Windows with "Only the games you have" on** (Games page). The Features page did
   thousands of file lookups each frame and the launcher stopped answering; it now looks once and stays responsive
   (recomp-common #86).
+- **Fix: the games crashed at start on Windows PCs with Bandicam installed**, even with it closed: its Vulkan
+  capture layer, which Windows loads into every Vulkan program, crashed as the game made its GPU device. The games
+  now leave Bandicam's layer out (OBS capture and the other overlays still work).
+- **A crash leaves its log.** A game's output reached `logs/game.log` only in blocks, so a crash lost it and the
+  launcher's report pointed at an empty log. It is now written as it goes, and on Windows a crash adds where it
+  happened and the calls that led there (the build's unstripped programs and `tools/release/crash_where.sh` name them).
 
 ## 1.6.0-beta.5
 
