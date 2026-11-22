@@ -4932,6 +4932,12 @@ int main(int argc, char **argv) {
     setvbuf(stdout, nullptr, _IONBF, 0);
     setvbuf(stderr, nullptr, _IONBF, 0);
     SetUnhandledExceptionFilter(SayCrash);
+    // (Bandicam's Vulkan layer, registered when it is installed and loaded into every Vulkan program even with
+    // Bandicam closed, crashes as the GPU device is made (bdcamvk64.dll reads address 0): the Vulkan loader leaves
+    // it out. A player who sets the loader's list themselves keeps theirs)
+    if (!getenv("VK_LOADER_LAYERS_DISABLE")) {
+        _putenv_s("VK_LOADER_LAYERS_DISABLE", "*bandicam*,*bdcam*");
+    }
 #elif !defined(__ANDROID__)
     // (the launcher sends the output to logs/game.log: written as it goes, so a crash keeps it)
     setvbuf(stdout, nullptr, _IOLBF, 0);
