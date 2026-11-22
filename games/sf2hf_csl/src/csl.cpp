@@ -16,7 +16,7 @@ void RegisterOwnSources() {
     TheGame().features.push_back(
         {"csl_colour_time", "Game", "1P colour select time",
          "Give 1-player arcade mode the same ~12 seconds to pick a character colour as 2-player mode (instead of ~1.5 seconds).",
-         0});
+         kFeatureEnhanced});
     AddHook(0x0F1036, "csl_colour_time", [](M68K &cpu) {
         if (FeatureOn("csl_colour_time")) {
             SetRam16(cpu.a[4] + 0x2F2, 0x0384);
