@@ -13,6 +13,9 @@
 - **Fix: the launcher froze on Windows with "Only the games you have" on** (Games page). The Features page did
   thousands of file lookups each frame and the launcher stopped answering; it now looks once and stays responsive
   (recomp-common #86).
+- **A crash leaves its log.** A game's output reached `logs/game.log` only in blocks, so a crash lost it and the
+  launcher's report pointed at an empty log. It is now written as it goes, and on Windows a crash adds where it
+  happened and the calls that led there (the build's unstripped programs and `tools/release/crash_where.sh` name them).
 
 ## 1.6.0-beta.5
 

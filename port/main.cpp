@@ -4871,6 +4871,55 @@ void SayFailed(const port::Options &opt, const std::string &error) {
 
 } // namespace
 
+#ifdef _WIN32
+// (an address as the program or library it is in, and how far into it: the same build's unstripped program
+// turns that into a function: tools/release/crash_where.sh)
+static void SayWhere(DWORD64 address) {
+    HMODULE module = nullptr;
+    char path[MAX_PATH] = "?";
+    if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           reinterpret_cast<LPCSTR>(address), &module) && module) {
+        GetModuleFileNameA(module, path, sizeof path);
+    }
+    const char *name = strrchr(path, '\\');
+    fprintf(stderr, "  %016llx  %s+0x%llx\n", (unsigned long long)address, name ? name + 1 : path,
+            (unsigned long long)(module ? address - reinterpret_cast<DWORD64>(module) : 0));
+}
+
+// A crash (a bad memory access and the like): where it happened and the calls that led there, into the log,
+// then Windows ends the program as before (the launcher shows its code)
+static LONG WINAPI SayCrash(EXCEPTION_POINTERS *e) {
+    const EXCEPTION_RECORD *r = e->ExceptionRecord;
+    fprintf(stderr, "\n" GAME_ID " crashed: exception %08lX at %p", r->ExceptionCode, r->ExceptionAddress);
+    if (r->ExceptionCode == EXCEPTION_ACCESS_VIOLATION && r->NumberParameters >= 2) {
+        const ULONG_PTR how = r->ExceptionInformation[0];
+        fprintf(stderr, " (%s %p)", how == 0 ? "reading" : how == 1 ? "writing" : "executing",
+                reinterpret_cast<void *>(r->ExceptionInformation[1]));
+    }
+    fprintf(stderr, ", thread %lu\ncalls, the crash first:\n", GetCurrentThreadId());
+#if defined(_M_X64) || defined(__x86_64__)
+    CONTEXT c = *e->ContextRecord;
+    for (int i = 0; i < 40 && c.Rip; i++) {
+        SayWhere(c.Rip);
+        DWORD64 base = 0;
+        RUNTIME_FUNCTION *f = RtlLookupFunctionEntry(c.Rip, &base, nullptr);
+        if (!f) {  // (a leaf function: its return address is on top of the stack)
+            c.Rip = *reinterpret_cast<DWORD64 *>(c.Rsp);
+            c.Rsp += 8;
+            continue;
+        }
+        void *handler = nullptr;
+        DWORD64 frame = 0;
+        RtlVirtualUnwind(UNW_FLAG_NHANDLER, base, c.Rip, f, &c, &handler, &frame, nullptr);
+    }
+#else
+    SayWhere(reinterpret_cast<DWORD64>(r->ExceptionAddress));
+#endif
+    fflush(stderr);
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+#endif
+
 int main(int argc, char **argv) {
 #ifdef _WIN32
     // (a windowed program has no console: started from one, its output goes there, unless it was sent elsewhere)
@@ -4879,6 +4928,14 @@ int main(int argc, char **argv) {
         freopen("CONOUT$", "w", stderr);
     }
     recomp::UseSystemProxy();  // (Windows' proxy, for the curl that asks the online service: recomp-common/proxy.h)
+    // (Windows' C library has no line buffering, _IOLBF is full buffering: unbuffered, or a crash loses the log)
+    setvbuf(stdout, nullptr, _IONBF, 0);
+    setvbuf(stderr, nullptr, _IONBF, 0);
+    SetUnhandledExceptionFilter(SayCrash);
+#elif !defined(__ANDROID__)
+    // (the launcher sends the output to logs/game.log: written as it goes, so a crash keeps it)
+    setvbuf(stdout, nullptr, _IOLBF, 0);
+    setvbuf(stderr, nullptr, _IONBF, 0);
 #endif
     port::UseLanguage();
 #ifdef __ANDROID__
