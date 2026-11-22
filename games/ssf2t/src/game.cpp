@@ -6,6 +6,7 @@
 #include "battle.h"
 #include "colours.h"
 #include "game.h"
+#include "places.h"
 #include "session.h"
 
 namespace cps2recomp {
@@ -55,6 +56,9 @@ void RegisterGame() {
     RegisterTitle();
     RegisterBoard();
     RegisterMusic();
+#ifdef SSF2T_FAMILY_OWN_SOURCES
+    ssf2t::family::RegisterOwnSources();
+#endif
     TheGame().beforeFrame = [](Machine &machine) {
         BoardBeforeFrame(machine);
         CoinsBeforeFrame(machine);

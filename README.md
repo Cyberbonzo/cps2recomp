@@ -53,6 +53,7 @@ file). Only the versions named below work for each game, and this project cannot
 | [**Street Fighter II: The World Warrior**](games/sf2/README.md) (1991, CPS-1) | `sf2` (World 910522) | The first, eight characters to choose; on the classic CPS-1 |
 | [**Street Fighter II: Champion Edition**](games/sf2ce/README.md) (1992, CPS-1) | `sf2ce` (World 920513) | The bosses playable, mirror matches; on the classic CPS-1 |
 | [**Street Fighter II: Hyper Fighting**](games/sf2hf/README.md) (1992, CPS-1) | `sf2hf` (World 921209) | Faster, new moves and colours; on the classic CPS-1 |
+| [**Street Fighter II: Hyper Fighting CSL Edition**](games/sf2hf_csl/README.md) (CPS-1 mod) | `sf2hf_csl` (Corner Store Legends Edition) | Hyper Fighting mod: ~20 colours per fighter, 2P stage select, stun/reversal callouts, cleaned-up stages |
 | [**Ghouls'n Ghosts**](games/ghouls/README.md) (1988, CPS-1) | `ghouls` (World) | Platform game; classic CPS-1 with YM2151 and OKI sound |
 | [**Cadillacs and Dinosaurs**](games/dino/README.md) (1993, CPS-1) | `dino` (World 930201) | Beat-'em-up: three players, a stage to start at, score attack |
 | [**The Punisher**](games/punisher/README.md) (1993, CPS-1) | `punisheru` (USA 930422) | Beat-'em-up: two players, a stage to start at, score attack |

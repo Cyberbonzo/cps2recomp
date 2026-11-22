@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Street Fighter II: Hyper Fighting CSL Edition** (`games/sf2hf_csl`): support for the Corner Store Legends Edition
+  community mod based on `sf2hf` (World 921209), with training mode, widescreen, alternative modes, online play and the
+  classic CPS-1 board (#440).
+
 ## 1.6.0-beta.5
 
 **Online play from players' feedback, closer arcade timing, and fewer antivirus false alarms on Windows.** Online,
