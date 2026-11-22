@@ -42,7 +42,11 @@ sooner). The shoot-'em-ups have their own Slowdown row, the same choice with Non
   line after the game sets the table's base. Its scheduler takes a step at each of its eleven tasks' places in turn
   (row scroll, objects, the three layers, the six palette pages), done or not, up to the last it has that line, and
   one more as it gives the bus back. Its steps are turned into the 68000's clocks (one a step on a CPS-2's 16 MHz;
-  12 or 10 MHz on a CPS-1), what is left over of a clock kept for the next line. That is 7 to 13% of a CPS-2's frame
+  12 or 10 MHz on a CPS-1), what is left over of a clock kept for the next line. On a CPS-1, whose 68000 (10 or
+  12 MHz) and DMA (16 MHz) are on different clocks, each time the DMA takes the bus costs the 68000 a clock more:
+  handing the bus over and taking it back (jtcps1: a 16-clock stall where the DMA's own count is 14 to 15; World
+  Warrior's and Champion Edition's loading screens run as the core's tick for tick only with it, 2026-11-22). The
+  CPS-2's 68000 and DMA share a clock, and its runs match jtcps2's without it. That is 7 to 13% of a CPS-2's frame
   and about 14% of a CPS-1's.
 
 What the port's own code does in place of the game's (the readable rewrites, `runtime/lift.h`) takes the time its

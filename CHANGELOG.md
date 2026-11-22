@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **CPS-1: the bus's hand-over to the video chip's DMA**, a clock each time (the 68000 and the DMA are on
+  different clocks). With it World Warrior and Champion Edition keep step with jotego's jtcps1 tick for tick from
+  power-on through their loading screens (Champion Edition: work RAM byte-identical on 2,530 of 2,980 frames); Hyper
+  Fighting is unchanged (tick for tick to its character select either way).
+
 - **Street Fighter II: Hyper Fighting CSL Edition** (`games/sf2hf_csl`): support for the Corner Store Legends Edition
   community mod based on `sf2hf` (World 921209), with training mode, widescreen, alternative modes, online play and the
   classic CPS-1 board (#440).
