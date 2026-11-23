@@ -34,6 +34,24 @@ every mode, the board's own game too.
 - **Slow motion and frame advance** are the menu's own: speed down to 1/8, pause, and a frame at a time. Save states
   (nine slots) work as everywhere.
 
+## Rewind and a practice point
+
+Two switches on the Game page of the in-game menu (and the launcher's Features page), off unless chosen. They are the
+port's, so every game in the collection has them, in training mode or anywhere else, but never online.
+
+| Switch | Keys (gamepad) | What it does |
+| --- | --- | --- |
+| Practice point | `]` sets it (the left shoulder held half a second), Backspace goes back (the shoulder tapped), Backslash replays (the shoulder with the left trigger held) | The game as it is that instant, kept in memory and put back at once, as often as you like: a point in the middle of a stage or just before a boss's last pattern, not only where training mode began. Replay shows your last attempt from the point again, the controls as you pressed them, until you press a button |
+| Rewind | hold R (the left trigger) | The game runs backwards, three times as fast as play, through its last half a minute or so, without sound; let go and play on from there |
+
+Until a practice point is set, Backspace and Backslash are training mode's Start over and Replay, as above. With
+rewind on, the left trigger rewinds while the game runs (stopped, it still goes on a frame at a time), in place of a
+tag game's Tag. Neither adds a frame of lag: keeping a state takes a fifth of a millisecond, every third frame, and
+half a minute of them is a few dozen megabytes ([how](FEATURES.md#rewind-and-the-practice-point)). Gone back to, the
+game is exactly as it was: `make GAME=<id> check-rewind` sets a point and goes back to it, holds rewind, and replays,
+with and without run-ahead, and the game comes out frame for frame as a run that simply played on (Giga Wing, Progear,
+Dimahoo, Street Fighter Alpha 3 and Cadillacs and Dinosaurs).
+
 ![Training mode begun at stage 1's boss: the readout with the Reflect Barrier charging and the boss's clock, and the boss's hit area](screenshots/gigawing/practice-boss.png)
 
 ## The aids

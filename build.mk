@@ -55,7 +55,7 @@ TRACKED := games/$(GAME)/entries.txt
 # (this tree's lists into the repository's)
 KEEP_ENTRIES = $(CR)/tools/merge_entries.sh $(TRACKED) $(ENTRIES) && $(CR)/tools/merge_entries.sh $(TRACKED).z80 $(ENTRIES).z80
 
-.PHONY: all configure port gen run record explore check check-blocks check-sound check-rewrites check-rollback check-online check-common launcher app clean
+.PHONY: all configure port gen run record explore check check-blocks check-sound check-rewrites check-rollback check-rewind check-online check-common launcher app clean
 # (on macOS the app bundle too, which is what the player opens: a bundle left from an older build hides what
 # changed since)
 ifeq ($(shell uname -s)$(NO_APP),Darwin)
@@ -149,6 +149,10 @@ check-sound: port
 # What online play's rollback needs: frames put back and run again come out as the first time (tools/check_rollback.sh)
 check-rollback: port
 	@$(CR)/tools/check_rollback.sh $(FRAMES)
+
+# Rewind and the practice point leave the game as it would be without them (tools/check_rewind.sh)
+check-rewind: port
+	@$(CR)/tools/check_rewind.sh $(FRAMES)
 
 # Online play between copies of the game on this machine (two; FOUR=1 or MACHINES=3 or 4 for a match of four), over a
 # bad connection made up (tools/check_online.sh)

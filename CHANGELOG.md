@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Rewind and a practice point, in every game** (#443), as the Cave shooters in spelunkomp have them: two switches
+  on the Game page, off unless chosen, never online. Hold R (a gamepad's left trigger) and the game runs backwards
+  through its last half a minute; `]` (the left shoulder held) keeps the game as it is, Backspace puts it back and
+  Backslash replays the last attempt from it. Made for the shoot-'em-ups' training mode, where Start over could only
+  go back to where training began. Also: the left trigger held with the left shoulder now does Replay, as the
+  shooters' training mode page always said it did.
+
 - **CPS-1: the bus's hand-over to the video chip's DMA**, a clock each time (the 68000 and the DMA are on
   different clocks). With it World Warrior and Champion Edition keep step with jotego's jtcps1 tick for tick from
   power-on through their loading screens (Champion Edition: work RAM byte-identical on 2,530 of 2,980 frames); Hyper
