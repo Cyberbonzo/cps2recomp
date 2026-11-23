@@ -34,8 +34,11 @@
 # MVC_CUSTOM=1 exercises the alternative Cross Fever rules on the host and in the offline replay.
 # FIRST_TO=0|3|5|10 checks the host's Casual/FT3/FT5/FT10 choice against different choices on all joining machines.
 # WATCH=1 adds a viewer after play starts and compares its confirmed frame hashes with the host's.
+# SEATS=FRAME:LAYOUT (a match of four): the host changes the seats at FRAME (issue #448: --net-command FRAME:seats=LAYOUT,
+# e.g. 1200:1.0.3.2 swaps the sides at four machines); every machine must make it, the same frame, and the logs and the
+# replay of the host's record still be the same.
 #
-#   [ARCADE=1] [FOUR=1 | MACHINES=3|4 | PEOPLE=1,2,1] [FIRST_TO=0|3|5|10] [WATCH=1] [JOIN_ROM=<set>]
+#   [ARCADE=1] [FOUR=1 | MACHINES=3|4 | PEOPLE=1,2,1] [FIRST_TO=0|3|5|10] [WATCH=1] [SEATS=FRAME:LAYOUT] [JOIN_ROM=<set>]
 #     GAME=<id> check_online.sh [FRAMES]
 set -eu
 GAME=${GAME:?which game: GAME=<id>}
@@ -186,7 +189,8 @@ said() { # FILE PATTERN: once a line of FILE has it (10 seconds at most)
     return 1
 }
 side host --net-delay "$host_delay" --auto "11:0:$hostPeople" --features "$play" --host "$port" --record "$work/online-host.mov" ${arcade:+--net-arcade} \
-    --net-people "$hostPeople" --net-name "Host P1" --net-say "hello from the host" ${watch_args[@]+"${watch_args[@]}"} &
+    --net-people "$hostPeople" --net-name "Host P1" --net-say "hello from the host" ${watch_args[@]+"${watch_args[@]}"} \
+    ${SEATS:+--net-command "${SEATS%%:*}:seats=${SEATS#*:}"} &
 pids=$!
 # (the joining side once the host waits: its socket is open by then, however long the game took to start)
 said "$work/online-host.err" '^online: Waiting for' || { echo "FAILED: host not waiting after 10 seconds"; exit 1; }
@@ -351,6 +355,14 @@ if [ -n "$four" ]; then
         grep -q "^online: the match is on: you are $who " "$work/online-$name.err" || { echo "FAILED: the $name is not $who"; placed=0; status=1; }
     done
     [ "$placed" = 1 ] && echo "ok: a match of four at $machines machines ($(echo "$where" | sed 's/=/: /g; s/,/, /g'))"
+fi
+if [ -n "${SEATS:-}" ]; then
+    seated=1
+    want="^online: seats changed at frame $(( ${SEATS%%:*} + host_delay )):"
+    for name in host $joiners; do
+        grep -q "$want" "$work/online-$name.err" || { echo "FAILED: the $name didn't change the seats at frame $(( ${SEATS%%:*} + host_delay ))"; seated=0; status=1; }
+    done
+    [ "$seated" = 1 ] && echo "ok: every machine changed the seats ($SEATS) on the same frame"
 fi
 heard=1
 for name in host $joiners; do

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Online, four players: change teams without leaving** (Marvel vs. Capcom, X-Men vs. Street Fighter, Marvel Super
+  Heroes vs. Street Fighter, and the other games' 2 vs 2; #448). Who plays with whom was fixed by the order people
+  joined. The host's in-game menu (Online page) now has **Swap sides** and **Change partners**, each naming the teams it
+  makes; everyone moves on the same frame, keeps their own controller, and the set's score and win streaks start again.
 - **The arcade monitor's code shared with the other arcade ports** (recomp-common's `arcade_screen.h`, recomp-common
   #88): Switchres's modes at the board's exact rate, the frames synced to the screen and the frame delay are now
   recomp-common's copy, which sf3comp, spelunkomp and naomicomp use too, instead of `port/arcade_screen.cpp` and the

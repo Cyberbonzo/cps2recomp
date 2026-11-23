@@ -76,7 +76,7 @@ public:
     static constexpr int kDefaultPort = 7845;
     // The packets' layout (2: the host's state sent at the start); two copies must have the same to play, and the
     // lobby shows only matches of this one (the launcher asks with it too)
-    static constexpr int kProtocol = 16; // (3: the version said in the hello and to the service; 4: the welcome's flags;
+    static constexpr int kProtocol = 17; // (3: the version said in the hello and to the service; 4: the welcome's flags;
                                         // 5: the welcome's program words, so two regions' sets play together;
                                         // 6: each player's name in the hello and the welcome, and the chat;
                                         // 7: two players at each machine, as the welcome says, and each one's controls;
@@ -89,7 +89,8 @@ public:
                                         // 13: revised tag requests, taunt ownership and the common feature negotiation;
                                         // 14: board timing by default and the board DMA state in rollback snapshots;
                                         // 15: each machine's own input delay, in the hello and the start;
-                                        // 16: each machine's run-ahead too, and Casual's score counted)
+                                        // 16: each machine's run-ahead too, and Casual's score counted;
+                                        // 17: events in a match of four too: the host's seat changes)
     static constexpr int kMostSeats = 2;    // players at one machine
     static constexpr int kMostMachines = 4; // machines in a match: the host's, and up to three joining
     static constexpr int kMostAhead = 8;    // frames run on guessed controls at most
@@ -252,6 +253,19 @@ public:
     std::vector<std::pair<int, std::string>> TakeHeard();
     void Command(const std::string &text);
     std::vector<std::pair<int, std::string>> TakeEvents();
+    // The seats (issue #448): in a match of four the host moves the people between the board's players while the match
+    // goes on (who partners whom, which side), with no one leaving. A change is an event in the host's controls, for a
+    // frame, so every machine makes it on that frame (one that comes after the frame has been run is rolled back to);
+    // each machine's people stay its own, only the players they play change. The set's score starts again from it.
+    // A layout: each machine's people's players, as Player(machine, person) says them
+    using Layout = std::array<std::array<int, kMostSeats>, kMostMachines>;
+    bool CanSeat() const {
+        return settings.hosting && !settings.watching && needed == 4;
+    }
+    Layout SeatLayout() const;
+    void Seat(const Layout &layout);
+    // An event's text that is a seat change ("seats=..."), and the layout it says (false: not one, or not this match's)
+    bool SeatEvent(const std::string &text, Layout &layout) const;
 
 private:
     friend struct NetplayTest; // ROM-free protocol regressions exercise the production transitions
@@ -351,6 +365,13 @@ private:
         std::string name;
     };
     std::array<Seats, kMostMachines> roster{};
+    // (the seats: as the match began or as last confirmed, and the changes since, each from its frame on; SeatsAt is the
+    // layout a frame is run with, and the roster says the one of the frame last run)
+    Layout seatBase{};
+    bool seatBaseSet = false;
+    std::map<uint64_t, Layout> seatChanges;
+    const Layout &SeatsAt(uint64_t at) const;
+    void NoteSeats(int machine, uint64_t at, const std::string &text);
     void Assign(); // (hosting: the players handed out, as the match begins)
     std::vector<uint8_t> Start(int machine) const; // (hosting: the start, for a joining machine)
     int delay = kDefaultDelay;
