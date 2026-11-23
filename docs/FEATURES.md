@@ -234,7 +234,7 @@ runs, with that frame's controls, in a ring of 600 (`port/rewind.h`, `StateRing`
 as how it differs from the one after it, XORed and its runs of equal bytes packed, so half a minute of play is 15 to
 70 MB (Giga Wing; 256 MB at most). Keeping one takes about 0.1 to 0.2 ms. Held (R, or a gamepad's left trigger), each
 tick puts the newest back and runs its frame again with its controls, drawn and unheard, so the game goes back three
-frames a tick; the frame count goes back with it, and the instant replay's states start again from there. **The
+frames a tick (the custom soundtrack, the port's own player, plays on); the frame count goes back with it, and the instant replay's states start again from there. **The
 practice point** is one state kept by a key (`]`), put back by Backspace, and the controls of every frame since,
 which Backslash plays again from the point until a button is pressed that was not held when it began. Until a point
 is set, Backspace and Backslash are the game's (`kKeyRestart`, `kKeyExtra`). `--keys TICK:]`, `TICK:k1` and
