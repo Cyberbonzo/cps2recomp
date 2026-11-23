@@ -916,6 +916,79 @@ struct NetplayTest {
         Require(gap.upTo[1] == 3 && gap.events[1][1] == "mode,2", "cumulative input did not repair the missing prefix");
     }
 
+    // Issue #448: the host moves the people between the sides in a match of four, as an event on its own stream, and
+    // every machine plays the frames from the event's on with the new seats; nobody else can, and a malformed change is
+    // nothing
+    static void SeatChanges() {
+        Netplay host(Settings(true));
+        host.needed = host.machines = 4;
+        host.links.resize(3);
+        host.Assign();
+        Require(host.CanSeat(), "a four-person host cannot change the seats");
+        Netplay::Layout swapped = host.SeatLayout();
+        for (int m = 0; m < 4; ++m) swapped[m][0] ^= 1; // (players 1<->2, 3<->4: the sides swapped)
+        host.Seat(swapped);
+        Require(host.commanded.size() == 1 && host.commanded[0] == "seats=1.0.3.2", "the host's swap was not one seat event");
+        host.commanded.clear();
+        host.Seat(host.SeatLayout());
+        Require(host.commanded.empty(), "a change to the seats as they are was sent");
+        host.Command("mode=1:3");
+        Require(host.commanded.empty(), "a four-person match took a two-person mode event");
+        Netplay::Layout parsed{};
+        for (const char *bad : {"seats=1.0.3", "seats=1.1.3.2", "seats=1.0.3.4", "seats=10.3.2", "seats=1.0.3.2.", "seats="}) {
+            Require(!host.SeatEvent(bad, parsed), std::string("a malformed seat change was taken: ") + bad);
+        }
+        Require(host.SeatEvent("ready=1,seats=2.3.0.1", parsed) && parsed[0][0] == 2 && parsed[3][0] == 1,
+                "a seat change after another item was not read");
+
+        // The host's event reaches a joining machine with its controls, frame and all; a frame already run goes back
+        UdpSocket receiver;
+        std::string error;
+        Require(receiver.Open(0, error) && host.socket.Open(0, error), "seat sockets: " + error);
+        NetAddress destination;
+        Require(UdpSocket::Resolve("127.0.0.1", receiver.LocalPort(), destination, error), "seat address: " + error);
+        for (auto &link : host.links) link.address = destination, link.lastHeard = NowMs(), link.started = true;
+        host.upTo[0] = 8;
+        host.events[0][5] = "seats=1.0.3.2";
+        host.NoteSeats(0, 5, host.events[0][5]);
+        Netplay client(Settings(false));
+        client.local = 2;
+        client.needed = client.machines = 4;
+        client.roster = host.roster;
+        client.links.resize(1);
+        client.links[0].address = destination;
+        for (int m = 0; m < 4; ++m) client.seatBase[m] = client.roster[m].players;
+        client.seatBaseSet = true;
+        client.current = 7;
+        Require(!client.CanSeat(), "a joining machine can change the seats");
+        const Packet packet = EmitControls(host, host.links[1], receiver);
+        client.Take(client.links[0], packet.data(), packet.size());
+        Require(client.seatChanges.size() == 1 && client.seatChanges.count(5), "the seat change did not come with its frame");
+        Require(client.SeatsAt(4)[0][0] == 0 && client.SeatsAt(5)[0][0] == 1 && client.SeatsAt(9)[2][0] == 3,
+                "the frames before and after the change were not played with their own seats");
+        Require(client.eventFrom == 5, "a seat change for a frame already run did not roll back to it");
+        Require(client.TakeEvents().size() == 1, "the seat change was not said on the screen");
+
+        // A joining machine's own seat event, or any other event in a match of four, is refused with its packet
+        Netplay other(Settings(true));
+        other.needed = other.machines = 4;
+        other.links.resize(3);
+        other.Assign();
+        client.events[2][6] = "seats=0.1.2.3";
+        client.inputs[2][6][0] = 1;
+        client.upTo[2] = 7;
+        Require(client.socket.Open(0, error), "seat reply socket: " + error);
+        const Packet theirs = EmitControls(client, client.links[0], receiver);
+        other.Take(other.links[1], theirs.data(), theirs.size());
+        Require(other.upTo[2] == 0 && other.seatChanges.empty(), "a joining machine's seat change was taken");
+
+        // The set's score starts again, keeping its format
+        FirstTo set;
+        set.Begin(1);
+        set.Restart();
+        Require(set.Target() == 3 && set.Counting() && set.Score(0) == 0 && set.Winner() < 0, "a restarted set lost its format");
+    }
+
     static void SpectatorControls() {
         Netplay host(Settings(true));
         UdpSocket receiver;
@@ -1049,7 +1122,8 @@ struct NetplayTest {
                  {"all-machine first-to consensus and score mismatch", FirstToConsensus},
                  {"reliable mode events and four-human mode guard", ModeEvents},
                  {"fighter picks before same-frame mode commands under rollback", ModePickOrder},
-                 {"four-stream confirmed spectators and read-only controls", SpectatorControls}}) {
+                 {"four-stream confirmed spectators and read-only controls", SpectatorControls},
+                 {"host seat changes in a match of four, frame-exact and rolled back to", SeatChanges}}) {
             run();
             std::cout << "PASS: " << name << '\n';
         }

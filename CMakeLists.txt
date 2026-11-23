@@ -69,7 +69,7 @@ if (NOT GAME_SOURCES)
     set(GAME_SOURCES runtime/no_game.cpp)
 endif ()
 # (recomp-common/: the code the recomp ports share, a copy of recomp-common's; tools/sync-common.sh)
-set(PORT_SOURCES port/main.cpp port/movie.cpp port/scene.cpp port/video_record.cpp port/gpu_picture.cpp port/frontend_sdl.cpp port/arcade_screen.cpp port/present.cpp port/shading.cpp port/zoom.cpp port/menu.cpp port/hud.cpp port/touch.cpp port/soundtrack.cpp port/netplay.cpp recomp-common/launcher/src/online.cpp recomp-common/launcher/src/run_program.cpp port/decoders.cpp recomp-common/menu.cpp recomp-common/settings.cpp runtime/game.cpp runtime/board.cpp video/lifts.cpp runtime/spare.cpp runtime/guest.cpp fight/frames.cpp fight/training.cpp fight/colours.cpp fight/colour_editor.cpp fight/battle.cpp fight/court.cpp fight/alternative.cpp fight/session.cpp fight/tag.cpp fight/marvel.cpp fight/guest_stages.cpp beat/modes.cpp beat/model.cpp model/model.cpp shmup/modes.cpp ${GAME_SOURCES})
+set(PORT_SOURCES port/main.cpp port/movie.cpp port/scene.cpp port/video_record.cpp port/gpu_picture.cpp port/frontend_sdl.cpp recomp-common/arcade_screen.cpp port/present.cpp port/shading.cpp port/zoom.cpp port/menu.cpp port/hud.cpp port/touch.cpp port/soundtrack.cpp port/netplay.cpp recomp-common/launcher/src/online.cpp recomp-common/launcher/src/run_program.cpp port/decoders.cpp recomp-common/menu.cpp recomp-common/settings.cpp runtime/game.cpp runtime/board.cpp video/lifts.cpp runtime/spare.cpp runtime/guest.cpp fight/frames.cpp fight/training.cpp fight/colours.cpp fight/colour_editor.cpp fight/battle.cpp fight/court.cpp fight/alternative.cpp fight/session.cpp fight/tag.cpp fight/marvel.cpp fight/guest_stages.cpp beat/modes.cpp beat/model.cpp model/model.cpp shmup/modes.cpp ${GAME_SOURCES})
 
 # (the sound files' decoders, third_party/, are other projects' code, compiled as they are)
 set_source_files_properties(port/decoders.cpp PROPERTIES COMPILE_OPTIONS "-w")
@@ -98,26 +98,9 @@ if (UNIX AND NOT APPLE)
     target_link_libraries(video_encoders PRIVATE m)
 endif ()
 
-# Switchres (GPL-2.0-or-later, Antonio Giner and others: port/arcade_screen.h), the modes made for an arcade monitor at
-# the board's exact rate: downloaded (its release's archive, checked against its SHA-256) and compiled as it is, linked in
-# statically. Windows only for now (TODO: Linux, with its KMS and xrandr backends, which need libdrm's and Xrandr's
-# headers in the build image)
-if (WIN32)
-    FetchContent_Declare(switchres
-        URL https://github.com/antonioginer/switchres/archive/refs/tags/v2.2.2.tar.gz
-        URL_HASH SHA256=8abda61c21f375e08f0f2dcaaa105f072e892bdd639417316c0290d7b6b80027
-        DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
-    FetchContent_MakeAvailable(switchres) # (its sources only: it has no CMakeLists.txt, and its own build, a makefile, is not used)
-    set(SWITCHRES_SOURCES monitor modeline switchres display custom_video log edid switchres_wrapper display_windows
-        custom_video_ati_family custom_video_ati custom_video_adl custom_video_pstrip resync_windows)
-    list(TRANSFORM SWITCHRES_SOURCES PREPEND "${switchres_SOURCE_DIR}/")
-    list(TRANSFORM SWITCHRES_SOURCES APPEND .cpp)
-    add_library(switchres STATIC ${SWITCHRES_SOURCES})
-    target_compile_definitions(switchres PRIVATE SR_WIN32_STATIC)
-    target_compile_options(switchres PRIVATE -w)
-    target_link_libraries(switchres PRIVATE gdi32 user32 advapi32)
-    target_include_directories(switchres INTERFACE "${switchres_SOURCE_DIR}")
-endif ()
+# Switchres (GPL-2.0-or-later, Antonio Giner and others), the modes made for an arcade monitor at the board's exact rate
+# (recomp-common/arcade_screen.h): downloaded and linked in statically on Windows by recomp-common's switchres.cmake
+include(recomp-common/switchres.cmake)
 
 # (macOS: handing the front to the launcher, port/front_macos.mm)
 if (APPLE)
@@ -162,8 +145,8 @@ foreach (target ${GAME} ${GAME}-check)
         # downloader: recomp-common/launcher/src/winhttp_curl.h)
         target_link_libraries(${target} PRIVATE winhttp)
         target_compile_definitions(${target} PRIVATE RECOMP_WINHTTP=1)
-        target_link_libraries(${target} PRIVATE switchres)
     endif ()
+    recomp_switchres(${target})
     target_compile_options(${target} PRIVATE -Wall -Wextra -Wno-unused-parameter -Wno-unused-label -Wno-unused-variable -Wno-parentheses-equality)
     # (a char is signed, as on x86 and Apple's ARM, also on Linux ARM64, whose own is unsigned: every build does the
     # same sums)

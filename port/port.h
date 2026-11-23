@@ -419,6 +419,8 @@ struct Port {
     void OpenOnlineMenu();
     void OnlineCommand(size_t index);
     void LeaveQuestion(unsigned pressed);
+    std::vector<Netplay::Layout> onlineSeats; // (the host's seat changes on the menu, after the modes: issue #448)
+    std::string TeamsSaid(const Netplay::Layout &layout) const; // ("Ann + Bob vs Cy + Di")
     std::vector<int> onlineModes;           // (the menu's commands' modes, in its order)
     std::vector<std::string> onlineRows;    // (the menu's features' rows: the game's features they stand for)
     std::map<std::string, int> onlinePicks; // (this player's fighters as chosen, before their events have run)
@@ -497,10 +499,10 @@ enum class ArcadeMode { Off, Board, Super };
 ArcadeMode ArcadeResolution();
 // In an arcade mode, frames paced by the screen's refresh: unless the Arcade monitor page's Keep the board's pace is on
 bool ArcadeSyncChosen();
-// The Arcade monitor page's Make the mode at the board's rate (Switchres: arcade_screen.h), and its Monitor, as
-// Switchres's preset's name
+// The Arcade monitor page's Make the mode at the board's rate (Switchres: recomp-common/arcade_screen.h), and its
+// Monitor (an index of recomp::sdl::kMonitorPresets)
 bool SwitchresChosen();
-const char *ArcadeMonitorPreset();
+int ArcadeMonitor();
 int DisplayScreen();
 bool CompactMenuChosen();
 // A vertical game's picture shown upright (Game::vertical, the Display page's "Picture turned"): the board's picture,

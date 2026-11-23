@@ -8,6 +8,15 @@
   Backslash replays the last attempt from it. Made for the shoot-'em-ups' training mode, where Start over could only
   go back to where training began. Also: the left trigger held with the left shoulder now does Replay, as the
   shooters' training mode page always said it did.
+- **Online, four players: change teams without leaving** (Marvel vs. Capcom, X-Men vs. Street Fighter, Marvel Super
+  Heroes vs. Street Fighter, and the other games' 2 vs 2; #448). Who plays with whom was fixed by the order people
+  joined. The host's in-game menu (Online page) now has **Swap sides** and **Change partners**, each naming the teams it
+  makes; everyone moves on the same frame, keeps their own controller, and the set's score and win streaks start again.
+- **The arcade monitor's code shared with the other arcade ports** (recomp-common's `arcade_screen.h`, recomp-common
+  #88): Switchres's modes at the board's exact rate, the frames synced to the screen and the frame delay are now
+  recomp-common's copy, which sf3comp, spelunkomp and naomicomp use too, instead of `port/arcade_screen.cpp` and the
+  frontend's own; Switchres is downloaded by recomp-common's `switchres.cmake`. Nothing changes for the player. The
+  recomp-common sync also brings the launcher's Discord link for a game of its own (#87).
 
 - **CPS-1: the bus's hand-over to the video chip's DMA**, a clock each time (the 68000 and the DMA are on
   different clocks). With it World Warrior and Champion Edition keep step with jotego's jtcps1 tick for tick from

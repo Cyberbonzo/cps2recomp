@@ -512,6 +512,8 @@ void Netplay::StartAt(int frames) {
     upTo.fill(static_cast<uint64_t>(delay));
     for (auto &stream : events) stream.clear();
     eventFrom = UINT64_MAX;
+    seatChanges.clear();
+    seatBaseSet = false;
 }
 
 // The match begins: each machine's controls are held back by its own delay (the first frames of each, none: no
@@ -1868,11 +1870,12 @@ void Netplay::Take(Link &link, const uint8_t *data, size_t size) {
             }
         }
         const unsigned eventCount = in.U8();
-        if (eventCount && needed != 2) return;
         for (unsigned n = 0; n < eventCount; ++n) {
             const uint64_t at = in.U32();
             const std::string text = in.Text();
             if (at < block.first || at >= block.first + block.count || text.size() > 512) return;
+            // (a match of more than two has no events but the host's seat changes)
+            if (needed != 2 && (block.machine != 0 || text.rfind("seats=", 0) != 0)) return;
             block.events.push_back({at, text});
         }
     }
@@ -1909,6 +1912,7 @@ void Netplay::Take(Link &link, const uint8_t *data, size_t size) {
         for (const auto &[at, text] : block.events) {
             if (at >= confirmed && at < confirmed + kInputs && !events[block.machine].count(at)) {
                 events[block.machine][at] = text;
+                NoteSeats(block.machine, at, text);
                 eventNotices.push_back({block.machine, text});
                 watchModeChanged = true;
                 if (at <= current) eventFrom = std::min(eventFrom, at);
@@ -2081,6 +2085,7 @@ bool Netplay::ShownFrame(uint16_t *players) const {
 void Netplay::Run(Port &port, uint64_t at, bool drawing) {
     Kept &k = kept[at % kKept];
     uint16_t players[Machine::kMaxPlayers] = {};
+    const Layout &seats = SeatsAt(at); // (the seats this frame is played with: a change is from its frame on)
     for (int machine = 0; machine < machines; machine++) {
         // (this machine's own; another's, or guessed as the last that came)
         const uint64_t known = upTo[machine];
@@ -2088,7 +2093,7 @@ void Netplay::Run(Port &port, uint64_t at, bool drawing) {
                           : known                         ? inputs[machine][(known - 1) % kInputs]
                                                           : Controls{};
         for (int person = 0; person < roster[machine].people; person++) {
-            players[roster[machine].players[person]] = k.used[machine][person];
+            players[seats[machine][person]] = k.used[machine][person];
         }
     }
     for (int machine = 0; needed == 2 && machine < machines; ++machine) {
@@ -2141,17 +2146,27 @@ void Netplay::Frame(Port &port, const uint16_t *controls) {
     const auto began = std::chrono::steady_clock::now();
     current = port.frame;
     const uint64_t frame = port.frame;
+    if (!seatBaseSet) { // (the seats as the match began)
+        for (int m = 0; m < kMostMachines; ++m) seatBase[m] = roster[m].players;
+        seatBaseSet = true;
+    }
     for (int person = 0; person < roster[local].people; person++) {
         inputs[local][(frame + delay) % kInputs][person] = controls[person];
     }
     upTo[local] = frame + delay + 1;
-    if (needed == 2 && !commanded.empty()) {
+    if (needed != 2) {
+        // (a match of more than two sends only the host's seat changes: a joining machine's "hello" was queued in the
+        // handshake, before the match knew its players, and the others would refuse the packet that carried it)
+        std::erase_if(commanded, [](const std::string &text) { return text.rfind("seats=", 0) != 0; });
+    }
+    if (!commanded.empty()) {
         std::string &line = events[local][frame + delay];
         for (const std::string &text : commanded) {
             line += (line.empty() ? "" : ",") + text;
             eventNotices.push_back({local, text});
         }
         commanded.clear();
+        NoteSeats(local, frame + delay, line);
         watchModeChanged = true;
     }
     // How far ahead of each link this machine is: the frame it is on, over what the link said last
@@ -2197,12 +2212,19 @@ void Netplay::Frame(Port &port, const uint16_t *controls) {
     const uint64_t upToAll = std::min(Slowest(), frame);
     for (uint64_t at = confirmed; at < upToAll; at++) {
         const Kept &k = kept[at % kKept];
+        const Layout &seats = SeatsAt(at);
+        if (seatChanges.count(at)) {
+            // (the people have changed sides: the set's score is theirs no more, and starts again, on every machine
+            // at this confirmed frame)
+            set.Restart();
+            fprintf(stderr, "online: seats changed at frame %llu: the set starts again\n", static_cast<unsigned long long>(at));
+        }
         if (settings.hosting && settings.spectators) {
             WatchInput &watch = watchInputs[at % kWatchFrames];
             watch = {};
             for (int m = 0; m < machines; ++m)
                 for (int person = 0; person < roster[m].people; ++person)
-                    watch.players[roster[m].players[person]] = inputs[m][at % kInputs][person];
+                    watch.players[seats[m][person]] = inputs[m][at % kInputs][person];
             watch.hash = (at + 1) % kHashEvery == 0 ? k.hash : 0;
         }
         const int won = set.Confirm(at, k.result);
@@ -2216,7 +2238,7 @@ void Netplay::Frame(Port &port, const uint16_t *controls) {
             Movie::Pads pads{};
             for (int machine = 0; machine < machines; machine++) {
                 for (int person = 0; person < roster[machine].people; person++) {
-                    pads[roster[machine].players[person]] = inputs[machine][at % kInputs][person];
+                    pads[seats[machine][person]] = inputs[machine][at % kInputs][person];
                 }
             }
             port.recMovie.RecordConfirmed(at, pads);
@@ -2231,12 +2253,20 @@ void Netplay::Frame(Port &port, const uint16_t *controls) {
         }
     }
     confirmed = upToAll;
+    // (the seat changes now confirmed, their frames counted above, become the seats every later frame starts from; one
+    // for the frame `confirmed` itself is still to be counted)
+    while (!seatChanges.empty() && seatChanges.begin()->first < confirmed) {
+        seatBase = seatChanges.begin()->second;
+        seatChanges.erase(seatChanges.begin());
+    }
     PruneEvents();
     Compare();
     // The frame itself
     port.KeepState(kept[frame % kKept].state);
     WatchCapture(port);
     Run(port, frame, true);
+    // (the roster: the seats of the frame just run, for the names, the labels and MachineOf)
+    for (int m = 0; m < machines; ++m) roster[m].players = SeatsAt(frame)[m];
     const double took = std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
     worst = std::max(worst, took);
     over += took > 1 / Machine::kFramesPerSecond;
@@ -2259,9 +2289,72 @@ void Netplay::PruneEvents() {
 void Netplay::Command(const std::string &text) {
     size_t length = text.size();
     for (const auto &pending : commanded) length += pending.size() + 1;
-    if (!text.empty() && length <= 512 && !settings.watching && needed == 2) {
+    // (a match of two: the modes, the picks and Ready; a match of more: the host's seat changes only)
+    const bool seats = text.rfind("seats=", 0) == 0;
+    if (!text.empty() && length <= 512 && !settings.watching && (needed == 2 ? !seats : seats && CanSeat())) {
         commanded.push_back(text);
     }
+}
+
+Netplay::Layout Netplay::SeatLayout() const {
+    Layout layout{};
+    for (int m = 0; m < machines; ++m) layout[m] = roster[m].players;
+    return layout;
+}
+
+// The change asked for, as an event: "seats=" and each machine's players, a machine's after a '.' ("seats=02.1.3")
+void Netplay::Seat(const Layout &layout) {
+    std::string text = "seats=";
+    for (int m = 0; m < machines; ++m) {
+        if (m) text += '.';
+        for (int person = 0; person < roster[m].people; ++person) text += static_cast<char>('0' + layout[m][person]);
+    }
+    Layout check{};
+    if (CanSeat() && SeatEvent(text, check) && check != SeatLayout()) Command(text);
+}
+
+bool Netplay::SeatEvent(const std::string &text, Layout &layout) const {
+    // (an event's line may hold more than one item, after commas; the last seat change in it is the one)
+    bool found = false;
+    for (size_t place = 0; place <= text.size();) {
+        const size_t comma = std::min(text.find(',', place), text.size());
+        const std::string item = text.substr(place, comma - place);
+        place = comma + 1;
+        if (item.rfind("seats=", 0) != 0) continue;
+        Layout l{};
+        bool taken[Machine::kMaxPlayers] = {};
+        int m = 0, person = 0, total = 0;
+        bool ok = true;
+        for (size_t i = 6; ok && i < item.size(); ++i) {
+            const char c = item[i];
+            if (c == '.') {
+                ok = person == roster[m].people && ++m < machines;
+                person = 0;
+            } else if (c >= '0' && c < '0' + needed && person < roster[m].people && !taken[c - '0']) {
+                taken[c - '0'] = true;
+                l[m][person++] = c - '0';
+                total++;
+            } else {
+                ok = false;
+            }
+        }
+        if (ok && m == machines - 1 && person == roster[m].people && total == needed) {
+            layout = l;
+            found = true;
+        }
+    }
+    return found;
+}
+
+// (an event that has come or been made: if it is the host's seat change, from its frame on)
+void Netplay::NoteSeats(int machine, uint64_t at, const std::string &text) {
+    Layout layout{};
+    if (machine == 0 && needed > 2 && SeatEvent(text, layout)) seatChanges[at] = layout;
+}
+
+const Netplay::Layout &Netplay::SeatsAt(uint64_t at) const {
+    const auto after = seatChanges.upper_bound(at);
+    return after == seatChanges.begin() ? seatBase : std::prev(after)->second;
 }
 
 std::vector<std::pair<int, std::string>> Netplay::TakeEvents() {

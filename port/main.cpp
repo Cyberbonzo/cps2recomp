@@ -23,7 +23,7 @@
 #include "../runtime/spare.h"
 #include "../runtime/guest.h"
 #include "port.h"
-#include "arcade_screen.h"
+#include "../recomp-common/arcade_screen.h"
 #include "../recomp-common/folders.h"
 #include "../recomp-common/menu.h"
 #include "../recomp-common/proxy.h"
@@ -765,9 +765,9 @@ void RegisterPortFeatures() {
                                   "one or another, in the order the system lists them. One that isn't connected: the main. "
                                   "Set on the launcher; the in-game menu can only put it back to the main one.",
                                   kFeatureLauncherOnly, {"Main", "Second", "Third", "Fourth"}});
-    // (crt_switchres, crt_monitor: frontend_sdl.cpp's SetFullscreenMode with arcade_screen.h; only in a build with
+    // (crt_switchres, crt_monitor: frontend_sdl.cpp's Arcade(), recomp-common's arcade_screen.h; only in a build with
     // Switchres, Windows. Set on the launcher, as the resolution is: the monitor's ranges decide what modes it makes)
-    if (SwitchresBuilt()) {
+    if (recomp::sdl::SwitchresBuilt()) {
         TheGame().features.push_back({"crt_switchres", "Arcade monitor", "Make the mode at the board's rate",
                                       "With 384 x 224 or Super resolution: full screen makes that mode at exactly the board's "
                                       "59.637 Hz with Switchres (CRT Emudriver, as GroovyMAME does) and switches the screen to it, "
@@ -835,11 +835,10 @@ int DisplayScreen() {
     return std::clamp(FeatureValue("crt_screen"), 0, 3);
 }
 bool SwitchresChosen() {
-    return SwitchresBuilt() && FeatureValue("crt_switchres") != 0;
+    return recomp::sdl::SwitchresBuilt() && FeatureValue("crt_switchres") != 0;
 }
-const char *ArcadeMonitorPreset() {
-    static const char *const kPresets[] = {"arcade_15", "generic_15", "ntsc", "pal", "arcade_15_25", "arcade_15_25_31", "arcade_31"};
-    return kPresets[std::clamp(FeatureValue("crt_monitor"), 0, 6)];
+int ArcadeMonitor() {
+    return std::clamp(FeatureValue("crt_monitor"), 0, recomp::sdl::kMonitorPresetCount - 1);
 }
 bool ArcadeSyncChosen() {
     return FeatureValue("crt_board_pace") == 0;
@@ -3918,6 +3917,23 @@ void Port::OpenOnlineMenu() {
                                                    "from before the match, and each player's own picks below."});
         }
     }
+    onlineSeats.clear();
+    if (net->CanSeat()) {
+        // (the host's, in a match of four: the people moved between the sides and partners, issue #448). Each is where
+        // the people now at players 1-4 go: the sides swapped, or the person at player 1 with each other partner
+        const Netplay::Layout now = net->SeatLayout();
+        static const int kMoves[3][4] = {{1, 0, 3, 2}, {0, 2, 1, 3}, {0, 1, 3, 2}};
+        static const char *const kWhat[3] = {"Swap sides", "Change partners", "Change partners"};
+        for (int n = 0; n < 3; ++n) {
+            Netplay::Layout moved{};
+            for (int m = 0; m < net->Machines(); ++m)
+                for (int person = 0; person < net->People(m); ++person) moved[m][person] = kMoves[n][now[m][person]];
+            onlineSeats.push_back(moved);
+            online.commands.push_back({Menu::kOnlinePage, std::string(kWhat[n]) + ": " + TeamsSaid(moved),
+                                       "Moves everyone now, without leaving the match: the left team, then the right. Each "
+                                       "player keeps their own controller. The set's score starts again from 0-0."});
+        }
+    }
     auto pick = [&](const std::string &feature, const std::string &title, const std::string &description) {
         const Feature *found = FindFeature(feature);
         if (!found) {
@@ -4015,7 +4031,28 @@ void Port::OpenOnlineMenu() {
     menu.OpenOnline(std::move(online));
 }
 
+// The teams of a layout, as the menu and the chat say them: the left's two (players 1 and 3), then the right's (2 and 4)
+std::string Port::TeamsSaid(const Netplay::Layout &layout) const {
+    std::string who[Machine::kMaxPlayers];
+    for (int m = 0; net && m < net->Machines(); ++m) {
+        for (int person = 0; person < net->People(m); ++person) {
+            const std::string name = net->MachineName(m);
+            const int player = layout[m][person];
+            if (player < 0 || player >= Machine::kMaxPlayers) continue;
+            who[player] = name.empty() ? (m == net->Local() && !net->Watching() ? "You" : "Machine " + std::to_string(m + 1))
+                                       : name;
+            if (net->People(m) > 1) who[player] += " (" + std::to_string(person + 1) + ")";
+        }
+    }
+    return who[0] + " + " + who[2] + " vs " + who[1] + " + " + who[3];
+}
+
 void Port::OnlineCommand(size_t index) {
+    if (net && index >= onlineModes.size() && index - onlineModes.size() < onlineSeats.size()) {
+        net->Seat(onlineSeats[index - onlineModes.size()]);
+        menu.Close();
+        return;
+    }
     if (net && index < onlineModes.size() && onlineModes[index] != 0 && ModesOnline() && !OnlineOtherReady()) {
         // (the other player still choosing: started when they say Ready, the menu left open and the game paused)
         onlinePendingMode = onlineModes[index];
@@ -4070,6 +4107,11 @@ void Port::HearEvents() {
             } else if (name == "ready" && player == 1) {
                 said = who + (!net->Watching() && player == net->Local() ? (value ? " are ready" : " are choosing")
                                                                           : (value ? " is ready" : " is choosing"));
+            } else if (Netplay::Layout layout{}; name == "seats" && player == 0 && net->SeatEvent(item, layout)) {
+                // (the host moved the people: the win streaks were the sides', and start again; the set's score does
+                // too, Netplay::Frame)
+                streak[0] = streak[1] = roundsWon[0] = roundsWon[1] = 0;
+                said = "Teams: " + TeamsSaid(layout);
             } else if (name == "mode" && player == 0 && OnlineModeHere(value)) {
                 said = who + (value == 0 ? " went back to Versus" : std::string(" started ") + kOnlineModes[value]);
             } else if (const Feature *feature = FindFeature(name); feature && OwnRow(player, name) && value >= 0 &&
