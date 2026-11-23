@@ -23,7 +23,7 @@
 #include "../runtime/spare.h"
 #include "../runtime/guest.h"
 #include "port.h"
-#include "arcade_screen.h"
+#include "../recomp-common/arcade_screen.h"
 #include "../recomp-common/folders.h"
 #include "../recomp-common/menu.h"
 #include "../recomp-common/proxy.h"
@@ -751,9 +751,9 @@ void RegisterPortFeatures() {
                                   "one or another, in the order the system lists them. One that isn't connected: the main. "
                                   "Set on the launcher; the in-game menu can only put it back to the main one.",
                                   kFeatureLauncherOnly, {"Main", "Second", "Third", "Fourth"}});
-    // (crt_switchres, crt_monitor: frontend_sdl.cpp's SetFullscreenMode with arcade_screen.h; only in a build with
+    // (crt_switchres, crt_monitor: frontend_sdl.cpp's Arcade(), recomp-common's arcade_screen.h; only in a build with
     // Switchres, Windows. Set on the launcher, as the resolution is: the monitor's ranges decide what modes it makes)
-    if (SwitchresBuilt()) {
+    if (recomp::sdl::SwitchresBuilt()) {
         TheGame().features.push_back({"crt_switchres", "Arcade monitor", "Make the mode at the board's rate",
                                       "With 384 x 224 or Super resolution: full screen makes that mode at exactly the board's "
                                       "59.637 Hz with Switchres (CRT Emudriver, as GroovyMAME does) and switches the screen to it, "
@@ -821,11 +821,10 @@ int DisplayScreen() {
     return std::clamp(FeatureValue("crt_screen"), 0, 3);
 }
 bool SwitchresChosen() {
-    return SwitchresBuilt() && FeatureValue("crt_switchres") != 0;
+    return recomp::sdl::SwitchresBuilt() && FeatureValue("crt_switchres") != 0;
 }
-const char *ArcadeMonitorPreset() {
-    static const char *const kPresets[] = {"arcade_15", "generic_15", "ntsc", "pal", "arcade_15_25", "arcade_15_25_31", "arcade_31"};
-    return kPresets[std::clamp(FeatureValue("crt_monitor"), 0, 6)];
+int ArcadeMonitor() {
+    return std::clamp(FeatureValue("crt_monitor"), 0, recomp::sdl::kMonitorPresetCount - 1);
 }
 bool ArcadeSyncChosen() {
     return FeatureValue("crt_board_pace") == 0;
