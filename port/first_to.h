@@ -24,6 +24,14 @@ public:
         target = choice == 1 ? 3 : choice == 2 ? 5 : choice == 3 ? 10 : 0;
         counting = scored || target;
     }
+    // The set from 0-0 again, as it is (its target, whether it counts): the people on the sides have changed (Netplay::Seat)
+    void Restart() {
+        const int keptTarget = target;
+        const bool keptCounting = counting;
+        *this = FirstTo{};
+        target = keptTarget;
+        counting = keptCounting;
+    }
     int Target() const { return target; }
     bool Counting() const { return counting; }
     std::string Format() const { return target ? "FT" + std::to_string(target) : "Casual"; }

@@ -386,6 +386,8 @@ struct Port {
     void OpenOnlineMenu();
     void OnlineCommand(size_t index);
     void LeaveQuestion(unsigned pressed);
+    std::vector<Netplay::Layout> onlineSeats; // (the host's seat changes on the menu, after the modes: issue #448)
+    std::string TeamsSaid(const Netplay::Layout &layout) const; // ("Ann + Bob vs Cy + Di")
     std::vector<int> onlineModes;           // (the menu's commands' modes, in its order)
     std::vector<std::string> onlineRows;    // (the menu's features' rows: the game's features they stand for)
     std::map<std::string, int> onlinePicks; // (this player's fighters as chosen, before their events have run)

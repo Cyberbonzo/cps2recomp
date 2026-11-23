@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Online, four players: change teams without leaving** (Marvel vs. Capcom, X-Men vs. Street Fighter, Marvel Super
+  Heroes vs. Street Fighter, and the other games' 2 vs 2; #448). Who plays with whom was fixed by the order people
+  joined. The host's in-game menu (Online page) now has **Swap sides** and **Change partners**, each naming the teams it
+  makes; everyone moves on the same frame, keeps their own controller, and the set's score and win streaks start again.
 - **CPS-1: the bus's hand-over to the video chip's DMA**, a clock each time (the 68000 and the DMA are on
   different clocks). With it World Warrior and Champion Edition keep step with jotego's jtcps1 tick for tick from
   power-on through their loading screens (Champion Edition: work RAM byte-identical on 2,530 of 2,980 frames); Hyper
