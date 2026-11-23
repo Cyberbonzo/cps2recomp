@@ -138,7 +138,7 @@ Linux, the Steam Deck and Windows can play each other.
 - **Ball battle**, a ball game in the Vampire Savior games and the Street Fighter Alphas: each fighter on a half of the stage, hitting a big ball past the other with
   their attacks, first to 3, 5 or 10 ([more](docs/COURT.md)).
 - **Shoot-'em-up training mode** in Giga Wing, Progear and Dimahoo: any stage or straight at its boss, back to the start with one
-  button ([more](docs/PRACTICE.md)); the ships' true hit boxes, the enemies' and their shots' in any mode; a score attack,
+  button, or to a practice point you set anywhere, and rewind through the last half a minute ([more](docs/PRACTICE.md)); the ships' true hit boxes, the enemies' and their shots' in any mode; a score attack,
   a caravan and a boss rush; and the board's slowdown, or none ([more](docs/MODES.md#the-shoot-em-ups)).
 - **The picture your way**: sharp or smooth scaling, 4:3 or square pixels (a vertical game stood upright), and RetroArch shaders (CRT, scanlines,
   xBRZ and more, or your own preset). A camera zoom follows either fighter, keeps both in view, or closes in
@@ -147,7 +147,7 @@ Linux, the Steam Deck and Windows can play each other.
   super resolution such as 2560 x 224, on the screen you choose, synced to the screen with a frame delay, and on Windows
   made at the board's exact 59.637 Hz with Switchres, as GroovyMAME does: set up on the launcher's Features page.
 - **Controls**: keyboard, gamepad or arcade stick, every button changeable per player and per game.
-- **An in-game menu**: save states, speed and pause, frame advance, cheats and every option.
+- **An in-game menu**: save states, rewind and a practice point (every game), speed and pause, frame advance, cheats and every option.
 - **English, Brazilian Portuguese or Spanish** in the launcher and every game's menu: chosen once in the launcher (or
   the system's language). The games' own words are left as they are.
 - **The board's speed**: the processor runs as on the real board, so every game plays at the board's speed and

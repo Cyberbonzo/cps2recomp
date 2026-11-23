@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Rewind and a practice point, in every game** (#443), as the Cave shooters in spelunkomp have them: two switches
+  on the Game page, off unless chosen, never online. Hold R (a gamepad's left trigger) and the game runs backwards
+  through its last half a minute; `]` (the left shoulder held) keeps the game as it is, Backspace puts it back and
+  Backslash replays the last attempt from it. Made for the shoot-'em-ups' training mode, where Start over could only
+  go back to where training began. Also: the left trigger held with the left shoulder now does Replay, as the
+  shooters' training mode page always said it did.
 - **Online, four players: change teams without leaving** (Marvel vs. Capcom, X-Men vs. Street Fighter, Marvel Super
   Heroes vs. Street Fighter, and the other games' 2 vs 2; #448). Who plays with whom was fixed by the order people
   joined. The host's in-game menu (Online page) now has **Swap sides** and **Change partners**, each naming the teams it

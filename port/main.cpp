@@ -533,6 +533,20 @@ void RegisterPortFeatures() {
                                   "times the processor. Off by itself in the game's own modes beyond fights and training. Online it is each "
                                   "player's own: the other player's moves in the frames ahead are guessed, and put right as they come.",
                                   0, {"Off", "1 frame", "2 frames"}});
+    // (rewind, practice_point: Port::RewindTick, PracticeSet; docs/PRACTICE.md)
+    TheGame().features.push_back({"rewind", "Game", "Rewind",
+                                  "Hold R (a gamepad's left trigger) and the game runs backwards, three times as fast as play, "
+                                  "through its last half a minute or so, unheard; let go and play on from there. Kept as a "
+                                  "state every few frames, a few dozen megabytes of memory. With it on, the left trigger "
+                                  "rewinds in place of a tag game's Tag. Not online.",
+                                  0});
+    TheGame().features.push_back({"practice_point", "Game", "Practice point",
+                                  "] (a gamepad's left shoulder held half a second) keeps the game as it is that instant; "
+                                  "Backspace (the shoulder tapped) puts it back, at once and as often as you like; Backslash "
+                                  "(the shoulder with the left trigger held) shows your last attempt from it again, the "
+                                  "controls as you pressed them, until you press a button. Until a point is set, those keys "
+                                  "do what they do without it (a training mode's Start over and Replay). Not online.",
+                                  0});
     // (slowdown: machine.h, SetBoardTiming; docs/TIMING.md. Not for a game whose sources decide it: Game::boardTiming,
     // a shooting game's own Slowdown row)
     if (!TheGame().boardTiming) {
@@ -1495,7 +1509,13 @@ void Port::Key(char key, unsigned n) {
             AskNextGame(static_cast<int64_t>(tick));
         }
         break;
+    case ']': PracticeSet(); break;
+    case 'w': rewindHeld = !rewindHeld; break; // (tests: the frontend sets it while R or the left trigger is held)
     case 'k':
+        // (with a practice point set, Backspace and Backslash are its: port.h, Practice)
+        if ((n == kKeyRestart && PracticeBack()) || (n == kKeyExtra && PracticeReplay())) {
+            break;
+        }
         for (size_t i = 0; i < TheGame().commands.size(); i++) {
             if (TheGame().commands[i].key == n && n != kKeyNone) {
                 RunCommand(i);
@@ -1565,6 +1585,11 @@ bool Port::Tick() {
         at = comma == std::string::npos ? opt.keys.size() : comma + 1;
     }
     tick++;
+    // (headless, nothing draws the window's picture, where the notices at the bottom count down (Framed): here, so
+    // that a notice goes as it would in the window)
+    if (opt.headless && !opt.presentEvery && shotTicks > 0 && shotTicks <= kSpeedTicks) {
+        shotTicks--;
+    }
     if (opt.online && !net && !rejoin.empty()) {
         // (joining again: a moment between tries)
         SetHud({{0.5f, 0.36f, 0, recomp::Tr(rejoin)}, {0.5f, 0.48f, 0, "Joining again in a moment"}, {0.5f, 0.6f, 0, "Esc: quit"}});
@@ -1692,6 +1717,23 @@ bool Port::Tick() {
     // (the next game asked for: the game's sources have had their time to end it their own way)
     if (NextGameAsked() >= 0 && tick >= static_cast<uint64_t>(NextGameAsked()) + kNextGameWait) {
         EndProgram(kNextGame);
+    }
+    // Rewind held (port.h, Rewind): a kept state back each tick, whatever the speed; not while the game's sources take
+    // it somewhere, nor stopped (there the left trigger steps on)
+    const bool rewinding = rewindHeld && RewindOn() && !paused && !FastForward() && !menu.IsOpen();
+    if (rewinding != rewind.was) {
+        rewind.was = rewinding;
+        rewind.ticks = 0;
+        if (!rewinding && shotSaid == recomp::Tr("REWINDING")) {
+            shotTicks = 0; // (let go: the notice goes with it)
+        }
+    }
+    if (rewinding) {
+        rewind.ticks++;
+        if (rewind.ticks == 1 || rewind.ticks % 30 == 0) {
+            Said("REWINDING");
+        }
+        return RewindTick();
     }
     if (FastForward()) {
         // The game's sources are taking the game somewhere: as fast as it goes, a slice at a time
@@ -2621,6 +2663,165 @@ void Port::ReplayKeep(const uint16_t *pressed) {
     }
 }
 
+// Rewind and the practice point (port.h, docs/PRACTICE.md): never online, nor for a spectator
+bool Port::RewindOn() const {
+    return FeatureOn("rewind") && !net && !opt.rollbackTest;
+}
+bool Port::PracticeOn() const {
+    return FeatureOn("practice_point") && !net && !opt.rollbackTest;
+}
+
+void Port::Said(const char *what) {
+    shotSaid = recomp::Tr(what);
+    shotTicks = kSpeedTicks;
+}
+
+void Port::RewindKeep(const uint16_t *pressed) {
+    if (!RewindOn()) {
+        if (!rewind.ring.Empty()) {
+            rewind.ring.Clear();
+        }
+        return;
+    }
+    if (frame % kRewindEvery != 0 && !rewind.ring.Empty()) {
+        return;
+    }
+    StateRing::Input input;
+    memcpy(input.players, pressed, sizeof(input.players));
+    input.service = machine->serviceButton;
+    input.test = machine->testSwitch;
+    const auto began = std::chrono::steady_clock::now();
+    std::vector<uint8_t> state;
+    KeepState(state);
+    rewind.ring.Push(frame, input, std::move(state), kRewindMost, kRewindMostBytes);
+    // (tests: CPS2RECOMP_REWIND_LOG, what it costs: every 10 seconds, the states kept, their memory, the last keep's time)
+    if (static const bool log = getenv("CPS2RECOMP_REWIND_LOG") != nullptr; log && frame % 600 == 0) {
+        fprintf(stderr, "rewind: frame %llu, %zu states, %.1f MB, keeping took %.3f ms\n", static_cast<unsigned long long>(frame),
+                rewind.ring.Size(), rewind.ring.Bytes() / 1048576.0,
+                std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count());
+    }
+}
+
+// The newest kept state put back and its frame run again with its controls (drawn, not heard), so the picture is
+// the frame after it; the frame count goes back with it. What came after it is gone: the instant replay's states and
+// controls (kept again from here), and the practice attempt's controls past here.
+bool Port::RewindTick() {
+    StateRing::Kept kept;
+    if (!rewind.ring.Pop(kept)) {
+        Said("NO FURTHER BACK");
+        return false;
+    }
+    PutBackState(kept.state);
+    machine->serviceButton = kept.input.service;
+    machine->testSwitch = kept.input.test;
+    const size_t sound = machine->audio.size();
+    Step(kept.input.players);
+    machine->audio.resize(sound);
+    frame = kept.frame + 1;
+    replay.kept.clear();
+    replay.inputs.clear();
+    if (!practice.state.empty()) {
+        if (frame <= practice.frame) {
+            practice.attempt.clear();
+        } else if (practice.attempt.size() > frame - practice.frame) {
+            practice.attempt.resize(static_cast<size_t>(frame - practice.frame));
+        }
+        practice.replaying = false;
+    }
+    return true;
+}
+
+void Port::PracticeSet() {
+    if (!PracticeOn()) {
+        return;
+    }
+    KeepState(practice.state);
+    practice.frame = frame;
+    practice.attempt.clear();
+    practice.last.clear();
+    practice.replaying = false;
+    Said("PRACTICE POINT SET");
+}
+
+bool Port::PracticeBack() {
+    if (!PracticeOn() || practice.state.empty()) {
+        return false;
+    }
+    PutBackState(practice.state);
+    frame = practice.frame;
+    if (!practice.attempt.empty()) {
+        practice.last = std::move(practice.attempt);
+    }
+    practice.attempt.clear();
+    practice.replaying = false;
+    rewind.ring.DropFrom(frame);
+    replay.kept.clear();
+    replay.inputs.clear();
+    Said("BACK TO THE PRACTICE POINT");
+    return true;
+}
+
+bool Port::PracticeReplay() {
+    if (!PracticeOn() || practice.state.empty()) {
+        return false;
+    }
+    if (!practice.replaying) {
+        practice.replay = !practice.attempt.empty() ? practice.attempt : practice.last;
+    }
+    if (practice.replay.empty()) {
+        Said("NOTHING TO REPLAY YET");
+        return true;
+    }
+    PutBackState(practice.state);
+    frame = practice.frame;
+    practice.last = practice.replay;
+    practice.attempt.clear();
+    practice.replaying = true;
+    practice.replayAt = 0;
+    memcpy(practice.heldAtReplay, pad, sizeof(practice.heldAtReplay));
+    rewind.ring.DropFrom(frame);
+    replay.kept.clear();
+    replay.inputs.clear();
+    Said("REPLAY: A BUTTON TAKES OVER");
+    return true;
+}
+
+void Port::PracticeInput(uint16_t *pressed) {
+    if (practice.state.empty()) {
+        return;
+    }
+    if (!PracticeOn()) {
+        practice = {};
+        return;
+    }
+    if (practice.replaying) {
+        // (a button pressed that was not held when the replay began: the player's again from here)
+        bool taken = practice.replayAt >= practice.replay.size();
+        for (int p = 0; p < Machine::kMaxPlayers && !taken; p++) {
+            taken = (pad[p] & ~practice.heldAtReplay[p]) != 0;
+        }
+        for (int p = 0; p < Machine::kMaxPlayers; p++) {
+            practice.heldAtReplay[p] &= pad[p]; // (let go, and pressed again, it counts)
+        }
+        if (taken) {
+            practice.replaying = false;
+        } else {
+            const StateRing::Input &input = practice.replay[practice.replayAt++];
+            memcpy(pressed, input.players, sizeof(input.players));
+            machine->serviceButton = input.service;
+            machine->testSwitch = input.test;
+        }
+    }
+    constexpr size_t kMostFrames = 60 * 60 * 10; // (ten minutes of controls)
+    if (practice.attempt.size() < kMostFrames) {
+        StateRing::Input input;
+        memcpy(input.players, pressed, sizeof(input.players));
+        input.service = machine->serviceButton;
+        input.test = machine->testSwitch;
+        practice.attempt.push_back(input);
+    }
+}
+
 void Port::SaveReplay() {
     if (replay.making) {
         shotSaid = recomp::Tr("A REPLAY IS STILL BEING SAVED");
@@ -3150,7 +3351,7 @@ int Port::RunsAhead() const {
     const int ahead = FeatureValue("run_ahead");
     // (nor while stopped, stepped a frame at a time or slowed: there the frame shown is the frame; online, nor for a
     // spectator, whose frames are all the players' real ones, or while the host's pause holds the game)
-    if (ahead <= 0 || FastForward() || hurry || SpareRan() || paused || !menu.FullSpeed() ||
+    if (ahead <= 0 || FastForward() || hurry || SpareRan() || paused || !menu.FullSpeed() || rewind.was ||
         (TheGame().noRunAhead && TheGame().noRunAhead()) || (net && (connecting || net->Watching()))) {
         return 0;
     }
@@ -4120,10 +4321,16 @@ void Port::RunFrame() {
     SoundtrackFollow();
     machine->SetBoardTiming(BoardTimingWanted());
     if (!opt.moviePlay.empty()) {
-        auto it = playMovie.changes.find(frame);
-        if (it != playMovie.changes.end()) {
-            std::copy(it->second.begin(), it->second.end(), pad);
+        // (the change at this frame or the last before it: the same as each change in turn, and right after the
+        // frame count goes back, rewind's or the practice point's)
+        auto it = playMovie.changes.upper_bound(frame);
+        if (it != playMovie.changes.begin()) {
+            --it;
+            if (it->first == frame || frame != movieNext) {
+                std::copy(it->second.begin(), it->second.end(), pad);
+            }
         }
+        movieNext = frame + 1;
     } else if (opt.autoPlay) {
         // Made-up play, to reach as much of the game as it can: coins and start buttons now and then, sticks
         // and buttons at random, held for random lengths of time. The same seed gives the same run.
@@ -4235,7 +4442,9 @@ void Port::RunFrame() {
     } else if (opt.rollbackTest) {
         RollbackFrame(pressed);
     } else {
-        ReplayKeep(pressed); // (the instant replay's: the state now and then, the controls every frame)
+        PracticeInput(pressed); // (the practice point's replay, and its attempt's controls: port.h, Practice)
+        ReplayKeep(pressed);    // (the instant replay's: the state now and then, the controls every frame)
+        RewindKeep(pressed);    // (rewind's: a state every few frames)
         Step(pressed);
     }
     frame++;

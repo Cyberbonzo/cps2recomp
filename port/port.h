@@ -9,6 +9,7 @@
 #include "movie.h"
 #include "netplay.h"
 #include "present.h"
+#include "rewind.h"
 #include "scene.h"
 #include "gpu_picture.h"
 #include "soundtrack.h"
@@ -149,6 +150,7 @@ struct Port {
     uint16_t pad[cps2recomp::Machine::kMaxPlayers] = {}; // what the players hold (cps2recomp::Button bits), set by the window
     bool service = false, test = false;
     Movie playMovie, recMovie;
+    uint64_t movieNext = 0; // (the frame the movie played last was before)
     uint16_t lastRecorded[cps2recomp::Machine::kMaxPlayers] = {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF};
     FILE *hashFile = nullptr;
     uint64_t autoState = 0;
@@ -218,6 +220,37 @@ struct Port {
     void ReplayKeep(const uint16_t *pressed); // (each frame, before it runs)
     void SaveReplay();
     void ReplayMake();                        // (each tick: frames of the replay being made)
+    // Rewind and the practice point (docs/PRACTICE.md), the Game page's switches, never online. Rewind: while
+    // rewindHeld (R, or a gamepad's left trigger, held), a kept state back each tick, three frames, shown and unheard;
+    // let go, the game plays on from there. The states are kept every kRewindEvery frames before they run, for about
+    // half a minute (rewind.h). The practice point: ']' (a gamepad's left shoulder held) keeps the game as it is; then
+    // Backspace (the shoulder tapped) puts it back, and Backslash (the shoulder with the left trigger held) shows the
+    // last attempt from it again, the controls as they were pressed, until a button is pressed.
+    static constexpr int kRewindEvery = 3;
+    static constexpr size_t kRewindMost = 600, kRewindMostBytes = size_t{256} << 20;
+    struct Rewind {
+        StateRing ring;
+        bool was = false;    // (rewinding the tick before)
+        int ticks = 0;       // (how long it has been held, for the notice)
+    } rewind;
+    bool rewindHeld = false; // (set by the window each tick; tests: 'w' switches it)
+    bool RewindOn() const;
+    void RewindKeep(const uint16_t *pressed); // (each frame, before it runs)
+    bool RewindTick();                        // (a tick while held: false if there was nothing to go back to)
+    struct Practice {
+        std::vector<uint8_t> state; // (none: no point set)
+        uint64_t frame = 0;
+        std::vector<StateRing::Input> attempt, last, replay; // (since the point; the attempt before; being replayed)
+        bool replaying = false;
+        size_t replayAt = 0;
+        uint16_t heldAtReplay[cps2recomp::Machine::kMaxPlayers] = {};
+    } practice;
+    bool PracticeOn() const;
+    void PracticeSet();
+    bool PracticeBack();   // (false: no point set)
+    bool PracticeReplay(); // (false: no point set)
+    void PracticeInput(uint16_t *pressed); // (each frame, before it runs: the replay's controls, and the attempt kept)
+    void Said(const char *what);           // (a few seconds at the bottom of the picture)
     // The stage viewer's Save whole stage (fight/alternative.h, StageSweep): its frames stitched (scene.h), each frame
     StageStitch stageStitch;
     void StageSweepFrame();

@@ -30,8 +30,8 @@ means off; `FeatureValue` gives the number chosen; `--features name=2`), can las
 (`kFeatureSession`: not kept in settings.ini, off again at Reset game), and the menu shows each category
 as a page of its own.
 
-Every game also has the port's own features (`RegisterPortFeatures`, `port/main.cpp`): run-ahead on
-the Game page, and on the Display page how the picture is fitted to the window (`display_scaling`,
+Every game also has the port's own features (`RegisterPortFeatures`, `port/main.cpp`): run-ahead, rewind and the
+practice point on the Game page, and on the Display page how the picture is fitted to the window (`display_scaling`,
 `display_shape`: `port/present.h`) and the size it opens at (`window_size`). The first choice of each
 is how the port always drew it, so they are the same in every preset.
 
@@ -224,6 +224,24 @@ The port can stop the game (`P`), go on a frame at a time (`O`) and run it at a 
 or an eighth of its speed (the menu's Speed row, `-` and `=`). The game's state is the same
 whatever was done (`--keys TICK:KEY,...` presses these keys in a headless run for tests, sets
 features with `fNAME=N` and runs commands with `cNAME`).
+
+## Rewind and the practice point
+
+Two switches on the Game page, off unless chosen, in every game and never online (`Port::RewindTick`,
+`Port::PracticeSet`; what a player sees of them is in [PRACTICE.md](PRACTICE.md#rewind-and-a-practice-point)).
+**Rewind** keeps the game's state (a save state's, as `Port::KeepState` makes it) every 3 frames, before the frame
+runs, with that frame's controls, in a ring of 600 (`port/rewind.h`, `StateRing`): the newest whole, each older one
+as how it differs from the one after it, XORed and its runs of equal bytes packed, so half a minute of play is 15 to
+70 MB (Giga Wing; 256 MB at most). Keeping one takes about 0.1 to 0.2 ms. Held (R, or a gamepad's left trigger), each
+tick puts the newest back and runs its frame again with its controls, drawn and unheard, so the game goes back three
+frames a tick (the custom soundtrack, the port's own player, plays on); the frame count goes back with it, and the instant replay's states start again from there. **The
+practice point** is one state kept by a key (`]`), put back by Backspace, and the controls of every frame since,
+which Backslash plays again from the point until a button is pressed that was not held when it began. Until a point
+is set, Backspace and Backslash are the game's (`kKeyRestart`, `kKeyExtra`). `--keys TICK:]`, `TICK:k1` and
+`TICK:k2` press them in a headless run, and `TICK:w` holds rewind down (again: lets it go); a movie (`--movie`)
+follows the frame count back. `make GAME=<id> check-rewind` (`tools/check_rewind.sh`) checks that the game comes out
+as it would without them. `CPS2RECOMP_REWIND_LOG=1` says every 10 seconds how many states are kept, their memory and
+what keeping one took.
 
 ## The camera's zoom
 
