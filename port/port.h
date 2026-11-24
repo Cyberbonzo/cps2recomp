@@ -420,6 +420,15 @@ struct Port {
     void OnlineCommand(size_t index);
     void LeaveQuestion(unsigned pressed);
     std::vector<Netplay::Layout> onlineSeats; // (the host's seat changes on the menu, after the modes: issue #448)
+    // Both players back to the character choice (a match of two, a fighting game): each asks ("reselect=1", or 0 to take it
+    // back), and at the frame the second ask runs the board starts again and both are put in (OnlineEvent, Step). Kept in
+    // the rollback state (KeepState), as the board is: a rollback runs the asks again alike.
+    struct OnlineReselect {
+        uint8_t asked[2] = {0, 0};
+        int32_t boot = -1; // (frames since the board started again, while both are being put in; -1: not)
+    } onlineReselect;
+    bool OnlineReselectHere() const;
+    void OnlineReselectBoot();
     std::string TeamsSaid(const Netplay::Layout &layout) const; // ("Ann + Bob vs Cy + Di")
     std::vector<int> onlineModes;           // (the menu's commands' modes, in its order)
     std::vector<std::string> onlineRows;    // (the menu's features' rows: the game's features they stand for)
