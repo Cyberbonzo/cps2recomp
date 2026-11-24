@@ -320,4 +320,4 @@ name and choices in each: the collection's launcher then shows it once, for all 
 | `launcher/` | What this toolkit tells the shared launcher (`recomp-common/launcher`; SDL 3 + Dear ImGui): `src/description.cpp` has the words for a ROM set, the check of the player's, the game's arguments and the buttons that can be chosen, for one game's launcher or the collection's |
 | `games/` | The games ([the main page](../README.md) has the list) |
 | `example/` | A stand-in game with no game: what `make check` and CI build |
-| `docs/` | `BUILDING.md`, `RELEASING.md`, `VERIFYING.md`, `READABLE.md`, `FEATURES.md`, `FIGHT.md`, this page; `screenshots/` (the READMEs' pictures) |
+| `docs/` | `BUILDING.md`, `RELEASING.md`, `VERIFYING.md`, `READABLE.md`, `FEATURES.md`, `FIGHT.md`, this page; `screenshots/` (the READMEs' pictures, a board frame put in the monitor's 4:3 shape by `tools/readme_shot.sh`) |
