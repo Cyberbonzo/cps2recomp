@@ -76,7 +76,7 @@ public:
     static constexpr int kDefaultPort = 7845;
     // The packets' layout (2: the host's state sent at the start); two copies must have the same to play, and the
     // lobby shows only matches of this one (the launcher asks with it too)
-    static constexpr int kProtocol = 17; // (3: the version said in the hello and to the service; 4: the welcome's flags;
+    static constexpr int kProtocol = 18; // (3: the version said in the hello and to the service; 4: the welcome's flags;
                                         // 5: the welcome's program words, so two regions' sets play together;
                                         // 6: each player's name in the hello and the welcome, and the chat;
                                         // 7: two players at each machine, as the welcome says, and each one's controls;
@@ -90,7 +90,8 @@ public:
                                         // 14: board timing by default and the board DMA state in rollback snapshots;
                                         // 15: each machine's own input delay, in the hello and the start;
                                         // 16: each machine's run-ahead too, and Casual's score counted;
-                                        // 17: events in a match of four too: the host's seat changes)
+                                        // 17: events in a match of four too: the host's seat changes;
+                                        // 18: spectators in the chat: their lines through the host, under their names)
     static constexpr int kMostSeats = 2;    // players at one machine
     static constexpr int kMostMachines = 4; // machines in a match: the host's, and up to three joining
     static constexpr int kMostAhead = 8;    // frames run on guessed controls at most
@@ -244,6 +245,7 @@ public:
     // at most kNameMost letters ("" for none given): a machine's, and a board player's machine's
     static constexpr size_t kNameMost = 16;
     std::string MachineName(int machine) const;
+    std::string OwnName() const; // (this machine's, a spectator's too)
     std::string Name(int player) const;
     // The chat (issue #196): a line said to the other players, straight to them (never through the service; through
     // the host to the other joining machines), sent again until they have it; and the lines that have come since this
@@ -278,12 +280,26 @@ private:
     bool SetAgrees() const;
     static constexpr size_t kWatchFrames = 4096;
     struct WatchInput { std::array<uint16_t, 4> players{}; uint32_t hash = 0; };
+    // A line of the chat: by its number on the way to one machine; the machine that said it, or kSpectator and the
+    // spectator's name
+    static constexpr int kSpectator = 0xFF;
+    struct Line {
+        uint32_t number;
+        int from; // (the machine that said it)
+        std::string text;
+        std::string name; // (a spectator's: its name, as its hello said)
+    };
     struct Viewer {
         NetAddress address;
         std::string token;
+        std::string name; // (as its hello said: its chat lines go under it)
         std::vector<uint8_t> welcome, state;
         uint32_t pieces = 0, start = 0, ack = 0;
         uint64_t heard = 0, sent = 0;
+        // (the chat with it, as a link's: the lines it hasn't said it has, and those from it, all before heardUpTo)
+        std::deque<Line> unheard;
+        uint32_t said = 0, heardUpTo = 0;
+        uint64_t saidAt = 0;
     };
     std::vector<Viewer> viewers;
     std::vector<std::pair<std::string, NetAddress>> invitedViewers;
@@ -388,11 +404,6 @@ private:
     std::array<uint64_t, kMostMachines> upTo{}; // each machine's controls are known for the frames before this
     uint64_t Slowest() const; // (the least of the other machines')
     // A machine this one talks to: for the host, each joining machine; for a joining machine, the host
-    struct Line {
-        uint32_t number;
-        int from; // (the machine that said it)
-        std::string text;
-    };
     struct Link {
         NetAddress address;
         int machine = 0;
@@ -458,9 +469,12 @@ private:
     std::deque<Late> late;
     uint64_t random = 0x2545F4914F6CDD1Dull;
 
-    // (the chat: this machine's lines and those passed on, to each link; the lines heard, not taken yet)
+    // (the chat: this machine's lines and those passed on, to each link and (hosting) each spectator; the lines heard,
+    // not taken yet: by machine, or -1 and the line with its spectator's name before it)
     std::vector<std::pair<int, std::string>> heard;
-    void Queue(int from, const std::string &text, const Link *except);
+    void Queue(int from, const std::string &text, const Link *exceptLink, const Viewer *exceptViewer = nullptr,
+               const std::string &name = "");
+    void HearSpectator(const std::string &name, const std::string &text);
     void SendChat(uint64_t now);
     // (events: each player's, by the frame they happen before; this side's waiting for its next frame; the earliest
     // frame an event came for that has been run already; those to say)

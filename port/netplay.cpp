@@ -1528,25 +1528,43 @@ std::string Netplay::MachineName(int machine) const {
     return Printable(!settings.watching && machine == local ? settings.name : roster[machine].name, kNameMost);
 }
 
+std::string Netplay::OwnName() const {
+    return Printable(settings.name, kNameMost);
+}
+
 std::string Netplay::Name(int player) const {
     return MachineName(MachineOf(player));
 }
 
-// A line of the chat, to each link but the one it came from, by the link's own count
-void Netplay::Queue(int from, const std::string &text, const Link *except) {
+// A line of the chat, to each link but the one it came from, by the link's own count; hosting, to each spectator too
+// (but the one who said it)
+void Netplay::Queue(int from, const std::string &text, const Link *exceptLink, const Viewer *exceptViewer, const std::string &name) {
     for (Link &link : links) {
-        if (&link != except) {
-            link.unheard.push_back({link.said++, from, text});
+        if (&link != exceptLink) {
+            link.unheard.push_back({link.said++, from, text, name});
+        }
+    }
+    if (settings.hosting) {
+        for (Viewer &viewer : viewers) {
+            if (&viewer != exceptViewer) {
+                viewer.unheard.push_back({viewer.said++, from, text, name});
+            }
         }
     }
     SendChat(0);
 }
 
+// A spectator's line, as the screen says it: under its name, marked as a spectator's
+void Netplay::HearSpectator(const std::string &name, const std::string &text) {
+    const std::string who = Printable(name, kNameMost);
+    heard.push_back({-1, (who.empty() ? "Spectator" : who + " (spectator)") + ": " + text});
+}
+
 void Netplay::Say(const std::string &text) {
-    if (settings.watching) return;
     const std::string line = Printable(text, kChatMost);
     if (!line.empty()) {
-        Queue(local, line, nullptr);
+        // (a spectator's goes to the host, which passes it on to the players and the other spectators)
+        Queue(settings.watching ? kSpectator : local, line, nullptr, nullptr, settings.watching ? settings.name : "");
     }
 }
 
@@ -1559,18 +1577,27 @@ std::vector<std::pair<int, std::string>> Netplay::TakeHeard() {
 // The lines each link hasn't said it has, in order, now and then until it has (a line is a packet: what the chat
 // sends is small beside the controls, sent every frame)
 void Netplay::SendChat(uint64_t now) {
-    for (Link &link : links) {
-        if (link.unheard.empty() || now - link.saidAt < 250) {
-            continue;
+    const auto send = [&](const NetAddress &to, const std::deque<Line> &unheard, uint64_t &saidAt) {
+        if (unheard.empty() || now - saidAt < 250) {
+            return;
         }
-        for (const Line &line : link.unheard) {
+        for (const Line &line : unheard) {
             Writer out(kChat);
             out.U32(line.number);
             out.U8(static_cast<uint8_t>(line.from));
             out.Text(line.text);
-            SendTo(link.address, out.out);
+            if (line.from == kSpectator) {
+                out.Text(line.name);
+            }
+            SendTo(to, out.out);
         }
-        link.saidAt = NowMs();
+        saidAt = NowMs();
+    };
+    for (Link &link : links) {
+        send(link.address, link.unheard, link.saidAt);
+    }
+    for (Viewer &viewer : viewers) {
+        send(viewer.address, viewer.unheard, viewer.saidAt);
     }
 }
 
@@ -1766,7 +1793,7 @@ void Netplay::Take(Link &link, const uint8_t *data, size_t size) {
         link.lastHeard = now;
         return;
     }
-    if (settings.watching && data[4] != kBye && data[4] != kRefuse) return;
+    if (settings.watching && data[4] != kBye && data[4] != kRefuse && data[4] != kChat && data[4] != kChatAck) return;
     switch (data[4]) {
     case kSetDone: {
         const int target = in.U8(), first = in.U8(), second = in.U8();
@@ -1814,13 +1841,17 @@ void Netplay::Take(Link &link, const uint8_t *data, size_t size) {
     case kChat: {
         // (the next line, or one again that is already here: either way, how many have come is said back. From the
         // host, the machine that said it; the host passes a joining machine's on to the others)
+        // A spectator's line (from the host: kSpectator, and its name) is not passed on again: the host has done it
         const uint32_t n = in.U32();
         const int from = in.U8();
         const std::string text = Printable(in.Text(), kChatMost);
+        const std::string name = from == kSpectator ? in.Text() : std::string();
         if (in.ok && n == link.heardUpTo) {
             link.heardUpTo++;
             const int machine = settings.hosting ? link.machine : from;
-            if (!text.empty() && machine >= 0 && machine < machines && machine != local) {
+            if (!settings.hosting && from == kSpectator) {
+                if (!text.empty()) HearSpectator(name, text);
+            } else if (!text.empty() && machine >= 0 && machine < machines && (settings.watching || machine != local)) {
                 heard.push_back({machine, text});
                 if (settings.hosting) {
                     Queue(machine, text, &link);
@@ -1966,7 +1997,8 @@ bool Netplay::Ready(uint64_t frame) {
         Link *link = LinkFrom(from);
         if (!link) {
             if (settings.hosting && settings.spectators &&
-                (packet[4] == kWatchHello || packet[4] == kWatchAck || packet[4] == kBye)) {
+                (packet[4] == kWatchHello || packet[4] == kWatchAck || packet[4] == kBye || packet[4] == kChat ||
+                 packet[4] == kChatAck)) {
                 WatchPacket(packet, static_cast<size_t>(got), from);
                 continue;
             }
@@ -2450,7 +2482,7 @@ void Netplay::WatchPacket(const uint8_t *data, size_t size, const NetAddress &fr
         const std::string game = in.Text();
         const uint32_t theirs = in.U32();
         const std::string version = in.Text();
-        in.Text(); // viewers do not take a player name or enter player chat
+        const std::string name = Printable(in.Text(), kNameMost); // (its chat lines go under it)
         const std::string token = in.Text();
         const bool invited = settings.service == "off" || std::any_of(invitedViewers.begin(), invitedViewers.end(),
             [&](const auto &v) { return v.first == token && v.second == from; });
@@ -2461,7 +2493,7 @@ void Netplay::WatchPacket(const uint8_t *data, size_t size, const NetAddress &fr
         }
         if (foundViewer == viewers.end()) {
             if (viewers.size() >= 8) return;
-            Viewer v; v.address = from; v.token = token; v.heard = NowMs();
+            Viewer v; v.address = from; v.token = token; v.name = name; v.heard = NowMs();
             viewers.push_back(std::move(v));
             fprintf(stderr, "online: spectator connected (%zu)\n", viewers.size());
         } else if (foundViewer->token == token) foundViewer->heard = NowMs();
@@ -2469,6 +2501,31 @@ void Netplay::WatchPacket(const uint8_t *data, size_t size, const NetAddress &fr
     }
     if (foundViewer == viewers.end()) return;
     if (data[4] == kBye) { viewers.erase(foundViewer); return; }
+    if (data[4] == kChat) {
+        // (a spectator's line: shown here, and passed on to the players and the other spectators under its name)
+        Viewer &v = *foundViewer;
+        const uint32_t n = in.U32();
+        in.U8();
+        const std::string text = Printable(in.Text(), kChatMost);
+        if (in.ok && n == v.heardUpTo) {
+            v.heardUpTo++;
+            if (!text.empty()) {
+                HearSpectator(v.name, text);
+                Queue(kSpectator, text, nullptr, &v, v.name);
+            }
+        }
+        v.heard = NowMs();
+        Writer ack(kChatAck);
+        ack.U32(v.heardUpTo);
+        SendTo(v.address, ack.out);
+        return;
+    }
+    if (data[4] == kChatAck) {
+        Viewer &v = *foundViewer;
+        const uint32_t upToLine = in.U32();
+        while (in.ok && !v.unheard.empty() && v.unheard.front().number < upToLine) v.unheard.pop_front();
+        return;
+    }
     if (data[4] != kWatchAck) return;
     const std::string token = in.Text();
     const uint32_t pieces = in.U32(), ack = in.U32();

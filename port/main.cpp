@@ -64,6 +64,7 @@ namespace port {
 namespace {
     // Persistent online labels keep brighter ink than their backplates on busy stages.
     constexpr HudOpacity kOnlineHudOpacity[] = {{112, 232}, {64, 190}, {220, 255}};
+    constexpr HudOpacity kSpectatingOpacity = {48, 110}; // (the spectator's label: there, but out of the way)
     // The modes played online (battle::StartOnline), by number, and their pages' names
     constexpr const char *kOnlineModes[] = {"Versus", "Ball battle", "Tag team battle"};
     const Feature *FindFeature(const std::string &name) {
@@ -1869,6 +1870,9 @@ void Port::Overlays(uint32_t *px, int W, int H, std::vector<SDL_Rect> *panels, b
         char text[64] = "";
         if (waiting) {
             snprintf(text, sizeof(text), net->Machines() > 2 ? "WAITING FOR THE OTHER PLAYERS" : "WAITING FOR THE OTHER PLAYER");
+        } else if (net->Watching()) {
+            // (a spectator: no ping or delay of its own to care about; the label, dim, where they would be)
+            status("SPECTATING", said++ * 14, kSpectatingOpacity);
         } else {
             // (the delay: this machine's, and the others' after it where any is not the same: "DELAY 0 (2)")
             std::string delays = "DELAY " + std::to_string(net->Delay());
@@ -1906,7 +1910,6 @@ void Port::Overlays(uint32_t *px, int W, int H, std::vector<SDL_Rect> *panels, b
             }
             status(routes.c_str(), said++ * 14, onlineOpacity);
         }
-        if (net->Watching()) status("SPECTATING", said++ * 14);
         if (!cameIn) {
             status("PRESS START TO JOIN", said++ * 14);
         }
@@ -3568,11 +3571,11 @@ void Port::Say() {
     std::string line = typed;
     typing = false;
     typed.clear();
-    if (!net || connecting || net->Watching()) {
+    if (!net || connecting) {
         return;
     }
     net->Say(line);
-    const std::string name = net->MachineName(net->Local());
+    const std::string name = net->Watching() ? net->OwnName() : net->MachineName(net->Local());
     if (line.find_first_not_of(' ') != std::string::npos) {
         chat.push_back({(name.empty() ? "You" : name) + ": " + line.substr(0, Netplay::kChatMost), tick + kChatTicks, true});
     }
@@ -3580,6 +3583,11 @@ void Port::Say() {
 
 void Port::HearChat() {
     for (const auto &[machine, line] : net->TakeHeard()) {
+        if (machine < 0) { // (a spectator's: its name and the line, as said)
+            fprintf(stderr, "online: chat: %s\n", line.c_str());
+            chat.push_back({line, tick + kChatTicks, false});
+            continue;
+        }
         const std::string name = net->MachineName(machine);
         fprintf(stderr, "online: chat: %s: %s\n", name.empty() ? "(no name)" : name.c_str(), line.c_str());
         chat.push_back({(name.empty() ? (net->Machines() > 2 ? "Player " + std::to_string(net->Player(machine, 0) + 1) : "Them") : name) + ": " + line,
@@ -4203,7 +4211,7 @@ void Port::Matched() {
     onlinePendingMode = -1;
     onlineReadyMine = -1;
     net->BeginSet();
-    chatHintUntil = net->Watching() ? 0 : tick + kChatTicks;
+    chatHintUntil = tick + kChatTicks;
     // (the host's player, playing while it waited, is in already; the joining side is told so in the welcome)
     cameIn = net->Watching() || (net->Arcade() && cameIn);
     otherIn = net->Watching() || (!net->Hosting() && net->HostIn());
