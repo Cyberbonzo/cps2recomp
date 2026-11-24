@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Street Fighter II: Hyper Fighting CSL Remix Edition** (`games/sf2hf_cslr`): the first CSL mod, a balance mod of
+  `sf2hf` (World 921209) whose extras the CSL Edition carried on, with training mode, widescreen, alternative modes and
+  online play. Its dizzy works as Super Turbo's (30, 34, 35), and the training mode's stun readout follows it.
+- **A game's mods under its row in the launcher** (game.cfg `mod_of`, recomp-common #90): the CSL Edition and CSL
+  Remix Edition are listed under Street Fighter II: Hyper Fighting, whose row opens and closes like a series' row, so
+  mods of an official game don't fill the list. The series' page says which game each mod is of.
 - **Rewind and a practice point, in every game** (#443), as the Cave shooters in spelunkomp have them: two switches
   on the Game page, off unless chosen, never online. Hold R (a gamepad's left trigger) and the game runs backwards
   through its last half a minute; `]` (the left shoulder held) keeps the game as it is, Backspace puts it back and

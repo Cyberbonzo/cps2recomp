@@ -24,7 +24,14 @@ namespace {
     // The stun: a word of what has built up (each hit adds to it: 07F1EE), and the frames until it goes away (+5C, the
     // word before it, counted down at 077EE2); the player is stunned when it reaches a word of the table at 07F1C6, by a
     // byte that steps by two each time the player has been stunned (30, then 34, then 35)
+    // (a game of the family may stun as Super Turbo does, with its own byte for the times: family.h's SSF2T_FAMILY_STUN_TIMES)
+#ifdef SSF2T_FAMILY_STUN_TIMES
+    constexpr uint32_t kStun = 0x5E, kStunTimes = SSF2T_FAMILY_STUN_TIMES, kStunMost = At(0x07F1C6);
+    constexpr bool kStunSteps = true;
+#else
     constexpr uint32_t kStun = 0x5E, kStunTimes = 0x2B1, kStunMost = At(0x07F1C6);
+    constexpr bool kStunSteps = family::kTurbo;
+#endif
 
     int PlayerOf(uint32_t record) {
         record &= 0xFFFFFF;
@@ -180,7 +187,7 @@ namespace {
             }
             if (FeatureOn("stun_readout")) {
                 char text[32];
-                const uint32_t most = kStunMost + (family::kTurbo ? Ram8(player + kStunTimes) & 0x1E : 0);
+                const uint32_t most = kStunMost + (kStunSteps ? Ram8(player + kStunTimes) & 0x1E : 0);
                 snprintf(text, sizeof text, "stun %d/%d", Ram16(player + kStun), machine.Read16(most));
                 lines.push_back({n == 0 ? 0.02f : 0.98f, 0.12f, n == 0 ? -1 : 1, text});
             }

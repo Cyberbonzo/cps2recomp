@@ -53,6 +53,9 @@ struct GameInfo {
     // a collection, the set chosen for each is given to it (--guest ID=PATH); else the game looks for it beside its own.
     // None is needed to play.
     const char* guests;
+    // The game it is a mod of (game.cfg's mod_of: that game's id; "": none). The launcher lists it under that game's
+    // row, which opens and closes (launcher::CollectionGame::mod_of)
+    const char* mod_of;
 };
 #ifdef LAUNCHER_COLLECTION
 const GameInfo* game_of_set(const char* set);
@@ -541,7 +544,8 @@ const launcher::Collection& launcher::describe_collection() {
         c.find_detail = "Finds each game's ROM set in a folder of them, by the set's name (sfa2u.zip, say).";
 #endif
         for (const GameInfo& game : kGames) {
-            c.games.push_back({game.id, game.name, game.id, "", describe_game(game), *game.series ? game.series : nullptr});
+            c.games.push_back({game.id, game.name, game.id, "", describe_game(game), *game.series ? game.series : nullptr, nullptr, nullptr,
+                               nullptr, *game.mod_of ? game.mod_of : nullptr});
         }
         c.bindings = shared_table().table;
         // The Multi game page: the fighting games' endless battle (fight/battle.h), each game's every stage once and

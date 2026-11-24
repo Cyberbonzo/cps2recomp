@@ -32,7 +32,8 @@ def load(game=None):
 
 # What the collection's launcher is told of each game (launcher/src/description.cpp, GameInfo), in its order
 COLLECTION_KEYS = ["id", "name", "rom_set", "rom_parent", "rom_name", "program", "graphics", "sound_program", "samples", "key", "display",
-                   "players", "buttons", "board", "cps_b", "extra_set", "multi", "other_set", "series", "guests"]
+                   "players", "buttons", "board", "cps_b", "extra_set", "multi", "other_set", "series", "guests",
+                   "mod_of"]
 
 
 def quoted(value):
@@ -58,6 +59,9 @@ def main():
         for game in sorted(args[2:], key=order):
             cfg = load(game)
             cfg.setdefault("id", game)
+            # (a mod's game is one of the collection's, and in the same series: its row is under that game's)
+            if cfg.get("mod_of") and (cfg["mod_of"] not in args[2:] or load(cfg["mod_of"]).get("series") != cfg.get("series")):
+                sys.exit("games/%s/game.cfg: mod_of = %s is not a game of the collection in its series" % (game, cfg["mod_of"]))
             lines.append("    {" + ", ".join(quoted(cfg.get(key, "")) for key in COLLECTION_KEYS) + "},")
         lines.append("};")
         write_if_changed(args[1], "\n".join(lines) + "\n")
