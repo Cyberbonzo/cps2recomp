@@ -565,6 +565,14 @@ void RegisterPortFeatures() {
     TheGame().features.push_back({"keyboard_only", "Game", "Keyboard only",
                                   "For JoyToKey and other keyboard mappers. Ignore native gamepad buttons, sticks and shortcuts, "
                                   "including the chat button. Your keyboard bindings still work."});
+    // (socd: port/socd.h, in the window's reading of the controls, so online the other side gets them cleaned)
+    TheGame().features.push_back({"socd", "Game", "SOCD cleaner",
+                                  "What the game sees when you hold two opposite directions at once, as a hit box or a keyboard "
+                                  "can (the board passes both on, and games do odd things with them). Neutral: up and down is "
+                                  "neither, left and right is neither. Hit box: up and down is up, left and right is neither. "
+                                  "4-way: as Neutral, and no diagonals, the direction pressed last winning. Your own: online "
+                                  "the other player's choice is theirs.",
+                                  0, {"Off", "Neutral (U+D=N, L+R=N)", "Hit box (U+D=U, L+R=N)", "4-way, no diagonals"}});
     // (rapid_fire: Port::RapidFire)
     TheGame().features.push_back({"rapid_fire", "Game", "Rapid fire",
                                   "A button held down is pressed again and again (fifteen times a second), for the first button or "
@@ -3224,6 +3232,7 @@ void Port::KeepState(std::vector<uint8_t> &data) {
     if (TheGame().state) {
         TheGame().state(ar);
     }
+    ar.Pod(onlineReselect);
 }
 
 void Port::PutBackState(const std::vector<uint8_t> &data) {
@@ -3233,10 +3242,14 @@ void Port::PutBackState(const std::vector<uint8_t> &data) {
     if (TheGame().state) {
         TheGame().state(ar);
     }
+    ar.Pod(onlineReselect);
 }
 
 void Port::Step(const uint16_t *players) {
     memcpy(machine->players, players, sizeof(machine->players));
+    if (onlineReselect.boot >= 0) {
+        OnlineReselectBoot();
+    }
     ApplyBoardOptions(*machine);
     ApplyCheats();
     if (TheGame().beforeFrame) {
@@ -3849,6 +3862,33 @@ void Port::OnlineSetupFrame() {
     }
 }
 
+bool Port::OnlineReselectHere() const {
+    return net && !net->Watching() && net->Players() == 2 && modes::Described().playersIn != 0;
+}
+
+// The board started again for both players' character choice: credits, then the Starts, until both are choosing (the
+// players' own controls left out meanwhile). As session.cpp's Boot, but at the game's own speed, a frame of the match.
+void Port::OnlineReselectBoot() {
+    constexpr int32_t kMost = 3600; // (frames: given up after a minute)
+    const modes::Description &m = modes::Described();
+    for (uint16_t &p : machine->players) p = 0;
+    if (modes::Choosing() || Ram8(m.playersIn) == 3 || ++onlineReselect.boot > kMost) {
+        onlineReselect.boot = -1;
+        return;
+    }
+    const bool press = onlineReselect.boot % 16 < 6;
+    uint16_t &one = machine->players[0], &two = machine->players[1];
+    if (Ram8(m.credits) < 2 && !FeatureOn("free_play")) {
+        one = press ? kCoin : 0;
+    } else if (m.startsTogether) {
+        one = two = press ? kStart : 0;
+    } else if (!(Ram8(m.playersIn) & 1)) {
+        one = press ? kStart : 0;
+    } else {
+        two = press ? kStart : 0;
+    }
+}
+
 void Port::OnlineEvent(int player, const std::string &text, uint64_t eventFrame) {
     const uint64_t at = eventFrame; // (the frame the event is for: the pause's and Ready's logs keep it)
     for (size_t place = 0; place < text.size();) {
@@ -3861,7 +3901,16 @@ void Port::OnlineEvent(int player, const std::string &text, uint64_t eventFrame)
             continue;
         }
         const std::string name = item.substr(0, eq);
-        if (name == "setup" && player == 0) {
+        if (name == "reselect" && (player == 0 || player == 1)) {
+            onlineReselect.asked[player] = atoi(item.c_str() + eq + 1) != 0;
+            if (onlineReselect.asked[0] && onlineReselect.asked[1] && modes::Described().playersIn) {
+                fprintf(stderr, "online: both asked to pick characters again: the board starts again at frame %llu\n",
+                        static_cast<unsigned long long>(at));
+                battle::StartOnline(*machine, 0, 1); // (the mode ended, the board reset: Back to Versus)
+                onlineReselect = {};
+                onlineReselect.boot = 0;
+            }
+        } else if (name == "setup" && player == 0) {
             onlineSetupLog[at] = atoi(item.c_str() + eq + 1) != 0;
         } else if (name == "ready" && player == 1) { // (the other player's: their Ready, Port::onlineReadyLog)
             onlineReadyLog[at] = atoi(item.c_str() + eq + 1) != 0;
@@ -3941,6 +3990,17 @@ void Port::OpenOnlineMenu() {
                                        "Moves everyone now, without leaving the match: the left team, then the right. Each "
                                        "player keeps their own controller. The set's score starts again from 0-0."});
         }
+    }
+    if (OnlineReselectHere()) {
+        // (either player's: both back to the character choice once the other asks too; index after the modes and seats)
+        const bool mine = onlineReselect.asked[me] != 0, theirs = onlineReselect.asked[1 - me] != 0;
+        online.commands.push_back({Menu::kOnlinePage,
+                                   mine ? "Pick characters again: asked (choose to take it back)"
+                                        : theirs ? "Pick characters again: the other player asked, choose to agree"
+                                                 : "Pick characters again",
+                                   "Both players back to the character select, the winner too: once the other player "
+                                   "chooses this as well, the game starts again and both of you are put in to choose. "
+                                   "The other player is told that you asked. The set's score stays as it is."});
     }
     auto pick = [&](const std::string &feature, const std::string &title, const std::string &description) {
         const Feature *found = FindFeature(feature);
@@ -4056,6 +4116,12 @@ std::string Port::TeamsSaid(const Netplay::Layout &layout) const {
 }
 
 void Port::OnlineCommand(size_t index) {
+    if (net && OnlineReselectHere() && index == onlineModes.size() + onlineSeats.size()) {
+        const bool mine = onlineReselect.asked[net->Local()] != 0;
+        net->Command(mine ? "reselect=0" : "reselect=1");
+        menu.Close();
+        return;
+    }
     if (net && index >= onlineModes.size() && index - onlineModes.size() < onlineSeats.size()) {
         net->Seat(onlineSeats[index - onlineModes.size()]);
         menu.Close();
@@ -4112,6 +4178,11 @@ void Port::HearEvents() {
                     }
                     said = value ? "The host paused the game: choose your fighters, then Ready" : "The game goes on";
                 }
+            } else if (name == "reselect" && (player == 0 || player == 1) && OnlineReselectHere()) {
+                const bool own = !net->Watching() && player == net->Local();
+                said = value ? who + (own ? " asked" : " asks") + " to pick characters again" +
+                                   (own ? " (when the other player agrees)" : ": Esc, Pick characters again to agree")
+                             : who + (own ? " took back" : " took back") + " the ask to pick characters again";
             } else if (name == "ready" && player == 1) {
                 said = who + (!net->Watching() && player == net->Local() ? (value ? " are ready" : " are choosing")
                                                                           : (value ? " is ready" : " is choosing"));
@@ -4207,6 +4278,7 @@ void Port::Matched() {
     onlineSetupLog.clear();
     onlineModeLog.clear();
     onlineReadyLog.clear();
+    onlineReselect = {};
     onlineSetupSent = false;
     onlinePendingMode = -1;
     onlineReadyMine = -1;
