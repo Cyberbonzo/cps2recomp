@@ -52,6 +52,9 @@ inline constexpr Place kPlaceList[] = {
     {0x07D6F4, 0x000000}, // none: the computer's set-up has no character tables (0287CC) by hand
     {0x07E36E, 0x02936C}, // the computer's plan (bsr 2936C in its set-up, 0287DA) by hand
     {0x07F1C6, 0x003342}, // the stun's most: the word of cmpi.w #$1E,0x5E(a3) at 003340 (a fixed 1E) by hand
+    {0x090F6A, 0x000000}, // none: Vega is not played (the computer's boss), no jump to the wall by hand
+    {0x0A3472, 0x000000}, // none: Vega is not played (the computer's boss), no jump to the wall by hand
+    {0x0B3156, 0x000000}, // none: Vega is not played (the computer's boss), no jump to the wall by hand
     {0x0BE646, 0x07D3A2}, // Champion Edition's 09502A, placed by portmap (an instruction) by hand
     {0x0BE678, 0x07D3BA}, // Champion Edition's 095042, placed by portmap (an instruction) by hand
     {0x0BEBA6, 0x07D514}, // Champion Edition's 0951D2, placed by portmap (an instruction) by hand
