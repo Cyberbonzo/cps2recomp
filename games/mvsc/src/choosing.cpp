@@ -4,7 +4,8 @@
 // Marvel vs. Capcom: the hidden characters chosen with no code (the Game page's "Hidden characters"): Start held as a
 // player chooses a character gives its hidden other self, where it has one (War Machine Gold War Machine, Hulk Orange
 // Hulk, Venom Red Venom, Chun-Li Shadow Lady, Morrigan Lilith, Mega Man Roll). The choice is the game's own (a button
-// pressed on the cursor's character takes it, 00BCDA), with the character changed as the game takes it.
+// pressed on the cursor's character takes it: 00BCDA for a player's first character, 00BE5E for the second), with the
+// character changed as the game takes it.
 #include "mvsc.h"
 
 namespace cps2recomp {
@@ -27,7 +28,7 @@ namespace {
         }
     }
 
-    // 00BCDA: a player's choosing record (A4) takes the character under its cursor
+    // 00BCDA (first character) and 00BE5E (second): a player's choosing record (A4) takes the character under its cursor
     bool Chosen(M68K &c) {
         const uint32_t record = c.a[4] & 0xFFFFFF;
         if (record != kChoosing && record != kChoosing + kChoosingSize) {
@@ -49,6 +50,7 @@ void ChoosingBeforeFrame(Machine &machine) {
 
 void RegisterChoosing() {
     AddHook(HookAt(0x00BCDA), "Chosen", Chosen);
+    AddHook(HookAt(0x00BE5E), "Chosen second", Chosen);
     TheGame().features.push_back({"hidden_characters", "Game", "Hidden characters",
                                   "The hidden characters with no code: hold Start as you choose War Machine for Gold War "
                                   "Machine, Hulk for Orange Hulk, Venom for Red Venom, Chun-Li for Shadow Lady, Morrigan for "
