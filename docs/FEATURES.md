@@ -178,6 +178,12 @@ centimetre, as wide as the page shows it, the pictures unlit and sharp (nearest 
 frames and let go for two, for the first button or for all of them, from the frame it goes down. Movies keep what the
 player held.
 
+**SOCD cleaner** is the port's own too (`socd`, Game page, every game; `port/socd.h`), Fightcade's four choices for two
+opposite directions held at once: Off (both reach the game, as on the board), Neutral (up + down and left + right are
+neither), Hit box (up + down is up, left + right neither) and 4-way (Neutral, and of a vertical and a horizontal held
+together only the one pressed last). It cleans the controls where the window reads them, before online play and
+movies, so each player's choice is their own.
+
 ## A custom soundtrack
 
 Every game whose sources say where its sound program keeps its songs gets the port's `custom_soundtrack` feature:
