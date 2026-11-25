@@ -51,6 +51,9 @@ inline constexpr Place kPlaceList[] = {
     {0x07D6F4, 0x03BD90}, // an instruction, 1 on alike
     {0x07E36E, 0x03C714}, // an instruction, 4 on alike
     {0x07F1C6, 0x03D0C4}, // the stun's most: the word of cmpi.w #$1F,0x5E(a6) at 03D0C2 (a fixed 1F) by hand
+    {0x090F6A, 0x045E1E}, // Vega's jump to the wall (the same code, found by its instructions) by hand
+    {0x0A3472, 0x000000}, // none: Vega's jump to the wall has one copy (090F6A's) by hand
+    {0x0B3156, 0x000000}, // none: as above by hand
     {0x0BE646, 0x09502A}, // sub.w d6,0x2A(a2), a player's attack's damage (clr.b 0x71(a2) after it) by hand
     {0x0BE678, 0x095042}, // clr.b 0x71(a2), where that hit's ways meet by hand
     {0x0BEBA6, 0x0951D2}, // sub.w d6,0x2A(a2), a thrown thing's damage (portmap took the player's) by hand

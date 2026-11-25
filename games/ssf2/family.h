@@ -49,6 +49,9 @@ inline constexpr Place kPlaceList[] = {
     {0x07D6F4, 0x06F8B0}, // an instruction, 2 on alike
     {0x07E36E, 0x070434}, // an instruction, 4 on alike
     {0x07F1C6, 0x0711BC}, // a place the code names so (1/1)
+    {0x090F6A, 0x07D27A}, // Vega's jump to the wall (the same code; the instructions before and after it alike) by hand
+    {0x0A3472, 0x000000}, // none: one copy of Vega's jump to the wall with the stick (the other is 090F6A's) by hand
+    {0x0B3156, 0x0892BA}, // Vega's jump to the wall without the stick (the same code) by hand
     {0x0BE646, 0x0921EE}, // an instruction, 3 on alike
     {0x0BE678, 0x09220C}, // an instruction, 6 on alike
     {0x0BEBA6, 0x092634}, // sub.w d6,0x2A(a2) in the thrown thing's hit (the same code around it) by hand

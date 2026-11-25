@@ -296,6 +296,25 @@ namespace {
         ToEdge(c, player, rightmost, reach, 2);
     }
 
+    // 090F6A and 0A3472 (Vega's jump to the wall, the Flying Barcelona's first part: two copies) and 0B3156 (a third,
+    // without the stick), where D1 is the wall to jump to and the game goes on to the speeds to
+    // get there in 20 frames, then clings once KeepIn corners him (A6 the player). The game takes the walls for the board's
+    // picture's edges (the camera's place, and 0x180 right of it): the one the stick points at, or with the stick in the
+    // middle (and in 0B3156 always) the nearer, tested unsigned (his place less the camera's, under 0xC0). In the wide
+    // picture the walls are 64 further out, where KeepIn corners him, and a Vega in its added columns on the left was
+    // taken to be near the right wall (his place less the camera's under 0: a great number unsigned), so he jumped the
+    // wrong way and bounced back at the left wall. Played wide, the wall is the wide picture's edge, chosen signed.
+    void ToWall(M68K &c, bool steered) {
+        if (!Margin()) {
+            return; // (the board's picture: the game's choice)
+        }
+        const uint32_t player = c.a[6] & 0xFFFFFF;
+        const uint16_t camera = Ram16(kVarCamera);
+        const uint16_t stick = steered ? static_cast<uint16_t>(Ram16(player + family::kButtonsNow) & 3) : 0;
+        const bool right = stick ? !(stick & 2) : S16(static_cast<uint16_t>(Ram16(player + kX) - camera)) >= 0xC0;
+        SetLow16(c.d[1], static_cast<uint16_t>(right ? camera + 0x180 + Margin() : camera - Margin()));
+    }
+
     // --- the picture ---
 
     int CameraLeftEnd() {
@@ -447,6 +466,9 @@ void RegisterWidescreen() {
     AddRewrite(At(0x0CC4E4), "CameraAcross", CameraAcross, kFreeFlags, 418);
     AddRewrite(At(0x0CC630), "CameraUp", CameraUp, kFreeFlags, 322);
     AddRewrite(At(0x0043F4), "KeepIn", KeepIn, kFreeFlags, 215);
+    AddHook(HookAt(At(0x090F6A)), "ToWall", [](M68K &c) { return ToWall(c, true), false; });
+    AddHook(HookAt(At(0x0A3472)), "ToWallOld", [](M68K &c) { return ToWall(c, true), false; });
+    AddHook(HookAt(At(0x0B3156)), "ToWallComputer", [](M68K &c) { return ToWall(c, false), false; });
     AddHook(HookAt(family::kNearPicture1), "NearPicture1", [](M68K &c) { return NearPicture(c, kRooms[0]); });
     AddHook(HookAt(family::kNearPicture2), "NearPicture2", [](M68K &c) { return NearPicture(c, kRooms[1]); });
     AddHook(HookAt(family::kNearPicture3), "NearPicture3", [](M68K &c) { return NearPicture(c, kRooms[2]); });

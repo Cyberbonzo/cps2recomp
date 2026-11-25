@@ -51,6 +51,9 @@ inline constexpr Place kPlaceList[] = {
     {0x07D6F4, 0x0832B8}, // Champion Edition's 03BD90, placed by portmap (an instruction) by hand
     {0x07E36E, 0x083DF6}, // Champion Edition's 03C714, placed by portmap (an instruction) by hand
     {0x07F1C6, 0x084A16}, // Champion Edition's 03D0C4 here (the same bytes found, or the same variable) by hand
+    {0x090F6A, 0x045720}, // Vega's jump to the wall (the same code, found by its instructions) by hand
+    {0x0A3472, 0x000000}, // none: Vega's jump to the wall has one copy (090F6A's) by hand
+    {0x0B3156, 0x000000}, // none: as above by hand
     {0x0BE646, 0x09C37A}, // Champion Edition's 09502A, placed by portmap (an instruction) by hand
     {0x0BE678, 0x09C392}, // Champion Edition's 095042, placed by portmap (an instruction) by hand
     {0x0BEBA6, 0x09C536}, // Champion Edition's 0951D2, placed by portmap (an instruction) by hand
