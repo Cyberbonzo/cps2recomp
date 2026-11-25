@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Stage page: another game's stage without its ROM set** is now the game's own choice. Before, every round was
+  fought on the game's first stage with nothing drawn over it (Apocalypse's lair in X-Men vs. Street Fighter, and
+  the same in every fighting game). Online it is as before: both sides fight on the first stage, each drawing the
+  other game's if it has the set.
 - **Choose which controller is which player** (recomp-common #99). On the launcher's Controllers page each connected
   gamepad can be Automatic, Player 1 to 4, or Not used, so a Steam Deck's own controls can sit out and two gamepads
   plugged into it play each other. A held button shows on its row, to tell two of the same gamepad apart. With nothing

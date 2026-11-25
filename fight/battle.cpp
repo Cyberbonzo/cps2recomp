@@ -382,7 +382,7 @@ namespace {
     // The stage the player has chosen on the menu's Stage page (session.h): 0 the game's choice, then the game's own
     // from 1, then the other games'
     int PlayersStage() {
-        return FeatureValue(session::kStageFeature);
+        return session::PlayersStage();
     }
     // The endless battle's stage: the player's, where its feature says one stage (its other choices are two ways of
     // changing it); else, and with the choice left to the game, any

@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <initializer_list>
 #include <string>
 #include <vector>
@@ -212,6 +213,10 @@ bool FastForward();
 // what must happen once (writing a file, say). Also set while the frame before them is put back.
 bool RunningAhead();
 void SetRunningAhead(bool on);
+// Online play is on (port/netplay.h): two machines that must play alike, whatever else each has (another game's ROM
+// set, say). The port says how it knows (OnlinePlayFrom)
+bool OnlinePlay();
+void OnlinePlayFrom(std::function<bool()> query);
 // ... and for it to run slowly: a frame of the game in every `by` pictures of the screen (1: as it is). The
 // slower of this and the speed the player chose in the menu is the speed the game runs at.
 void SetSlowMotion(int by);

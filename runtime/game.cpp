@@ -238,6 +238,16 @@ void SetRunningAhead(bool on) {
 }
 
 namespace {
+    std::function<bool()> g_onlinePlay;
+}
+bool OnlinePlay() {
+    return g_onlinePlay && g_onlinePlay();
+}
+void OnlinePlayFrom(std::function<bool()> query) {
+    g_onlinePlay = std::move(query);
+}
+
+namespace {
 std::string g_multiGame, g_playerFolder;
 int g_programEnded = -1;
 int64_t g_nextGameAsked = -1;
