@@ -317,6 +317,13 @@ inline constexpr Entry kPortuguese[] = {
     {"The keyboard always works. Gamepads show up here when connected; press buttons and move the sticks to check they work.", "O teclado sempre funciona. Os controles aparecem aqui quando conectados; aperte botões e mova os analógicos para ver se funcionam."},
     {"CONNECTED", "CONECTADOS"},
     {"No controllers connected", "Nenhum controle conectado"},
+    {"The keyboard always works. Gamepads show up here when connected; press buttons and move the sticks to check they work, and choose which player each one is.", "O teclado sempre funciona. Os controles aparecem aqui quando conectados; aperte botões e mova os analógicos para conferir que funcionam, e escolha qual jogador é cada um."},
+    {"button pressed", "botão apertado"},
+    {"Automatic", "Automático"},
+    {"Not used", "Sem uso"},
+    {"plays nothing", "não joga"},
+    {"Automatic: the first player without a gamepad, in the order they were connected. Not used: it plays nothing (a Steam Deck's own controls, say, so two gamepads plugged into it play each other).", "Automático: o primeiro jogador sem controle, na ordem em que foram conectados. Sem uso: não joga (os controles do próprio Steam Deck, por exemplo, para que dois controles ligados a ele joguem um contra o outro)."},
+    {"The keyboard and player {}'s gamepad (Connected, above). Click a button here, then press the key or the gamepad button for it.", "O teclado e o controle do jogador {} (Conectados, acima). Clique num botão aqui e aperte a tecla ou o botão do controle para ele."},
     {"Testing", "Testando"},
     {"Test", "Testar"},
     {"TEST", "TESTE"},
@@ -438,6 +445,13 @@ inline constexpr Entry kPortuguese[] = {
     {"{} (not found)", "{} (não encontrado)"},
     {"What Shader's Your own draws with, kept by its name: a .slangp preset in {} (one folder for every game: the launcher's Open shaders folder opens it) or in a folder there, with the files it uses beside it. This game's own shaders folder, {}, comes first. Choosing one chooses Your own.", "Com o que O seu, do Shader, desenha, guardado pelo nome: um preset .slangp em {} (uma pasta para todos os jogos: o Abrir pasta de shaders do launcher a abre) ou numa pasta ali, com os arquivos que ele usa ao lado. A pasta shaders deste jogo, {}, vem primeiro. Escolher um escolhe O seu."},
     {"What Shader's Your own draws with, kept by its name: a .slangp preset in {} or in a folder there, with the files it uses beside it. On Android that is the app's own storage: a computer connected over USB can usually reach it, the phone's file manager usually can't, and there is no import yet. This game's own shaders folder, {}, comes first. Choosing one chooses Your own.", "Com o que O seu, do Shader, desenha, guardado pelo nome: um preset .slangp em {} ou numa pasta ali, com os arquivos que ele usa ao lado. No Android isso fica no armazenamento do próprio app: um computador ligado por USB geralmente o alcança, o gerenciador de arquivos do celular geralmente não, e ainda não há como importar. A pasta shaders deste jogo, {}, vem primeiro. Escolher um escolhe O seu."},
+    // (the Menu orientation feature: menu_turn.h)
+    {"Menu orientation", "Orientação do menu"},
+    {"Upright", "Em pé"},
+    {"Top to the right", "Topo à direita"},
+    {"Upside down", "De cabeça para baixo"},
+    {"Top to the left", "Topo à esquerda"},
+    {"Which way up the menu stands, and the notes and readouts drawn over the picture. Auto: as the game's picture stands, so with the picture turned for a monitor on its side (As the cabinet) they turn with it and read upright on that monitor. Upright: always upright on the screen as it is, whichever way the picture is turned. Top to the right, Upside down and Top to the left: turned that way on the screen, for a monitor turned some other way.", "Para que lado fica em pé o menu, e as notas e indicadores desenhados sobre a imagem. Auto: como a imagem do jogo está, então com a imagem virada para um monitor de lado (Como no fliperama) eles giram junto e ficam em pé nesse monitor. Em pé: sempre em pé na tela como ela está, para qualquer lado que a imagem esteja virada. Topo à direita, De cabeça para baixo e Topo à esquerda: virados assim na tela, para um monitor virado de outro jeito."},
 };
 
 } // namespace recomp::i18n

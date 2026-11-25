@@ -322,6 +322,13 @@ inline constexpr Entry kSpanish[] = {
     {"The keyboard always works. Gamepads show up here when connected; press buttons and move the sticks to check they work.", "El teclado siempre funciona. Los mandos aparecen aquí al conectarlos; pulsa botones y mueve los sticks para comprobar que funcionan."},
     {"CONNECTED", "CONECTADOS"},
     {"No controllers connected", "No hay mandos conectados"},
+    {"The keyboard always works. Gamepads show up here when connected; press buttons and move the sticks to check they work, and choose which player each one is.", "El teclado siempre funciona. Los mandos aparecen aquí al conectarlos; pulsa botones y mueve los sticks para comprobar que funcionan, y elige qué jugador es cada uno."},
+    {"button pressed", "botón pulsado"},
+    {"Automatic", "Automático"},
+    {"Not used", "Sin usar"},
+    {"plays nothing", "no juega"},
+    {"Automatic: the first player without a gamepad, in the order they were connected. Not used: it plays nothing (a Steam Deck's own controls, say, so two gamepads plugged into it play each other).", "Automático: el primer jugador sin mando, en el orden en que se conectaron. Sin usar: no juega (los controles de la propia Steam Deck, por ejemplo, para que dos mandos conectados a ella jueguen entre sí)."},
+    {"The keyboard and player {}'s gamepad (Connected, above). Click a button here, then press the key or the gamepad button for it.", "El teclado y el mando del jugador {} (Conectados, arriba). Haz clic en un botón aquí y luego pulsa la tecla o el botón del mando que quieras para él."},
     {"Testing", "Probando"},
     {"Test", "Probar"},
     {"TEST", "PRUEBA"},
@@ -442,6 +449,13 @@ inline constexpr Entry kSpanish[] = {
     {"{} (not found)", "{} (no encontrado)"},
     {"What Shader's Your own draws with, kept by its name: a .slangp preset in {} (one folder for every game: the launcher's Open shaders folder opens it) or in a folder there, with the files it uses beside it. This game's own shaders folder, {}, comes first. Choosing one chooses Your own.", "Con qué dibuja El tuyo del Shader, guardado por su nombre: un preset .slangp en {} (una carpeta para todos los juegos: el Abrir carpeta de shaders del lanzador la abre) o en una carpeta allí, con los archivos que usa a su lado. La carpeta shaders propia de este juego, {}, va primero. Elegir uno elige El tuyo."},
     {"What Shader's Your own draws with, kept by its name: a .slangp preset in {} or in a folder there, with the files it uses beside it. On Android that is the app's own storage: a computer connected over USB can usually reach it, the phone's file manager usually can't, and there is no import yet. This game's own shaders folder, {}, comes first. Choosing one chooses Your own.", "Con qué dibuja El tuyo del Shader, guardado por su nombre: un preset .slangp en {} o en una carpeta allí, con los archivos que usa a su lado. En Android eso está en el almacenamiento propio de la app: un ordenador conectado por USB normalmente llega a él, el gestor de archivos del teléfono normalmente no, y aún no hay forma de importar. La carpeta shaders propia de este juego, {}, va primero. Elegir uno elige El tuyo."},
+    // (the Menu orientation feature: menu_turn.h)
+    {"Menu orientation", "Orientación del menú"},
+    {"Upright", "Derecho"},
+    {"Top to the right", "Arriba a la derecha"},
+    {"Upside down", "Al revés"},
+    {"Top to the left", "Arriba a la izquierda"},
+    {"Which way up the menu stands, and the notes and readouts drawn over the picture. Auto: as the game's picture stands, so with the picture turned for a monitor on its side (As the cabinet) they turn with it and read upright on that monitor. Upright: always upright on the screen as it is, whichever way the picture is turned. Top to the right, Upside down and Top to the left: turned that way on the screen, for a monitor turned some other way.", "Hacia dónde queda de pie el menú, y las notas e indicadores dibujados sobre la imagen. Auto: como está la imagen del juego, así que con la imagen girada para un monitor de lado (Como en el arcade) giran con ella y se leen derechos en ese monitor. Derecho: siempre derechos en la pantalla tal como está, gire como gire la imagen. Arriba a la derecha, Al revés y Arriba a la izquierda: girados así en la pantalla, para un monitor girado de otra forma."},
 };
 
 } // namespace recomp::i18n
