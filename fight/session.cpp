@@ -8,9 +8,11 @@
 #include "battle.h"
 #include "alternative.h"
 #include "state.h"
+#include "guest_stages.h"
 
 #include <algorithm>
 #include <cstdlib>
+#include <cstring>
 
 namespace cps2recomp::session {
 
@@ -220,7 +222,22 @@ int WantedStage() {
     }
     // The player's own choice (the menu's Stage page), whatever is being played: a training session, the game's own
     // games, a mode that leaves the stage open (survival). Not where a mode says the game's (the ring out).
-    return modes::Wanted().gamesStage ? 0 : FeatureValue(kStageFeature);
+    return modes::Wanted().gamesStage ? 0 : PlayersStage();
+}
+
+int PlayersStage() {
+    const int stage = FeatureValue(kStageFeature);
+    if (stage <= 0 || stage >= static_cast<int>(d.stageChoices.size()) || OnlinePlay()) {
+        return stage;
+    }
+    // (the guests' stages are named as their lists name them: guest_stages.h)
+    const char *name = d.stageChoices[static_cast<size_t>(stage)];
+    for (int guest = 1; guest <= guest_stages::Stages(); guest++) {
+        if (strcmp(guest_stages::StageName(guest), name) == 0) {
+            return guest_stages::Available(guest) ? stage : 0;
+        }
+    }
+    return stage;
 }
 
 bool NoClock() {

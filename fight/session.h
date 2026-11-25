@@ -127,6 +127,10 @@ bool InSession();
 // what a mode wants (alternative.h), else the player's choice on the menu's Stage page (kStageFeature), in a session or
 // out of one
 int WantedStage();
+// The player's choice on the menu's Stage page (kStageFeature): 0 the game's choice, then the stages from 1. Another
+// game's stage whose ROM set is not here is the game's choice: the game would fight on its first stage with nothing
+// drawn over it. (Online it is as chosen, the same on both machines: each draws it if it has the set.)
+int PlayersStage();
 // The menu's Stage page (at the head of the first page) and its one choice: 0 the game's choice, then the stages from 1
 inline constexpr const char *kStagePage = "Stage", *kStageFeature = "stage";
 // No clock, and nobody knocked out: a session, the stage viewer, or a fighting mode that wants it
