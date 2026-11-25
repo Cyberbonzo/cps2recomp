@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+## 1.6.0-beta.6
+
+**Two Street Fighter II: Hyper Fighting mods, rewind in every game, and more for online play.** The CSL Edition and
+the CSL Remix Edition, community mods of Hyper Fighting, are listed under its row in the launcher. Every game can now
+rewind through its last half a minute and keep a practice point. Online, four players can change teams without
+leaving, both players can go back to the character select, spectators are in the chat, and the waiting room shows
+which games each player has. A SOCD cleaner (Fightcade's choices) is on every game's Game page. Pre-release, as
+1.6.0-beta.5 was.
+
+- **SOCD cleaner** (Fightcade's choices), on every game's Game page, off unless chosen (#459). For keyboard and hit
+  box players: Neutral (up and down, or left and right, together are neither), Hit box (up wins, left and right are
+  neither) or 4-way (no diagonals: the direction pressed last). Online, each player's choice is their own and the
+  other side gets the cleaned controls.
+- **Online: both players back to the character select** (#456). After a match either player can choose **Pick
+  characters again** on the match's Esc menu; once the other chooses it too, both are put in at the character select
+  on the same frame. The set's score stays as it is.
+- **Online: spectators in the chat** (#457). A spectator's lines reach the players and the other spectators, as
+  "Name (spectator): …", and the players' lines reach the spectators. A spectator's screen shows **SPECTATING** dimmed
+  where the ping was.
+- **The waiting room lists each player's games** (#458, recomp-common #95): the games you can both play come first,
+  in bold.
+- **Fix: VSync, the shader and the other settings of the Features page did nothing in the CSL mods** (#460,
+  recomp-common #96). The page had set them only for the games there were when they were chosen; a game added later
+  kept its own defaults. As it opens, the launcher now gives a game with no value of its own the one the other games
+  agree on.
+- Online play's protocol is 19: matches are with 1.6.0-beta.6 players only.
 - **Street Fighter II: Hyper Fighting CSL Remix Edition** (`games/sf2hf_cslr`): the first CSL mod, a balance mod of
   `sf2hf` (World 921209) whose extras the CSL Edition carried on, with training mode, widescreen, alternative modes and
   online play. Its dizzy works as Super Turbo's (30, 34, 35), and the training mode's stun readout follows it.
