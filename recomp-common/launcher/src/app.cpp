@@ -761,6 +761,7 @@ App::App(SDL_Window* window)
         }
     }
     bindings_ = recomp::LoadBindings(slots_[first]->settings.path().u8string(), shared_table());
+    pad_choices_ = recomp::LoadPadChoices(slots_[first]->settings.path().u8string());
     // (and each game's own, for those given one)
     own_bindings_.resize(slots_.size());
     for (size_t which = 0; which < slots_.size(); which++) {
@@ -1776,11 +1777,14 @@ std::vector<bool> App::hidden_choices(const Slot& one, size_t feature) {
 void App::load_features(Slot& one) {
     one.features.clear();
     one.features_error.clear();
+    one.program_note.clear();
     if (!one.has_program()) {
         one.features_error = "The game program wasn't found next to the launcher.";
         return;
     }
-    one.features = recomp::ParseFeatureList(GameProcess::output_of(one.program(), {"--list-features"}));
+    const std::string list = GameProcess::output_of(one.program(), {"--list-features"});
+    one.features = recomp::ParseFeatureList(list);
+    one.program_note = recomp::ParseFeatureListNote(list); // (a build with no translated code, say: settings.h)
     // (a file from before a feature was kept by name: made over once, settings.h)
     if (recomp::MigrateFeatures(one.settings, one.features)) {
         one.settings.save();
@@ -2719,6 +2723,10 @@ bool App::play_button(size_t which, float width) {
                !(collection_ && std::any_of(collection_->multi.begin(), collection_->multi.end(),
                                             [&](const launcher::MultiMode& m) { return m.next_code == one.game.exit_code(); }))) {
         stopped_note(one, width);
+    }
+    if (have_program && !one.program_note.empty()) {
+        ui::gap(10);
+        ui::text(one.program_note.c_str(), Font::Regular, ui::size::kDetail, p.danger, width);
     }
     return ready;
 }
@@ -4134,6 +4142,9 @@ void App::library_page(float width) {
         }
         bool usable = !one.checking && !one.file_path.empty() && file.usable();
         std::string status = one.checking ? std::string("Checking…") : one.file_path.empty() ? std::string(one.about->file_empty) : file.message;
+        if (!one.program_note.empty()) {
+            status += "  ·  " + one.program_note; // (what the program says of itself: its row shows it)
+        }
         ImGui::PushID(static_cast<int>(which));
         ImVec2 row_top = ImGui::GetCursorScreenPos();
         // (Play first, so that the ring coming into the row from the left is on it)
@@ -5476,27 +5487,86 @@ bool App::capture(const SDL_Event& event) {
     return false;
 }
 
+// A gamepad made a player's (or nobody's, or automatic), in every game's settings.ini. Another one chosen for the
+// same player before goes back to automatic, so a player is never given two.
+void App::choose_pad_player(const std::string& identity, int player) {
+    for (auto& [other, theirs] : pad_choices_.player) {
+        if (player >= 0 && other != identity && theirs == player) {
+            theirs = recomp::kPadAuto;
+        }
+    }
+    pad_choices_.player[identity] = player;
+    for (const auto& slot : slots_) {
+        for (const auto& [other, theirs] : pad_choices_.player) {
+            slot->settings.set(recomp::kPadPlayersSection, other, recomp::PadChoiceText(theirs));
+        }
+        slot->settings.save();
+    }
+}
+
 void App::controllers_page(float width) {
     const ui::Palette& p = ui::palette();
-    layout::heading("Controllers", "The keyboard always works. Gamepads show up here when connected; press buttons and move the sticks to check they work.",
-            width);
+    const int players = shared_table().count > 0 ? shared_table().players : 0;
+    layout::heading("Controllers",
+                    players > 0 ? "The keyboard always works. Gamepads show up here when connected; press buttons and move the sticks to check they "
+                                  "work, and choose which player each one is."
+                                : "The keyboard always works. Gamepads show up here when connected; press buttons and move the sticks to check they work.",
+                    width);
 
     int count = 0;
     SDL_JoystickID* pads = SDL_GetGamepads(&count);
+    int whose[recomp::kBindMaxPlayers];  // (each player's, as the game will give them out)
+    recomp::AssignPads(pad_choices_, pads, count, players, whose);
     ui::text("CONNECTED", Font::Semibold, ui::size::kDetail, p.secondary);
     ui::gap(10);
     Card card(width);
     if (count == 0) {
         row(width, "No controllers connected", "", 0.0f, 0.0f, [] {});
     }
-    for (int i = 0; i < count && i < 4; i++) {
+    // (the choices: Automatic, Player 1 to the last, Not used)
+    std::vector<std::string> choices = {Tr("Automatic")};
+    for (int player = 0; player < players; player++) {
+        choices.push_back(Tr("Player " + std::to_string(player + 1)));
+    }
+    choices.push_back(Tr("Not used"));
+    for (int i = 0; i < count && i < 8; i++) {
         if (i > 0) {
             inset_separator(width);
         }
         const char* name = SDL_GetGamepadNameForID(pads[i]);
-        std::string slot = "Controller " + std::to_string(i + 1);
+        std::string slot = Tr("Controller " + std::to_string(i + 1));
+        if (players > 0) {
+            int plays = -1;
+            for (int player = 0; player < players; player++) {
+                plays = whose[player] == i ? player : plays;
+            }
+            slot += "  ·  ";
+            slot += plays >= 0 ? Tr("Player " + std::to_string(plays + 1)) : Tr("plays nothing");
+        }
+        // (a button held on it says so, to tell two of the same gamepad apart)
+        if (std::find(opened_pads_.begin(), opened_pads_.end(), pads[i]) == opened_pads_.end() && SDL_OpenGamepad(pads[i])) {
+            opened_pads_.push_back(pads[i]);  // (stays open while the launcher runs)
+        }
+        if (SDL_Gamepad* open = SDL_GetGamepadFromID(pads[i])) {
+            bool held = false;
+            for (int b = 0; b < SDL_GAMEPAD_BUTTON_COUNT && !held; b++) {
+                held = SDL_GetGamepadButton(open, static_cast<SDL_GamepadButton>(b));
+            }
+            slot += held ? std::string("  ·  ") + Tr("button pressed") : "";
+            ui::request_frames(2);  // (kept live)
+        }
         ImGui::PushID(i);
-        row(width, name ? name : "?", slot.c_str(), 110.0f, 36.0f, [&] {
+        const float control = players > 0 ? 300.0f : 110.0f;
+        row(width, name ? name : "?", slot.c_str(), control, 36.0f, [&] {
+            if (players > 0) {
+                const std::string identity = recomp::PadIdentity(pads[i]);
+                const int chosen = pad_choices_.of(identity);
+                int index = chosen == recomp::kPadNobody ? players + 1 : chosen >= 0 && chosen < players ? chosen + 1 : 0;
+                if (ui::dropdown("##player", choices, index, 180.0f)) {
+                    choose_pad_player(identity, index == 0 ? recomp::kPadAuto : index > players ? recomp::kPadNobody : index - 1);
+                }
+                ImGui::SameLine(0.0f, px(10));
+            }
             if (ui::button(selected_pad_ == i ? "Testing" : "Test", selected_pad_ == i ? Kind::Primary : Kind::Secondary, 110.0f)) {
                 selected_pad_ = i;
             }
@@ -5504,6 +5574,12 @@ void App::controllers_page(float width) {
         ImGui::PopID();
     }
     card.end();
+    if (players > 0 && count > 0) {
+        ui::gap(8);
+        ui::text("Automatic: the first player without a gamepad, in the order they were connected. Not used: it plays nothing (a Steam "
+                 "Deck's own controls, say, so two gamepads plugged into it play each other).",
+                 Font::Regular, ui::size::kDetail, p.secondary, width);
+    }
     ui::gap(24);
 
     if (count > 0) {
@@ -5666,10 +5742,10 @@ void App::controllers_page(float width) {
             ui::gap(10);
             constexpr float kChip = 170.0f, kChipGap = 10.0f;
             Card buttons(width);
-            static const char* const kNth[recomp::kBindMaxPlayers] = {"first", "second", "third", "fourth"};
             const std::string whose = "Player " + std::to_string(bind_player_ + 1);
-            const std::string what = TrFormat("The keyboard and the {} gamepad. Click a button here, then press the key or the gamepad button for it.",
-                                              {Tr(kNth[bind_player_])});
+            const std::string what = TrFormat("The keyboard and player {}'s gamepad (Connected, above). Click a button here, then press the key or "
+                                              "the gamepad button for it.",
+                                              {std::to_string(bind_player_ + 1)});
             row(width, table.players < 2 ? "Buttons" : whose.c_str(),
                 table.players < 2 ? "The keyboard and the gamepad. Click a button here, then press the key or the gamepad button for it."
                                   : what.c_str(),

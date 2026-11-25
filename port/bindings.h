@@ -12,7 +12,8 @@
 //   ppp = leftshoulder  all three punches at once (kkk: kicks), for a fighting game's moves that take them
 //
 // (and [keyboard2], [gamepad2] for player 2, and so on for a game with more). What is not in the file is the usual
-// layout (MakeBoundTable). The first gamepad is player 1's, the second player 2's, and so on; a gamepad's left stick
+// layout (MakeBoundTable). Which gamepad is which player's is the launcher's [controllers] (recomp::AssignPads:
+// with nothing chosen, the first is player 1's, the second player 2's, and so on); a gamepad's left stick
 // always works as the directions.
 #pragma once
 
