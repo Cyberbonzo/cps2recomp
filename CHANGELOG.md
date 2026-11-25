@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Marvel vs. Capcom: a hidden character for the second pick too.** Hidden characters (Game page) gave only the
+  first character's hidden other self; holding Start on the second pick now gives it too.
+
 ## 1.6.0-beta.6
 
 **Two Street Fighter II: Hyper Fighting mods, rewind in every game, and more for online play.** The CSL Edition and

@@ -154,7 +154,7 @@ is FF4000 here), and the players' records 0x20 further on from +0x250 (health +2
   the board.
 - **Choosing**: a 0x30 record a player from FF4180 (player 2's at FF41B0), +02 the side, +0C the character under the
   cursor; its first byte steps to 7 once the characters, the mode and the speed are chosen, then on for the special
-  partner. A character is taken at 00BCDA (the hidden characters' hook). Picks: FF40B0 on, as before.
+  partner. A character is taken at 00BCDA, the second at 00BE5E (the hidden characters' hooks). Picks: FF40B0 on, as before.
 - **Stage**: FF4113 (0-9, named from pictures); taken at 00C2CA from a table (0E324C, or 0E326C) by a count; Onslaught's
   fights are on 9 and 10 (10, space, keeps no camera record, and 11 is none: not offered); the hook at 00C2F8 puts a
   mode's stage and characters in.
