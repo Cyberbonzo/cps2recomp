@@ -417,6 +417,19 @@ int RunWindowed(Port &port) {
     GamepadSlots controllers;
     OnlinePadQueue onlinePads;
     const auto &gamepads = controllers.Pads();
+    // Each player's gamepad: those the launcher's Controllers page gave a player, then the rest in their seats' order
+    // (recomp-common bindings.h: [controllers]); given out again when one comes or goes, not every frame
+    const recomp::PadChoices padChoices = port.opt.settingsPath.empty() ? recomp::PadChoices{} : recomp::LoadPadChoices(port.opt.settingsPath);
+    SDL_Gamepad *playerPads[recomp::kBindMaxPlayers] = {};
+    int padsGivenFor = -1; // (the players they were given out for; -1: to do again)
+    auto playerOf = [&](SDL_JoystickID id) {
+        for (int player = 0; player < recomp::kBindMaxPlayers; player++) {
+            if (playerPads[player] && SDL_GetGamepadID(playerPads[player]) == id) {
+                return player;
+            }
+        }
+        return -1;
+    };
     // The in-game menu: opened and closed by Esc, F1, a gamepad stick's click or its Start and Select
     // together (the game is left from its "Quit game"). While it is open the game stands still and the
     // controls work the menu; buttons held as it closes do not reach the game until let go.
@@ -443,6 +456,7 @@ int RunWindowed(Port &port) {
         if (controllers.SetEnabled(!FeatureOn("keyboard_only"))) {
             stickWaiting = false;
             onlinePads.Clear();
+            padsGivenFor = -1;
         }
     };
     auto toggleMenu = [&]() {
@@ -678,9 +692,13 @@ int RunWindowed(Port &port) {
                 break;
             case SDL_EVENT_GAMEPAD_ADDED:
                 controllers.Added(ev.gdevice.which);
+                padsGivenFor = -1;
                 break;
             case SDL_EVENT_GAMEPAD_REMOVED: {
-                const int seat = controllers.Removed(ev.gdevice.which);
+                // (the seat is the player it was: a gamepad that played nobody leaves none)
+                const int player = playerOf(ev.gdevice.which);
+                const int seat = controllers.Removed(ev.gdevice.which) >= 0 ? player : -1;
+                padsGivenFor = -1;
                 onlinePads.ReleaseSeat(seat);
                 if (seat >= 0 && !port.net && !port.paused && !port.menu.IsOpen() && TheGame().pauseOnPadRemoval &&
                     TheGame().pauseOnPadRemoval(seat)) {
@@ -772,10 +790,15 @@ int RunWindowed(Port &port) {
             pads[0] |= touch.Read(port.menu.IsOpen());
             bool trigger = false;
             const bool stepOnTrigger = !PadInputBound(g_bindings, Table(), {-1, SDL_GAMEPAD_AXIS_LEFT_TRIGGER});
-            for (size_t i = 0; i < gamepads.size() && static_cast<int>(i) < Players(); i++) {
-                if (!gamepads[i]) continue;
-                pads[i] |= ReadGamepad(gamepads[i], static_cast<int>(i));
-                const bool left = stepOnTrigger && SDL_GetGamepadAxis(gamepads[i], SDL_GAMEPAD_AXIS_LEFT_TRIGGER) > kDead;
+            if (padsGivenFor != Players()) {
+                recomp::AssignPads(padChoices, gamepads.data(), static_cast<int>(gamepads.size()), Players(), playerPads);
+                padsGivenFor = Players();
+            }
+            for (int i = 0; i < Players() && i < recomp::kBindMaxPlayers; i++) {
+                SDL_Gamepad *const gp = playerPads[i];
+                if (!gp) continue;
+                pads[i] |= ReadGamepad(gp, i);
+                const bool left = stepOnTrigger && SDL_GetGamepadAxis(gp, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) > kDead;
                 trigger = trigger || left;
                 hurry = hurry || (multi && left);
                 // (while the game runs, the left trigger is its player's Tag: kTag, or with rewind on, rewind; in a Multi
@@ -814,8 +837,7 @@ int RunWindowed(Port &port) {
             // Start and Select held together open and close the menu, whatever they are bound to (the second
             // of them to go down is not also a press in the menu; neither reaches the game until let go)
             // (the players' gamepads: those beyond them play nothing)
-            const int padCount = std::min(static_cast<int>(gamepads.size()), Players());
-            if (menuChord.Step(gamepads.data(), padCount)) {
+            if (menuChord.Step(playerPads, std::min(Players(), recomp::kBindMaxPlayers))) {
                 toggleMenu();
                 pressed = 0;
                 heldAtClose = previousPad;

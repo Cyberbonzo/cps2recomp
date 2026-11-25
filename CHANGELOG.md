@@ -6,6 +6,18 @@
   fought on the game's first stage with nothing drawn over it (Apocalypse's lair in X-Men vs. Street Fighter, and
   the same in every fighting game). Online it is as before: both sides fight on the first stage, each drawing the
   other game's if it has the set.
+- **Choose which controller is which player** (recomp-common #99). On the launcher's Controllers page each connected
+  gamepad can be Automatic, Player 1 to 4, or Not used, so a Steam Deck's own controls can sit out and two gamepads
+  plugged into it play each other. A held button shows on its row, to tell two of the same gamepad apart. With nothing
+  chosen, the first gamepad is still player 1's.
+- **Marvel vs. Capcom: the hidden characters' faces on the character select.** With Hidden characters on **Beside
+  the grid**, Red Venom, Orange Hulk, Gold War Machine, Shadow Lady, Lilith and Roll each have their face in their
+  place beside the grid (the faces from the fight's life bars, in their own colours), where the arcade showed nothing.
+- **Marvel vs. Capcom: hidden characters beside the grid** (Hidden characters, Game page: **Beside the grid**). The
+  places the arcade's codes open are all open from the start (as the board opens them itself when its own unlock byte is set): move above Chun-Li, Ryu
+  or Zangief, below Gambit or War Machine, or right of Mega Man. No holding Start.
+- **Marvel vs. Capcom: a hidden character for the second pick too.** Hidden characters (Game page) gave only the
+  first character's hidden other self; holding Start on the second pick now gives it too.
 
 ## 1.6.0-beta.6
 
