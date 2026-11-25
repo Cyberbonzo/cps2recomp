@@ -76,7 +76,7 @@ public:
     static constexpr int kDefaultPort = 7845;
     // The packets' layout (2: the host's state sent at the start); two copies must have the same to play, and the
     // lobby shows only matches of this one (the launcher asks with it too)
-    static constexpr int kProtocol = 17; // (3: the version said in the hello and to the service; 4: the welcome's flags;
+    static constexpr int kProtocol = 18; // (3: the version said in the hello and to the service; 4: the welcome's flags;
                                         // 5: the welcome's program words, so two regions' sets play together;
                                         // 6: each player's name in the hello and the welcome, and the chat;
                                         // 7: two players at each machine, as the welcome says, and each one's controls;
@@ -90,7 +90,8 @@ public:
                                         // 14: board timing by default and the board DMA state in rollback snapshots;
                                         // 15: each machine's own input delay, in the hello and the start;
                                         // 16: each machine's run-ahead too, and Casual's score counted;
-                                        // 17: events in a match of four too: the host's seat changes)
+                                        // 17: events in a match of four too: the host's seat changes;
+                                        // 18: both players back to the character choice, "reselect", in the rollback state)
     static constexpr int kMostSeats = 2;    // players at one machine
     static constexpr int kMostMachines = 4; // machines in a match: the host's, and up to three joining
     static constexpr int kMostAhead = 8;    // frames run on guessed controls at most
