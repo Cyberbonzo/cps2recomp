@@ -94,7 +94,8 @@ bool EmptyColumn(const Machine &m, int plane, int x, uint16_t blank) {
         const int row = y & 63;
         const int tile = (row % group) + col * group + (row / group) * 64 * group;
         const uint8_t *at = &m.videoRam[base + 4 * tile];
-        if (((at[0] << 8) | at[1]) != blank) return false;
+        const int code = (at[0] << 8) | at[1];
+        if (code != blank && (code || at[2] || at[3])) return false;
     }
     return true;
 }
@@ -111,6 +112,15 @@ int EmptySide(const Machine &m, bool right) {
     return std::min(n, kSide);
 }
 
+// On the continue screen the two scenery planes share a fixed map. The game
+// never writes its outer columns; tile zero is lettering on this graphics set.
+bool FixedScreenSide(int which, int, int, int, uint16_t &code, uint16_t &attr) {
+    constexpr uint16_t blanks[] = {0x0020, 0x5400, 0x1b80};
+    code = blanks[which];
+    attr = 0;
+    return true;
+}
+
 int ObjectShift(uint32_t, uint16_t, int) {
     return -cameraShift;
 }
@@ -119,7 +129,9 @@ int ObjectShift(uint32_t, uint16_t, int) {
 void PunisherWideFrame(Machine &machine) {
     auto &wide = machine.video.wide;
     wide.side = FeatureOn("widescreen") ? kSide : 0;
-    cameraShift = WideStage() ? EmptySide(machine, true) - EmptySide(machine, false) : 0;
+    const bool fixedMap = machine.cpsA[2] == machine.cpsA[3];
+    wide.tile = (wide.side && fixedMap) ? FixedScreenSide : nullptr;
+    cameraShift = (wide.side && !fixedMap) ? EmptySide(machine, true) - EmptySide(machine, false) : 0;
     wide.scroll[1] = wide.scroll[2] = cameraShift;
     wide.object = wide.side ? ObjectShift : nullptr;
     wide.signedCps1X = wide.side != 0;
