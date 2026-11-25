@@ -80,6 +80,19 @@ bool PlayerBounds(M68K &cpu) {
     }
     return true;
 }
+// The barrel round uses a sight actor with its own clamp. Its world position
+// also drives hit detection, so move the sight itself out to the visible edges.
+bool BonusSightBounds(M68K &cpu) {
+    if (!WideStage() || Ram8(kStage) != 7) return false;
+    const uint32_t position = (cpu.a[6] + 0x20) & 0xffffff;
+    const int x = static_cast<int16_t>(Ram16(position));
+    const int left = static_cast<int16_t>(Ram16(kCameraX)) - kSide - cameraShift;
+    const int bound = std::clamp(x, left, left + Video::kWidth + 2 * kSide - 1);
+    if (bound != x) SetRam16(position, static_cast<uint16_t>(bound));
+    cpu.pc = 0x02654E; // retain the original vertical clamp
+    return true;
+}
+
 // The world ends with empty columns in some rooms (the bar and the laboratory).
 // Inspect the two scenery planes, ignoring the fixed text and life bars on scroll 1.
 // If the other side has scenery, shift the view by just the missing width.
@@ -124,6 +137,24 @@ bool FixedScreenSide(int which, int, int, int, uint16_t &code, uint16_t &attr) {
 int ObjectShift(uint32_t, uint16_t, int) {
     return -cameraShift;
 }
+
+// The barrel arena repeats one tile across the roof above its scoreboard,
+// but the map stops at the original screen edges in that row.
+bool BarrelRoof(int plane, int col, int row, int, uint16_t &code, uint16_t &attr) {
+    if (plane != 2 || row != 39 || (col != 8 && col != 9 && col != 22 && col != 23)) return false;
+    code = 0x1e40;
+    attr = 0x0002;
+    return true;
+}
+
+bool HasBarrelRoof(const Machine &m) {
+    if (Ram8(kStage) != 7 || !WideStage()) return false;
+    const unsigned base = (m.cpsA[3] << 8) & 0x3c000;
+    constexpr int index = (39 % 8) + 10 * 8 + (39 / 8) * 512;
+    if (base + index * 4 + 4 > m.videoRam.size()) return false;
+    const uint8_t *tile = &m.videoRam[base + index * 4];
+    return tile[0] == 0x1e && tile[1] == 0x40 && tile[2] == 0 && tile[3] == 2;
+}
 } // namespace
 
 void PunisherWideFrame(Machine &machine) {
@@ -131,6 +162,7 @@ void PunisherWideFrame(Machine &machine) {
     wide.side = FeatureOn("widescreen") ? kSide : 0;
     const bool fixedMap = machine.cpsA[2] == machine.cpsA[3];
     wide.tile = (wide.side && fixedMap) ? FixedScreenSide : nullptr;
+    if (wide.side && !fixedMap && HasBarrelRoof(machine)) wide.tile = BarrelRoof;
     cameraShift = (wide.side && !fixedMap) ? EmptySide(machine, true) - EmptySide(machine, false) : 0;
     wide.scroll[1] = wide.scroll[2] = cameraShift;
     wide.object = wide.side ? ObjectShift : nullptr;
@@ -143,6 +175,7 @@ void RegisterPunisherWide() {
         "Draw the stage in 16:9 and extend the horizontal playing area.", kFeatureFirstPage});
     game.widestPicture = [] { return Video::kWidth + (FeatureOn("widescreen") ? 2 * kSide : 0); };
     AddHook(HookAt(0x02075E), "WidePlayerBounds", PlayerBounds);
+    AddHook(HookAt(0x02652E), "WideBonusSight", BonusSightBounds);
     AddHook(HookAt(0x000FA8), "WideActorEdge", ActorEdge<0>);
     AddHook(HookAt(0x000FEC), "WideActorBox", ActorEdge<1>);
     ObjectEdges(UnsignedEdge<3, 448>, {
