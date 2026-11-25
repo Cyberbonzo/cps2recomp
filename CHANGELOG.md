@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Marvel vs. Capcom: the hidden characters' faces on the character select.** With Hidden characters on **Beside
+  the grid**, Red Venom, Orange Hulk, Gold War Machine, Shadow Lady, Lilith and Roll each have their face in their
+  place beside the grid (the faces from the fight's life bars, in their own colours), where the arcade showed nothing.
+
 - **Marvel vs. Capcom: hidden characters beside the grid** (Hidden characters, Game page: **Beside the grid**). The
   places the arcade's codes open are all open from the start (as the board opens them itself when its own unlock byte is set): move above Chun-Li, Ryu
   or Zangief, below Gambit or War Machine, or right of Mega Man. No holding Start.

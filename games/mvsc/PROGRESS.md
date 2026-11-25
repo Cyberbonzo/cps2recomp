@@ -157,7 +157,13 @@ is FF4000 here), and the players' records 0x20 further on from +0x250 (health +2
   partner. A character is taken at 00BCDA, the second at 00BE5E (the hidden characters' hooks). The cursor moves at 00C1CA by a table of each
   character's four next (0E2C8C), or another as +19 says, the codes entered a bit each (00C752); bit 6 (0E3194) has all
   six places beside the grid open, and the board sets it itself when the ROM byte at 0000C8 is set: Beside the grid
-  sets it. Picks: FF40B0 on, as before.
+  sets it. Their faces there (none on the board) are drawn at 024AB4, where the frame's objects end (708000 on,
+  the later over the earlier): the fight's life-bar faces (a 2-by-2 tile by character, the PC-relative table at 006AA6;
+  the hidden ones share their other selves' tiles, Roll has her own), each in the first of the three palettes the
+  pointer at 1C7268 (by character) gives, put in object palettes 15, 18, 19, 1D, 05 and 09 (none used while the grid is
+  up), placed by the SELECT title (136, 0 once the screen is down: tiles B616/B630/B637, 7 by 2, palette 16). The
+  cursor's box (B60B/B60F/B614/B615, palette 0A or 0B) is filled, under the grid's faces; its 1P/2P go over. A choosing
+  record's step: 5 on the special partner, mode and speed boxes on the player's side, 11 done. Picks: FF40B0 on, as before.
 - **Stage**: FF4113 (0-9, named from pictures); taken at 00C2CA from a table (0E324C, or 0E326C) by a count; Onslaught's
   fights are on 9 and 10 (10, space, keeps no camera record, and 11 is none: not offered); the hook at 00C2F8 puts a
   mode's stage and characters in.
