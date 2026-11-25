@@ -186,6 +186,14 @@ void Menu::Open(bool withStates) {
         std::vector<std::vector<bool>> offered;
         for (const recomp::FeatureInfo &info : cps2recomp::FeatureList()) {
             offered.push_back(recomp::MenuChoices(settings, info));
+            // (... and none that cannot be played here: another game's stage without its set, runtime/game.h)
+            if (const auto missing = cps2recomp::TheGame().choiceMissing) {
+                for (size_t choice = 0; choice < info.choices.size() && choice < offered.back().size(); choice++) {
+                    if (missing(info.choices[choice].c_str())) {
+                        offered.back()[choice] = false;
+                    }
+                }
+            }
             if (info.flags & cps2recomp::kFeatureLauncherOnly) {
                 // (none but the one chosen and off, which the menu always offers: the row can only be put back to off)
                 offered.back().assign(std::max<size_t>(info.choices.size(), 2), false);

@@ -159,6 +159,9 @@ struct Game {
     int (*matchOwner)(int side, int pick) = nullptr;
     // Offline play: whether losing this local gamepad during the current fight should open the pause menu.
     bool (*pauseOnPadRemoval)(int seat) = nullptr;
+    // A feature's choice that cannot be played here, by its name (another game's stage whose ROM set is not there:
+    // fight/guest_stages.h): the in-game menu passes over it. Not given: every one can.
+    bool (*choiceMissing)(const char *choice) = nullptr;
     // For a custom soundtrack (machine/soundtrack.h): where the sound program's table of songs has song 0's entry,
     // and how many entries it has (0: no custom soundtrack); and the names of the music, where they are known.
     // musicBelow: for a sound program whose songs' data do not tell music from effects (machine/soundtrack.h), the

@@ -2,10 +2,11 @@
 
 ## Unreleased
 
-- **Stage page: another game's stage without its ROM set** is now the game's own choice. Before, every round was
-  fought on the game's first stage with nothing drawn over it (Apocalypse's lair in X-Men vs. Street Fighter, and
-  the same in every fighting game). Online it is as before: both sides fight on the first stage, each drawing the
-  other game's if it has the set.
+- **Stage lists: only the other games whose ROM sets are there.** The in-game menu's Stage page and the stage
+  viewer's list pass over another game's stages when its set is missing. A missing game's stage already chosen counts
+  as the game's own choice: before, every round was fought on the game's first stage with nothing drawn over it
+  (Apocalypse's lair in X-Men vs. Street Fighter, and the same in every fighting game). Online it is as before: both
+  sides fight on the first stage, each drawing the other game's if it has the set.
 
 ## 1.6.0-beta.6
 

@@ -930,6 +930,17 @@ bool Available(int stage) {
 void Register(const Host &host, std::vector<Guest> guests) {
     h = host;
     Guests() = std::move(guests);
+    // (the lists of the stages offer only the guests whose sets are here: session.h, PlayersStage)
+    TheGame().choiceMissing = [](const char *choice) {
+        for (const Guest &guest : Guests()) {
+            for (const char *name : guest.stageNames) {
+                if (strcmp(name, choice) == 0) {
+                    return !cps2recomp::Guest(guest.id);
+                }
+            }
+        }
+        return false;
+    };
     for (int n = 0; n < static_cast<int>(Guests().size()) && n < kMostGuests; n++) {
         const Guest &guest = Guests()[n];
         Ready &ready = TheReady(n);
