@@ -42,8 +42,8 @@ check-widescreen: port
 
 else
 
-.PHONY: check audit example smoke check-common clean games collection collection-app android
-check: audit check-common check-first-to check-movie smoke
+.PHONY: check audit example smoke check-common check-socd clean games collection collection-app android
+check: audit check-common check-first-to check-movie check-socd smoke
 
 .PHONY: check-first-to
 check-first-to:
@@ -90,6 +90,11 @@ check-movie:
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -std=c++20 -Wall -Wextra -Werror -Wno-unused-parameter -Imachine -Ivideo -Isound \
 		tools/check_movie.cpp port/movie.cpp -o build/checks/movie
 	@build/checks/movie build/checks/movie-check.txt
+
+check-socd:
+	@mkdir -p build/checks
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -std=c++20 -Wall -Wextra -Werror -Wno-unused-parameter tools/check_socd.cpp -o build/checks/socd
+	@build/checks/socd
 
 check-gamepad-slots:
 	@mkdir -p build/checks
