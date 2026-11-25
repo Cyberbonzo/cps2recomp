@@ -70,8 +70,11 @@ is checked against an interpreter of the same program ([how it was made](PROGRES
   (launcher's Features, in-game menu), each as the board is set unless you choose; or the game's own test menu from
   the in-game menu.
 - Cheats: no damage (each player's team), one-hit knockouts, infinite time.
-- **Hidden characters** (Game page): with no code, hold Start as you choose War Machine for Gold War Machine, Hulk
-  for Orange Hulk, Venom for Red Venom, Chun-Li for Shadow Lady, Morrigan for Lilith, or Mega Man for Roll.
+- **Hidden characters** (Game page): with no code, two ways. **Hold Start** as you choose War Machine for Gold War
+  Machine, Hulk for Orange Hulk, Venom for Red Venom, Chun-Li for Shadow Lady, Morrigan for Lilith, or Mega Man for
+  Roll. Or **Beside the grid**: the places the arcade's codes open are all open, so move to them: above Chun-Li, Ryu
+  and Zangief (Red Venom, Orange Hulk, Gold War Machine), below Gambit and War Machine (Shadow Lady, Lilith), right of
+  Mega Man (Roll), each with its face there (the arcade drew none).
 - **The board's speed**: the processor runs as on the arcade board, so the game plays at the board's speed and
   slows down where and as much as the board does; **Slowdown → None** (Game page) gives it every clock instead.
   [More →](../../docs/TIMING.md)

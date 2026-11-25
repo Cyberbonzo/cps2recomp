@@ -95,6 +95,7 @@ private:
         recomp::Ini settings;            // its settings.ini: features, controls
         std::vector<recomp::FeatureInfo> features;
         std::string features_error;
+        std::string program_note;        // what its program's --list-features says of it (settings.h: FeatureListNote), or ""
         std::string file_path;
         launcher::FileCheck file;        // (under mutex_ when checked on a thread)
         std::atomic<bool> checking{false};
@@ -470,6 +471,8 @@ private:
     bool relaunched_ = false;  // (the new version has been started: this one quits)
 #endif
     int selected_pad_ = 0;
+    recomp::PadChoices pad_choices_;  // which gamepad is which player's ([controllers]: every game's settings.ini)
+    void choose_pad_player(const std::string& identity, int player);
     recomp::Bindings bindings_{};  // (a collection's are every game's)
     std::vector<recomp::Bindings> own_bindings_;  // (a collection's: each game's own layout, for those that have one)
     int bind_slot_ = -1;          // whose layout the Controllers page shows: every game's (-1), or one game's
