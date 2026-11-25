@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Marvel vs. Capcom: hidden characters beside the grid** (Hidden characters, Game page: **Beside the grid**). The
+  places the arcade's codes open are all open from the start (as the board opens them itself when its own unlock byte is set): move above Chun-Li, Ryu
+  or Zangief, below Gambit or War Machine, or right of Mega Man. No holding Start.
 - **Marvel vs. Capcom: a hidden character for the second pick too.** Hidden characters (Game page) gave only the
   first character's hidden other self; holding Start on the second pick now gives it too.
 
