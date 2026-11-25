@@ -1031,8 +1031,13 @@ struct NetplayTest {
                     "spectator dropped or swapped a controller stream");
         }
         watch.Command("mode,2");
-        watch.Say("spectator cannot play");
-        Require(watch.commanded.empty() && watch.links[0].unheard.empty(), "viewer entered player controls/chat");
+        Require(watch.commanded.empty(), "viewer entered player controls");
+        // (a spectator's chat goes to the host only, marked a spectator's, under its name)
+        watch.settings.name = "Watcher";
+        watch.Say("hello from the seats");
+        Require(watch.links[0].unheard.size() == 1 && watch.links[0].unheard[0].from == Netplay::kSpectator &&
+                    watch.links[0].unheard[0].name == "Watcher",
+                "viewer's chat line not queued to the host as a spectator's");
         Writer controls(kControls);
         watch.Take(watch.links[0], controls.out.data(), controls.out.size());
         Require(watch.upTo == std::array<uint64_t, 4>{}, "viewer consumed a player input packet");
