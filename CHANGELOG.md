@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Choose which controller is which player** (recomp-common #99). On the launcher's Controllers page each connected
+  gamepad can be Automatic, Player 1 to 4, or Not used, so a Steam Deck's own controls can sit out and two gamepads
+  plugged into it play each other. A held button shows on its row, to tell two of the same gamepad apart. With nothing
+  chosen, the first gamepad is still player 1's.
+
 ## 1.6.0-beta.6
 
 **Two Street Fighter II: Hyper Fighting mods, rewind in every game, and more for online play.** The CSL Edition and
